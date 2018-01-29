@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"errors"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/google/uuid"
 	"log"
@@ -9,47 +10,48 @@ import (
 	"bytes"
 	"encoding/gob"
 	"reflect"
+	"golang.org/x/crypto/argon2"
 )
 
-// AccountRepository handles the basic operations of a account entity/model.
-// It's an interface in order to be testable, i.e a memory account repository or
+// PluginRepository handles the basic operations of a plugin entity/model.
+// It's an interface in order to be testable, i.e a memory plugin repository or
 // a connected to an sql database.
-type AccountRepository interface {
+type PluginRepository interface {
 	io.Closer
-	InsertAccount(models.Account) error
-	FindAccountByID(id string) (models.Account, error)
-	DeleteAccountByID(id string) (models.Account, error)
-	UpdateAccountByID(id string, account map[string]interface{}) error
+	InsertPlugin(plugin models.Plugin) error
+	FindPluginByID(id string) (models.Plugin, error)
+	DeletePluginByID(id string) (models.Plugin, error)
+	UpdatePluginByID(id string, plugin map[string]interface{}) error
 }
 
-// NewAccountRepository returns a new account memory-based repository,
+// NewPluginRepository returns a new plugin memory-based repository,
 // the one and only repository type in our example.
-func NewAccountRepository() AccountRepository {
-	db, err := leveldb.OpenFile("Account.db", nil)
+func NewPluginRepository() PluginRepository {
+	db, err := leveldb.OpenFile("Plugin.db", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &accountRepository{db}
+	return &pluginRepository{db}
 }
 
-// accountRepository is a "AccountRepository"
-// which manages the accounts using the memory data source (map).
-type accountRepository struct {
+// pluginRepository is a "PluginRepository"
+// which manages the plugins using the memory data source (map).
+type pluginRepository struct {
 	db *leveldb.DB
 }
 
-func (r *accountRepository) Close() error {
+func (r *pluginRepository) Close() error {
 	if r.db != nil {
 		return r.db.Close()
 	}
 	return nil
 }
 
-func (r *accountRepository) insertAccount(account models.Account) error {
+func (r *pluginRepository) InsertPlugin(plugin models.Plugin) error {
 	id := uuid.Must(uuid.NewRandom())
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	enc.Encode(account)
+	enc.Encode(plugin)
 	err := r.db.Put([]byte(id.String()), buf.Bytes(), nil)
 	if err != nil {
 		return err
@@ -57,20 +59,20 @@ func (r *accountRepository) insertAccount(account models.Account) error {
 	return nil
 }
 
-func (r *accountRepository) findAccountByID(id string) (account models.Account, err error) {
+func (r *pluginRepository) FindPluginByID(id string) (plugin models.Plugin, err error) {
 	value, err := r.db.Get([]byte(id),nil)
 	if err != nil {
 		return
 	}
 	dec := gob.NewDecoder(bytes.NewBuffer(value))
-	err = dec.Decode(&account)
+	err = dec.Decode(&plugin)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (r *accountRepository) deleteAccountByID(id string) (account models.Account, err error) {
+func (r *pluginRepository) DeletePluginByID(id string) (plugin models.Plugin, err error) {
 	trans, err := r.db.OpenTransaction()
 	if err != nil {
 		return
@@ -80,7 +82,7 @@ func (r *accountRepository) deleteAccountByID(id string) (account models.Account
 		return
 	}
 	dec := gob.NewDecoder(bytes.NewBuffer(value))
-	err = dec.Decode(&account)
+	err = dec.Decode(&plugin)
 	if err != nil {
 		return
 	}
@@ -92,7 +94,7 @@ func (r *accountRepository) deleteAccountByID(id string) (account models.Account
 	return
 }
 
-func (r *accountRepository) updateAccountByID(id string, account map[string]interface{}) error {
+func (r *pluginRepository) UpdatePluginByID(id string, plugin map[string]interface{}) error {
 	trans, err := r.db.OpenTransaction()
 	if err != nil {
 		return err
@@ -103,18 +105,18 @@ func (r *accountRepository) updateAccountByID(id string, account map[string]inte
 		return err
 	}
 	dec := gob.NewDecoder(bytes.NewBuffer(value))
-	var originAccount models.Account
-	err = dec.Decode(&originAccount)
+	var originPlugin models.Plugin
+	err = dec.Decode(&originPlugin)
 	if err != nil {
 		return err
 	}
-	s := reflect.ValueOf(originAccount).Elem()
-	for k, v := range account {
+	s := reflect.ValueOf(originPlugin).Elem()
+	for k, v := range plugin {
 		s.FieldByName(k).Set(reflect.ValueOf(v))
 	}
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	enc.Encode(originAccount)
+	enc.Encode(originPlugin)
 	trans.Put([]byte(id), buf.Bytes(), nil)
 	trans.Commit()
 	return nil
