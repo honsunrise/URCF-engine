@@ -2,7 +2,7 @@ package plugin
 
 import (
 	"github.com/zhsyourai/URCF-engine/models"
-	"github.com/zhsyourai/URCF-engine/repositories"
+	"github.com/zhsyourai/URCF-engine/repositories/plugin"
 )
 
 type InstallFlag int32
@@ -25,12 +25,12 @@ type Service interface {
 	GetInterface(id string) (error)
 }
 
-func NewPluginService(repo repositories.PluginRepository) Service {
+func NewPluginService(repo plugin.Repository) Service {
 	return &pluginService{repo: repo}
 }
 
 type pluginService struct {
-	repo repositories.PluginRepository
+	repo plugin.Repository
 }
 
 func (s *pluginService) GetAll() ([]models.Plugin, error) {
