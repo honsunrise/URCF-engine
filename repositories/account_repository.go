@@ -2,172 +2,122 @@ package repositories
 
 import (
 	"errors"
-	"sync"
-	"github.com/zhsyourai/teddy-backend/uaa/models"
+	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/google/uuid"
+	"log"
+	"github.com/syndtr/goleveldb/leveldb"
+	"io"
+	"bytes"
+	"encoding/gob"
+	"reflect"
+	"golang.org/x/crypto/argon2"
 )
-
-// Query represents the visitor and action queries.
-type Query func(models.Account) bool
 
 // AccountRepository handles the basic operations of a account entity/model.
 // It's an interface in order to be testable, i.e a memory account repository or
 // a connected to an sql database.
 type AccountRepository interface {
-	Exec(query Query, action Query, limit int, mode int) (ok bool)
-
-	Select(query Query) (account models.Account, found bool)
-	SelectMany(query Query, limit int) (results []models.Account)
-
-	InsertOrUpdate(account models.Account) (updatedAccount models.Account, err error)
-	Delete(query Query, limit int) (deleted bool)
+	io.Closer
+	insertAccount(models.Account) error
+	findAccountByID(id string) (models.Account, error)
+	deleteAccountByID(id string) (models.Account, error)
+	updateAccountByID(id string, account map[string]interface{}) error
 }
 
 // NewAccountRepository returns a new account memory-based repository,
 // the one and only repository type in our example.
-func NewAccountRepository(source map[int64]models.Account) AccountRepository {
-	return &accountMemoryRepository{source: source}
+func NewAccountRepository() AccountRepository {
+	db, err := leveldb.OpenFile("Account.db", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return &accountBoltRepository{db}
 }
 
-// accountMemoryRepository is a "AccountRepository"
+// accountBoltRepository is a "AccountRepository"
 // which manages the accounts using the memory data source (map).
-type accountMemoryRepository struct {
-	source map[int64]models.Account
-	mu     sync.RWMutex
+type accountBoltRepository struct {
+	db *leveldb.DB
 }
 
-const (
-	// ReadOnlyMode will RLock(read) the data .
-	ReadOnlyMode = iota
-	// ReadWriteMode will Lock(read/write) the data.
-	ReadWriteMode 
-)
-
-func (r *accountMemoryRepository) Exec(query Query, action Query, actionLimit int, mode int) (ok bool) {
-	loops := 0
-
-	if mode == ReadOnlyMode {
-		r.mu.RLock()
-		defer r.mu.RUnlock()
-	} else {
-		r.mu.Lock()
-		defer r.mu.Unlock()
+func (r *accountBoltRepository) Close() error {
+	if r.db != nil {
+		return r.db.Close()
 	}
+	return nil
+}
 
-	for _, account := range r.source {
-		ok = query(account)
-		if ok {
-			if action(account) {
-				loops++
-				if actionLimit >= loops {
-					break // break
-				}
-			}
-		}
+func (r *accountBoltRepository) insertAccount(account models.Account) error {
+	id := uuid.Must(uuid.NewRandom())
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	enc.Encode(account)
+	err := r.db.Put([]byte(id.String()), buf.Bytes(), nil)
+	if err != nil {
+		return err
 	}
+	return nil
+}
 
+func (r *accountBoltRepository) findAccountByID(id string) (account models.Account, err error) {
+	value, err := r.db.Get([]byte(id),nil)
+	if err != nil {
+		return
+	}
+	dec := gob.NewDecoder(bytes.NewBuffer(value))
+	err = dec.Decode(&account)
+	if err != nil {
+		return
+	}
 	return
 }
 
-// Select receives a query function
-// which is fired for every single account model inside
-// our imaginary data source.
-// When that function returns true then it stops the iteration.
-//
-// It returns the query's return last known "found" value
-// and the last known account model
-// to help callers to reduce the LOC.
-//
-// It's actually a simple but very clever prototype function
-// I'm using everywhere since I firstly think of it,
-// hope you'll find it very useful as well.
-func (r *accountMemoryRepository) Select(query Query) (account models.Account, found bool) {
-	found = r.Exec(query, func(m models.Account) bool {
-		account = m
-		return true
-	}, 1, ReadOnlyMode)
-
-	// set an empty models.Account if not found at all.
-	if !found {
-		account = models.Account{}
+func (r *accountBoltRepository) deleteAccountByID(id string) (account models.Account, err error) {
+	trans, err := r.db.OpenTransaction()
+	if err != nil {
+		return
 	}
-
+	value, err := trans.Get([]byte(id),nil)
+	if err != nil {
+		return
+	}
+	dec := gob.NewDecoder(bytes.NewBuffer(value))
+	err = dec.Decode(&account)
+	if err != nil {
+		return
+	}
+	err = trans.Delete([]byte(id),nil)
+	if err != nil {
+		return
+	}
+	trans.Commit()
 	return
 }
 
-// SelectMany same as Select but returns one or more models.Account as a slice.
-// If limit <=0 then it returns everything.
-func (r *accountMemoryRepository) SelectMany(query Query, limit int) (results []models.Account) {
-	r.Exec(query, func(m models.Account) bool {
-		results = append(results, m)
-		return true
-	}, limit, ReadOnlyMode)
-
-	return
-}
-
-// InsertOrUpdate adds or updates a account to the (memory) storage.
-//
-// Returns the new account and an error if any.
-func (r *accountMemoryRepository) InsertOrUpdate(account models.Account) (models.Account, error) {
-	id := account.ID
-
-	if id == 0 { // Create new action
-		var lastID int64
-		// find the biggest ID in order to not have duplications
-		// in productions apps you can use a third-party
-		// library to generate a UUID as string.
-		r.mu.RLock()
-		for _, item := range r.source {
-			if item.ID > lastID {
-				lastID = item.ID
-			}
-		}
-		r.mu.RUnlock()
-
-		id = lastID + 1
-		account.ID = id
-
-		// map-specific thing
-		r.mu.Lock()
-		r.source[id] = account
-		r.mu.Unlock()
-
-		return account, nil
+func (r *accountBoltRepository) updateAccountByID(id string, account map[string]interface{}) error {
+	trans, err := r.db.OpenTransaction()
+	if err != nil {
+		return err
 	}
 
-	// Update action based on the account.ID,
-	// here we will allow updating the poster and genre if not empty.
-	// Alternatively we could do pure replace instead:
-	// r.source[id] = account
-	// and comment the code below;
-	current, exists := r.Select(func(m models.Account) bool {
-		return m.ID == id
-	})
-
-	if !exists { // ID is not a real one, return an error.
-		return models.Account{}, errors.New("failed to update a nonexistent account")
+	value, err := trans.Get([]byte(id),nil)
+	if err != nil {
+		return err
 	}
-
-	// or comment these and r.source[id] = m for pure replace
-	if account.Poster != "" {
-		current.Poster = account.Poster
+	dec := gob.NewDecoder(bytes.NewBuffer(value))
+	var originAccount models.Account
+	err = dec.Decode(&originAccount)
+	if err != nil {
+		return err
 	}
-
-	if account.Genre != "" {
-		current.Genre = account.Genre
+	s := reflect.ValueOf(originAccount).Elem()
+	for k, v := range account {
+		s.FieldByName(k).Set(reflect.ValueOf(v))
 	}
-
-	// map-specific thing
-	r.mu.Lock()
-	r.source[id] = current
-	r.mu.Unlock()
-
-	return account, nil
-}
-
-func (r *accountMemoryRepository) Delete(query Query, limit int) bool {
-	return r.Exec(query, func(m models.Account) bool {
-		delete(r.source, m.ID)
-		return true
-	}, limit, ReadWriteMode)
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	enc.Encode(originAccount)
+	trans.Put([]byte(id), buf.Bytes(), nil)
+	trans.Commit()
+	return nil
 }
