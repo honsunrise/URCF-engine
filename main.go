@@ -68,7 +68,7 @@ func main() {
 	app.Use(crs)
 	app.Get("/", tollboothic.LimitHandler(limiter), myHandler)
 
-	app.Controller("/uaa", new(controllers.AccountController), manager, users)
+	app.Controller("/uaa", new(controllers.AccountController))
 
 	iris.RegisterOnInterrupt(func() {
 		timeout := 5 * time.Second

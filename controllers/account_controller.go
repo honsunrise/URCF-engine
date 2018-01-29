@@ -3,7 +3,6 @@ package controllers
 import (
 	"github.com/kataras/iris/mvc"
 	"github.com/zhsyourai/teddy-backend/uaa/services"
-	"github.com/kataras/iris"
 )
 
 type RegisterRequest struct {
