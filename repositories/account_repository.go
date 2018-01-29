@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"github.com/zhsyourai/URCF-engine/models"
-	"github.com/google/uuid"
 	"log"
 	"github.com/syndtr/goleveldb/leveldb"
 	"io"
@@ -45,19 +44,21 @@ func (r *accountRepository) Close() error {
 	return nil
 }
 
-func (r *accountRepository) insertAccount(account models.Account) error {
-	id := uuid.Must(uuid.NewRandom())
+func (r *accountRepository) InsertAccount(account models.Account) error {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	enc.Encode(account)
-	err := r.db.Put([]byte(id.String()), buf.Bytes(), nil)
+	err := enc.Encode(account)
+	if err != nil {
+		return err
+	}
+	err = r.db.Put([]byte(account.ID), buf.Bytes(), nil)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *accountRepository) findAccountByID(id string) (account models.Account, err error) {
+func (r *accountRepository) FindAccountByID(id string) (account models.Account, err error) {
 	value, err := r.db.Get([]byte(id),nil)
 	if err != nil {
 		return
@@ -70,7 +71,7 @@ func (r *accountRepository) findAccountByID(id string) (account models.Account, 
 	return
 }
 
-func (r *accountRepository) deleteAccountByID(id string) (account models.Account, err error) {
+func (r *accountRepository) DeleteAccountByID(id string) (account models.Account, err error) {
 	trans, err := r.db.OpenTransaction()
 	if err != nil {
 		return
@@ -88,11 +89,14 @@ func (r *accountRepository) deleteAccountByID(id string) (account models.Account
 	if err != nil {
 		return
 	}
-	trans.Commit()
+	err = trans.Commit()
+	if err != nil {
+		return
+	}
 	return
 }
 
-func (r *accountRepository) updateAccountByID(id string, account map[string]interface{}) error {
+func (r *accountRepository) UpdateAccountByID(id string, account map[string]interface{}) error {
 	trans, err := r.db.OpenTransaction()
 	if err != nil {
 		return err
@@ -108,14 +112,23 @@ func (r *accountRepository) updateAccountByID(id string, account map[string]inte
 	if err != nil {
 		return err
 	}
-	s := reflect.ValueOf(originAccount).Elem()
+	s := reflect.ValueOf(&originAccount).Elem()
 	for k, v := range account {
 		s.FieldByName(k).Set(reflect.ValueOf(v))
 	}
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	enc.Encode(originAccount)
-	trans.Put([]byte(id), buf.Bytes(), nil)
-	trans.Commit()
+	err = enc.Encode(originAccount)
+	if err != nil {
+		return err
+	}
+	err = trans.Put([]byte(id), buf.Bytes(), nil)
+	if err != nil {
+		return err
+	}
+	err = trans.Commit()
+	if err != nil {
+		return err
+	}
 	return nil
 }
