@@ -1,4 +1,4 @@
-package repositories
+package plugin
 
 import (
 	"github.com/zhsyourai/URCF-engine/models"
@@ -11,12 +11,12 @@ import (
 	"reflect"
 )
 
-// PluginRepository handles the basic operations of a plugin entity/model.
+// Repository handles the basic operations of a plugin entity/model.
 // It's an interface in order to be testable, i.e a memory plugin repository or
 // a connected to an sql database.
-type PluginRepository interface {
+type Repository interface {
 	io.Closer
-	InsertPlugin(plugin models.Plugin) error
+	InsertPlugin(plugin models.Plugin) (models.Plugin, error)
 	FindPluginByID(id string) (models.Plugin, error)
 	DeletePluginByID(id string) (models.Plugin, error)
 	UpdatePluginByID(id string, plugin map[string]interface{}) error
@@ -24,7 +24,7 @@ type PluginRepository interface {
 
 // NewPluginRepository returns a new plugin memory-based repository,
 // the one and only repository type in our example.
-func NewPluginRepository() PluginRepository {
+func NewPluginRepository() Repository {
 	db, err := leveldb.OpenFile("Plugin.db", nil)
 	if err != nil {
 		log.Fatal(err)
@@ -32,7 +32,7 @@ func NewPluginRepository() PluginRepository {
 	return &pluginRepository{db}
 }
 
-// pluginRepository is a "PluginRepository"
+// pluginRepository is a "Repository"
 // which manages the plugins using the memory data source (map).
 type pluginRepository struct {
 	db *leveldb.DB
@@ -45,16 +45,21 @@ func (r *pluginRepository) Close() error {
 	return nil
 }
 
-func (r *pluginRepository) InsertPlugin(plugin models.Plugin) error {
-	id := uuid.Must(uuid.NewRandom())
+func (r *pluginRepository) InsertPlugin(inputPlugin models.Plugin) (plugin models.Plugin, err error) {
+	id := uuid.Must(uuid.NewRandom()).String()
+	plugin = inputPlugin
+	plugin.ID = id
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	enc.Encode(plugin)
-	err := r.db.Put([]byte(id.String()), buf.Bytes(), nil)
+	err = enc.Encode(plugin)
 	if err != nil {
-		return err
+		return
 	}
-	return nil
+	err = r.db.Put([]byte(id), buf.Bytes(), nil)
+	if err != nil {
+		return
+	}
+	return
 }
 
 func (r *pluginRepository) FindPluginByID(id string) (plugin models.Plugin, err error) {
@@ -88,7 +93,10 @@ func (r *pluginRepository) DeletePluginByID(id string) (plugin models.Plugin, er
 	if err != nil {
 		return
 	}
-	trans.Commit()
+	err = trans.Commit()
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -108,14 +116,23 @@ func (r *pluginRepository) UpdatePluginByID(id string, plugin map[string]interfa
 	if err != nil {
 		return err
 	}
-	s := reflect.ValueOf(originPlugin).Elem()
+	s := reflect.ValueOf(&originPlugin).Elem()
 	for k, v := range plugin {
 		s.FieldByName(k).Set(reflect.ValueOf(v))
 	}
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	enc.Encode(originPlugin)
-	trans.Put([]byte(id), buf.Bytes(), nil)
-	trans.Commit()
+	err = enc.Encode(originPlugin)
+	if err != nil {
+		return err
+	}
+	err = trans.Put([]byte(id), buf.Bytes(), nil)
+	if err != nil {
+		return err
+	}
+	err = trans.Commit()
+	if err != nil {
+		return err
+	}
 	return nil
 }

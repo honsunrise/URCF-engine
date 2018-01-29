@@ -1,4 +1,4 @@
-package repositories
+package account
 
 import (
 	"github.com/zhsyourai/URCF-engine/models"
@@ -10,10 +10,10 @@ import (
 	"reflect"
 )
 
-// AccountRepository handles the basic operations of a account entity/model.
+// Repository handles the basic operations of a account entity/model.
 // It's an interface in order to be testable, i.e a memory account repository or
 // a connected to an sql database.
-type AccountRepository interface {
+type Repository interface {
 	io.Closer
 	InsertAccount(models.Account) error
 	FindAccountByID(id string) (models.Account, error)
@@ -23,7 +23,7 @@ type AccountRepository interface {
 
 // NewAccountRepository returns a new account memory-based repository,
 // the one and only repository type in our example.
-func NewAccountRepository() AccountRepository {
+func NewAccountRepository() Repository {
 	db, err := leveldb.OpenFile("Account.db", nil)
 	if err != nil {
 		log.Fatal(err)
@@ -31,7 +31,7 @@ func NewAccountRepository() AccountRepository {
 	return &accountRepository{db}
 }
 
-// accountRepository is a "AccountRepository"
+// accountRepository is a "Repository"
 // which manages the accounts using the memory data source (map).
 type accountRepository struct {
 	db *leveldb.DB
