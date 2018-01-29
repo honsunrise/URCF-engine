@@ -82,19 +82,23 @@ func (r *pluginRepository) DeletePluginByID(id string) (plugin models.Plugin, er
 	}
 	value, err := trans.Get([]byte(id),nil)
 	if err != nil {
+		trans.Discard()
 		return
 	}
 	dec := gob.NewDecoder(bytes.NewBuffer(value))
 	err = dec.Decode(&plugin)
 	if err != nil {
+		trans.Discard()
 		return
 	}
 	err = trans.Delete([]byte(id),nil)
 	if err != nil {
+		trans.Discard()
 		return
 	}
 	err = trans.Commit()
 	if err != nil {
+		trans.Discard()
 		return
 	}
 	return
@@ -108,12 +112,14 @@ func (r *pluginRepository) UpdatePluginByID(id string, plugin map[string]interfa
 
 	value, err := trans.Get([]byte(id),nil)
 	if err != nil {
+		trans.Discard()
 		return err
 	}
 	dec := gob.NewDecoder(bytes.NewBuffer(value))
 	var originPlugin models.Plugin
 	err = dec.Decode(&originPlugin)
 	if err != nil {
+		trans.Discard()
 		return err
 	}
 	s := reflect.ValueOf(&originPlugin).Elem()
@@ -124,14 +130,17 @@ func (r *pluginRepository) UpdatePluginByID(id string, plugin map[string]interfa
 	enc := gob.NewEncoder(&buf)
 	err = enc.Encode(originPlugin)
 	if err != nil {
+		trans.Discard()
 		return err
 	}
 	err = trans.Put([]byte(id), buf.Bytes(), nil)
 	if err != nil {
+		trans.Discard()
 		return err
 	}
 	err = trans.Commit()
 	if err != nil {
+		trans.Discard()
 		return err
 	}
 	return nil

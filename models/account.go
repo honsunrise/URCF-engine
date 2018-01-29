@@ -5,7 +5,7 @@ import "time"
 type Account struct {
 	ID         string
 	CreateDate time.Time
-	Password   string
+	Password   []byte
 	Role       []string
 	Enabled    bool
 	UpdateDate time.Time

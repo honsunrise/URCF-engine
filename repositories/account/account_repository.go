@@ -17,6 +17,7 @@ type Repository interface {
 	io.Closer
 	InsertAccount(models.Account) error
 	FindAccountByID(id string) (models.Account, error)
+	FindAll() ([]models.Account, error)
 	DeleteAccountByID(id string) (models.Account, error)
 	UpdateAccountByID(id string, account map[string]interface{}) error
 }
@@ -71,6 +72,37 @@ func (r *accountRepository) FindAccountByID(id string) (account models.Account, 
 	return
 }
 
+func (r *accountRepository) FindAll() (accounts []models.Account, err error) {
+	trans, err := r.db.OpenTransaction()
+	if err != nil {
+		return
+	}
+
+	iter := trans.NewIterator(nil, nil)
+	for iter.Next() {
+		var account models.Account
+		dec := gob.NewDecoder(bytes.NewBuffer(iter.Value()))
+		err = dec.Decode(&account)
+		if err != nil {
+			trans.Discard()
+			return
+		}
+		accounts = append(accounts, account)
+	}
+	iter.Release()
+	err = iter.Error()
+	if err != nil {
+		trans.Discard()
+		return
+	}
+	err = trans.Commit()
+	if err != nil {
+		trans.Discard()
+		return
+	}
+	return
+}
+
 func (r *accountRepository) DeleteAccountByID(id string) (account models.Account, err error) {
 	trans, err := r.db.OpenTransaction()
 	if err != nil {
@@ -83,14 +115,17 @@ func (r *accountRepository) DeleteAccountByID(id string) (account models.Account
 	dec := gob.NewDecoder(bytes.NewBuffer(value))
 	err = dec.Decode(&account)
 	if err != nil {
+		trans.Discard()
 		return
 	}
 	err = trans.Delete([]byte(id),nil)
 	if err != nil {
+		trans.Discard()
 		return
 	}
 	err = trans.Commit()
 	if err != nil {
+		trans.Discard()
 		return
 	}
 	return
@@ -104,12 +139,14 @@ func (r *accountRepository) UpdateAccountByID(id string, account map[string]inte
 
 	value, err := trans.Get([]byte(id),nil)
 	if err != nil {
+		trans.Discard()
 		return err
 	}
 	dec := gob.NewDecoder(bytes.NewBuffer(value))
 	var originAccount models.Account
 	err = dec.Decode(&originAccount)
 	if err != nil {
+		trans.Discard()
 		return err
 	}
 	s := reflect.ValueOf(&originAccount).Elem()
@@ -120,14 +157,17 @@ func (r *accountRepository) UpdateAccountByID(id string, account map[string]inte
 	enc := gob.NewEncoder(&buf)
 	err = enc.Encode(originAccount)
 	if err != nil {
+		trans.Discard()
 		return err
 	}
 	err = trans.Put([]byte(id), buf.Bytes(), nil)
 	if err != nil {
+		trans.Discard()
 		return err
 	}
 	err = trans.Commit()
 	if err != nil {
+		trans.Discard()
 		return err
 	}
 	return nil
