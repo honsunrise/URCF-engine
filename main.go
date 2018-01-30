@@ -10,6 +10,8 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"os/signal"
+	"github.com/zhsyourai/URCF-engine/http"
+	"github.com/zhsyourai/URCF-engine/rpc"
 )
 
 var (
@@ -36,10 +38,26 @@ func main() {
 }
 
 func start() (err error) {
+	err = rpc.StartRPCServer()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = http.StartHTTPServer()
+	if err != nil {
+		log.Fatal(err)
+	}
 	return
 }
 
 func stop() (err error) {
+	err = rpc.StopRPCServer()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = http.StopHTTPServer()
+	if err != nil {
+		log.Fatal(err)
+	}
 	return
 }
 

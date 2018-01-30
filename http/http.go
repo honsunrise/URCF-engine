@@ -23,7 +23,7 @@ func myHandler(ctx iris.Context) {
 	ctx.Writef("%s", user.Signature)
 }
 
-func startHTTPServer()  {
+func StartHTTPServer() (err error)  {
 	s := secure.New(secure.Options{
 		AllowedHosts:            []string{"ssl.example.com"},                                                                                                                         // AllowedHosts is a list of fully qualified domain names that are allowed. Default is empty list, which allows any and all host names.
 		SSLRedirect:             true,                                                                                                                                                // If SSLRedirect is set to true, then only allow HTTPS requests. Default is false.
@@ -79,4 +79,9 @@ func startHTTPServer()  {
 	})
 
 	app.Run(iris.Addr(":8080"), iris.WithoutInterruptHandler, iris.WithConfiguration(iris.YAML("./configs/iris.yml")))
+	return
+}
+
+func StopHTTPServer() (err error)  {
+	return
 }
