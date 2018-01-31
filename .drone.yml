@@ -1,7 +1,19 @@
+workspace:
+  base: /go
+  path: src/github.com/zhsyourai/URCF-engine
 pipeline:
+  deps:
+      image: golang:${GO_VERSION}
+      commands:
+        - go get
+        - go test
   build:
-    image: golang
+    image: node:${GO_VERSION}
     commands:
-      - go get
       - go build
-      - go test
+
+matrix:
+ GO_VERSION:
+   - latest
+   - "1.7"
+   - "1.6"
