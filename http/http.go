@@ -31,6 +31,7 @@ var (
 )
 
 func StartHTTPServer() (err error) {
+
 	s := secure.New(secure.Options{
 		AllowedHosts:            []string{"ssl.example.com"},                                                                                                                         // AllowedHosts is a list of fully qualified domain names that are allowed. Default is empty list, which allows any and all host names.
 		SSLRedirect:             true,                                                                                                                                                // If SSLRedirect is set to true, then only allow HTTPS requests. Default is false.
@@ -75,16 +76,16 @@ func StartHTTPServer() (err error) {
 	mvc.Configure(app.Party("/uaa", tollboothic.LimitHandler(limiter), myHandler), configureUAA)
 
 	iris.RegisterOnInterrupt(func() {
-
 		ctx, cancel := stdContext.WithTimeout(stdContext.Background(), shutdownTimeout)
 		defer cancel()
 		// close all hosts
 		app.Shutdown(ctx)
 	})
-
-	app.Run(iris.Addr(":8080"), iris.WithoutVersionChecker,
-		iris.WithoutInterruptHandler,
-		iris.WithConfiguration(iris.YAML("./http/configs/iris.yml")))
+	go func() {
+		app.Run(iris.Addr(":8080"), iris.WithoutVersionChecker,
+			iris.WithoutInterruptHandler,
+			iris.WithConfiguration(iris.YAML("./http/configs/iris.yml")))
+	}()
 	return
 }
 
