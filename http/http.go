@@ -8,10 +8,12 @@ import (
 	prometheusMiddleware "github.com/iris-contrib/middleware/prometheus"
 	"github.com/iris-contrib/middleware/secure"
 	"github.com/iris-contrib/middleware/cors"
+	"time"
+	"github.com/zhsyourai/URCF-engine/http/controllers"
+	"github.com/kataras/iris/mvc"
+	"github.com/zhsyourai/URCF-engine/services/account"
 	"github.com/didip/tollbooth"
 	"github.com/iris-contrib/middleware/tollboothic"
-	"time"
-	"github.com/zhsyourai/teddy-backend/uaa/controllers"
 )
 
 func myHandler(ctx iris.Context) {
@@ -23,7 +25,12 @@ func myHandler(ctx iris.Context) {
 	ctx.Writef("%s", user.Signature)
 }
 
-func StartHTTPServer() (err error)  {
+var (
+	app             = iris.New()
+	shutdownTimeout = 5 * time.Second
+)
+
+func StartHTTPServer() (err error) {
 	s := secure.New(secure.Options{
 		AllowedHosts:            []string{"ssl.example.com"},                                                                                                                         // AllowedHosts is a list of fully qualified domain names that are allowed. Default is empty list, which allows any and all host names.
 		SSLRedirect:             true,                                                                                                                                                // If SSLRedirect is set to true, then only allow HTTPS requests. Default is false.
@@ -43,8 +50,6 @@ func StartHTTPServer() (err error)  {
 
 		IsDevelopment: true, // This will cause the AllowedHosts, SSLRedirect, and STSSeconds/STSIncludeSubdomains options to be ignored during development. When deploying to production, be sure to set this to false.
 	})
-
-	app := iris.New()
 
 	limiter := tollbooth.NewLimiter(1, nil)
 	m := prometheusMiddleware.New("serviceName", 300, 1200, 5000)
@@ -66,22 +71,37 @@ func StartHTTPServer() (err error)  {
 	app.Use(jwtHandler.Serve)
 	app.Use(s.Serve)
 	app.Use(crs)
-	app.Get("/", tollboothic.LimitHandler(limiter), myHandler)
 
-	app.Controller("/uaa", new(controllers.AccountController))
+	mvc.Configure(app.Party("/uaa", tollboothic.LimitHandler(limiter), myHandler), configureUAA)
 
 	iris.RegisterOnInterrupt(func() {
-		timeout := 5 * time.Second
-		ctx, cancel := stdContext.WithTimeout(stdContext.Background(), timeout)
+
+		ctx, cancel := stdContext.WithTimeout(stdContext.Background(), shutdownTimeout)
 		defer cancel()
 		// close all hosts
 		app.Shutdown(ctx)
 	})
 
-	app.Run(iris.Addr(":8080"), iris.WithoutInterruptHandler, iris.WithConfiguration(iris.YAML("./configs/iris.yml")))
+	app.Run(iris.Addr(":8080"), iris.WithoutVersionChecker,
+		iris.WithoutInterruptHandler,
+		iris.WithConfiguration(iris.YAML("./http/configs/iris.yml")))
 	return
 }
 
-func StopHTTPServer() (err error)  {
+func configureUAA(app *mvc.Application) {
+	// any dependencies bindings here...
+	app.Register(
+		account.NewAccountService(),
+	)
+
+	// controllers registration here...
+	app.Handle(new(controllers.AccountController))
+}
+
+func StopHTTPServer() (err error) {
+	ctx, cancel := stdContext.WithTimeout(stdContext.Background(), shutdownTimeout)
+	defer cancel()
+	// close all hosts
+	err = app.Shutdown(ctx)
 	return
 }

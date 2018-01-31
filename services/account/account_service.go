@@ -12,10 +12,11 @@ type Service interface {
 	GetByID(id string) (models.Account, error)
 	DeleteByID(id string) error
 	Register(id string, password string, role []string) (models.Account, error)
+	Verify(id string, password string) (models.Account, error)
 }
 
-func NewAccountService(repo account.Repository) Service {
-	return &accountService{repo:repo}
+func NewAccountService() Service {
+	return &accountService{repo:account.NewAccountRepository()}
 }
 
 type accountService struct {
@@ -53,5 +54,9 @@ func (s *accountService) GetByID(id string) (models.Account, error) {
 
 func (s *accountService) DeleteByID(id string) (err error) {
 	_, err = s.repo.DeleteAccountByID(id)
+	return
+}
+
+func (s *accountService) Verify(id string, password string) (account models.Account, err error) {
 	return
 }
