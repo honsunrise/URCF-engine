@@ -21,29 +21,26 @@ type Service interface {
 	GetStdOut() io.ReadWriter
 	GetStdErr() io.ReadWriter
 	GetWorkDir() string
-
 }
 
-// Proc is a os.Process wrapper with Status and more info that will be used on Master to maintain
+// Process is a os.Process wrapper with Statistics and more info that will be used on Master to maintain
 // the process health.
-type Proc struct {
-	Name      string
-	Cmd       string
-	Args      []string
-	Path      string
-	Pidfile   string
-	Outfile   string
-	Errfile   string
-	KeepAlive bool
-	Pid       int
-	Status    *ProcStatus
-	process   *os.Process
+type Process struct {
+	Name       string
+	Pid        int
+	Cmd        string
+	Args       []string
+	Path       string
+	PidFile    string
+	StdIn      io.ReadWriter
+	StdOut     io.ReadWriter
+	StdErr     io.ReadWriter
+	KeepAlive  bool
+	Statistics *ProcessStatistics
+	process    *os.Process
 }
 
-// Start will execute the command Cmd that should run the process. It will also create an out, err and pidfile
-// in case they do not exist yet.
-// Returns an error in case there's any.
-func (proc *Proc) Start() error {
+func (p *Process) Start() error {
 	outFile, err := utils.GetFile(proc.Outfile)
 	if err != nil {
 		return err
@@ -78,34 +75,7 @@ func (proc *Proc) Start() error {
 	return nil
 }
 
-// ForceStop will forcefully send a SIGKILL signal to process killing it instantly.
-// Returns an error in case there's any.
-func (proc *Proc) ForceStop() error {
-	if proc.process != nil {
-		err := proc.process.Signal(syscall.SIGKILL)
-		proc.Status.SetStatus("stopped")
-		proc.release()
-		return err
-	}
-	return errors.New("Process does not exist.")
-}
-
-// GracefullyStop will send a SIGTERM signal asking the process to terminate.
-// The process may choose to die gracefully or ignore this signal completely. In that case
-// the process will keep running unless you call ForceStop()
-// Returns an error in case there's any.
-func (proc *Proc) GracefullyStop() error {
-	if proc.process != nil {
-		err := proc.process.Signal(syscall.SIGTERM)
-		proc.Status.SetStatus("asked to stop")
-		return err
-	}
-	return errors.New("Process does not exist.")
-}
-
-// Restart will try to gracefully stop the process and then Start it again.
-// Returns an error in case there's any.
-func (proc *Proc) Restart() error {
+func (p *Process) Restart() error {
 	if proc.IsAlive() {
 		err := proc.GracefullyStop()
 		if err != nil {
@@ -115,9 +85,37 @@ func (proc *Proc) Restart() error {
 	return proc.Start()
 }
 
+func (p *Process) Stop() error    {
+	if proc.process != nil {
+		err := proc.process.Signal(syscall.SIGTERM)
+		proc.Status.SetStatus("asked to stop")
+		return err
+	}
+	return errors.New("Process does not exist.")
+}
+
+func (p *Process) Kill() error {
+	if proc.process != nil {
+		err := proc.process.Signal(syscall.SIGKILL)
+		proc.Status.SetStatus("stopped")
+		proc.release()
+		return err
+	}
+	return errors.New("Process does not exist.")
+}
+
+func (p *Process) Watch() error             {}
+func (p *Process) IsAlive() bool            {}
+func (p *Process) GetPid() int              {}
+func (p *Process) GetStatus() int           {}
+func (p *Process) GetStdIn() io.ReadWriter  {}
+func (p *Process) GetStdOut() io.ReadWriter {}
+func (p *Process) GetStdErr() io.ReadWriter {}
+func (p *Process) GetWorkDir() string       {}
+
 // Delete will delete everything created by this process, including the out, err and pid file.
 // Returns an error in case there's any.
-func (proc *Proc) Delete() error {
+func (proc *Process) Delete() error {
 	proc.release()
 	err := utils.DeleteFile(proc.Outfile)
 	if err != nil {
@@ -132,7 +130,7 @@ func (proc *Proc) Delete() error {
 
 // IsAlive will check if the process is alive or not.
 // Returns true if the process is alive or false otherwise.
-func (proc *Proc) IsAlive() bool {
+func (proc *Process) IsAlive() bool {
 	p, err := os.FindProcess(proc.Pid)
 	if err != nil {
 		return false
@@ -142,12 +140,12 @@ func (proc *Proc) IsAlive() bool {
 
 // Watch will stop execution and wait until the process change its state. Usually changing state, means that the process died.
 // Returns a tuple with the new process state and an error in case there's any.
-func (proc *Proc) Watch() (*os.ProcessState, error) {
+func (proc *Process) Watch() (*os.ProcessState, error) {
 	return proc.process.Wait()
 }
 
 // Will release the process and remove its PID file
-func (proc *Proc) release() {
+func (proc *Process) release() {
 	if proc.process != nil {
 		proc.process.Release()
 	}
@@ -155,42 +153,42 @@ func (proc *Proc) release() {
 }
 
 // NotifyStopped that process was stopped so we can set its PID to -1
-func (proc *Proc) NotifyStopped() {
+func (proc *Process) NotifyStopped() {
 	proc.Pid = -1
 }
 
 // AddRestart is add one restart to proc status
-func (proc *Proc) AddRestart() {
-	proc.Status.AddRestart()
+func (proc *Process) AddRestart() {
+	proc.Statistics.AddRestart()
 }
 
 // GetPid will return proc current PID
-func (proc *Proc) GetPid() int {
+func (proc *Process) GetPid() int {
 	return proc.Pid
 }
 
 // GetOutFile will return proc out file
-func (proc *Proc) GetOutFile() string {
+func (proc *Process) GetOutFile() string {
 	return proc.Outfile
 }
 
 // GetErrFile will return proc error file
-func (proc *Proc) GetErrFile() string {
+func (proc *Process) GetErrFile() string {
 	return proc.Errfile
 }
 
 // GetPidFile will return proc pid file
-func (proc *Proc) GetPidFile() string {
+func (proc *Process) GetPidFile() string {
 	return proc.Pidfile
 }
 
 // GetPath will return proc path
-func (proc *Proc) GetPath() string {
+func (proc *Process) GetPath() string {
 	return proc.Path
 }
 
 // GetStatus will return proc current status
-func (proc *Proc) GetStatus() *ProcStatus {
+func (proc *Process) GetStatus() *ProcessStatistics {
 	if !proc.IsAlive() {
 		proc.ResetUpTime()
 	} else {
@@ -200,40 +198,40 @@ func (proc *Proc) GetStatus() *ProcStatus {
 	// update cpu and memory
 	proc.SetSysInfo()
 
-	return proc.Status
+	return proc.Statistics
 }
 
 // SetStatus will set proc status
-func (proc *Proc) SetStatus(status string) {
-	proc.Status.SetStatus(status)
+func (proc *Process) SetStatus(status string) {
+	proc.Statistics.SetStatus(status)
 }
 
-// SetUptime will set Uptime
-func (proc *Proc) SetUptime() {
-	proc.Status.SetUptime()
+// SetUpTime will set UpTime
+func (proc *Process) SetUptime() {
+	proc.Statistics.SetUpTime()
 }
 
-// ResetUpTime will set Uptime
-func (proc *Proc) ResetUpTime() {
-	proc.Status.ResetUptime()
+// ResetUpTime will set UpTime
+func (proc *Process) ResetUpTime() {
+	proc.Statistics.ResetUptime()
 }
 
 // SetSysInfo will get current proc cpu and memory usage
-func (proc *Proc) SetSysInfo() {
-	proc.Status.SetSysInfo(proc.process.Pid)
+func (proc *Process) SetSysInfo() {
+	proc.Statistics.SetSysInfo(proc.process.Pid)
 }
 
 // Identifier is that will be used by watcher to keep track of its processes
-func (proc *Proc) Identifier() string {
+func (proc *Process) Identifier() string {
 	return proc.Name
 }
 
 // ShouldKeepAlive will returns true if the process should be kept alive or not
-func (proc *Proc) ShouldKeepAlive() bool {
+func (proc *Process) ShouldKeepAlive() bool {
 	return proc.KeepAlive
 }
 
 // GetName will return current proc name
-func (proc *Proc) GetName() string {
+func (proc *Process) GetName() string {
 	return proc.Name
 }
