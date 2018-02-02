@@ -1,4 +1,4 @@
-package processes
+package watchdog
 
 import (
 	"sync"
@@ -6,24 +6,25 @@ import (
 	"os"
 	"errors"
 	"sync/atomic"
+	"github.com/zhsyourai/URCF-engine/services/processes"
 )
 
 type WatchDog interface {
-	StartWatch(proc *Process) error
-	StopWatch(proc *Process) error
-	GetDeathsChan() chan *Process
+	StartWatch(proc *processes.Process) error
+	StopWatch(proc *processes.Process) error
+	GetDeathsChan() chan *processes.Process
 }
 
 type dog struct {
 	Stopping   atomic.Value
 	StopNotify chan struct{}
 	ExitNotify chan *os.ProcessState
-	Proc       *Process
+	Proc       *processes.Process
 }
 
 type watchDog struct {
 	sync.Mutex
-	deathProcesses chan *Process
+	deathProcesses chan *processes.Process
 	watchProcesses map[string]*dog
 }
 
@@ -31,15 +32,15 @@ type watchDog struct {
 // Returns a watchDog instance.
 func NewWatcherDog() WatchDog {
 	watcher := &watchDog{
-		deathProcesses: make(chan *Process),
+		deathProcesses: make(chan *processes.Process),
 		watchProcesses: make(map[string]*dog),
 	}
 	return watcher
 }
 
-func waitTargetProcess(proc *Process, dog *dog) {
+func waitTargetProcess(proc *processes.Process, dog *dog) {
 	log.Infof("Starting watcher on process %s", proc.Name)
-	state, _ := proc.process.Wait()
+	state, _ := proc.Process.Wait()
 	if dog.Stopping.Load().(bool) {
 		return
 	}
@@ -47,7 +48,7 @@ func waitTargetProcess(proc *Process, dog *dog) {
 	dog.ExitNotify <- state
 }
 
-func (watcher *watchDog) watch(proc *Process, dog *dog) {
+func (watcher *watchDog) watch(proc *processes.Process, dog *dog) {
 	defer delete(watcher.watchProcesses, proc.Name)
 	select {
 	case procStatus := <-dog.ExitNotify:
@@ -60,7 +61,7 @@ func (watcher *watchDog) watch(proc *Process, dog *dog) {
 	}
 }
 
-func (watcher *watchDog) StartWatch(proc *Process) (err error) {
+func (watcher *watchDog) StartWatch(proc *processes.Process) (err error) {
 	watcher.Lock()
 	defer watcher.Unlock()
 	if _, ok := watcher.watchProcesses[proc.Name]; ok {
@@ -79,7 +80,7 @@ func (watcher *watchDog) StartWatch(proc *Process) (err error) {
 	return
 }
 
-func (watcher *watchDog) StopWatch(proc *Process) error {
+func (watcher *watchDog) StopWatch(proc *processes.Process) error {
 	watcher.Lock()
 	defer watcher.Unlock()
 	if dog, ok := watcher.watchProcesses[proc.Name]; ok {
@@ -94,6 +95,6 @@ func (watcher *watchDog) StopWatch(proc *Process) error {
 	return errors.New("process not watching")
 }
 
-func (watcher *watchDog) GetDeathsChan() chan *Process {
+func (watcher *watchDog) GetDeathsChan() chan *processes.Process {
 	return watcher.deathProcesses
 }

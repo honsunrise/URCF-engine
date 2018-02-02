@@ -11,6 +11,13 @@ const (
 	Running ProcessStatus = iota,
 )
 
+type ProcessOption int
+
+const (
+	AutoStart   ProcessOption = iota
+	AutoRestart
+)
+
 type Process struct {
 	Name       string
 	Cmd        string
@@ -25,5 +32,6 @@ type Process struct {
 	KeepAlive  bool
 	Statistics ProcessStatistics
 	Status     ProcessStatus
-	process    *os.Process
+	Option     ProcessOption
+	Process    *os.Process
 }
