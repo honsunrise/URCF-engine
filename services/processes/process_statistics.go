@@ -20,9 +20,9 @@ func (p *ProcessStatistics) InitUpTime() {
 }
 
 func (p *ProcessStatistics) SetUpTime() {
-	p.UpTime = time.Now().Sub(p.StartTime)
+	p.UpTime = time.Since(p.StartTime)
 }
 
-func (p *ProcessStatistics) ResetUptime() {
+func (p *ProcessStatistics) ResetUpTime() {
 	p.UpTime = time.Duration(0)
 }

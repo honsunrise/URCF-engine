@@ -25,8 +25,8 @@ type Service interface {
 	GetInterface(id string) (error)
 }
 
-func NewPluginService(repo plugin.Repository) Service {
-	return &pluginService{repo: repo}
+func NewPluginService() Service {
+	return &pluginService{repo: plugin.NewPluginRepository()}
 }
 
 type pluginService struct {

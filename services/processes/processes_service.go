@@ -3,235 +3,145 @@ package processes
 import (
 	"errors"
 	"os"
-	"strconv"
 	"syscall"
-	"io"
+	"strings"
+	"sync"
 )
 
 type Service interface {
-	Start() error
-	Restart() error
-	Stop() error
-	Kill() error
-	Watch() error
-	IsAlive() bool
-	GetPid() int
-	GetStatus() int
-	GetStdIn() io.ReadWriter
-	GetStdOut() io.ReadWriter
-	GetStdErr() io.ReadWriter
-	GetWorkDir() string
+	Start(name string, workDir string, cmd string,
+		args []string, env map[string]string) (*Process, error)
+	FindByName(name string) *Process
+	Stop(s *Process) error
+	Restart(s *Process) (*Process, error)
+	Kill(s *Process) error
+	Clean(s *Process) error
+	Watch(s *Process) error
+	IsAlive(s *Process) bool
 }
 
-// Process is a os.Process wrapper with Statistics and more info that will be used on Master to maintain
+// pluginService is a os.pluginService wrapper with Statistics and more info that will be used on Master to maintain
 // the process health.
-type Process struct {
-	Name       string
-	Pid        int
-	Cmd        string
-	Args       []string
-	Path       string
-	PidFile    string
-	StdIn      io.ReadWriter
-	StdOut     io.ReadWriter
-	StdErr     io.ReadWriter
-	KeepAlive  bool
-	Statistics *ProcessStatistics
-	process    *os.Process
+type pluginService struct {
+	procMap  sync.Map
+	watchDog watchDog
 }
 
-func (p *Process) Start() error {
-	outFile, err := utils.GetFile(proc.Outfile)
-	if err != nil {
-		return err
+func NewPluginService() Service {
+	return &pluginService{}
+}
+
+func buildEnv(env map[string]string) (result []string) {
+	for k, v := range env {
+		result = append(result, k+"="+v)
 	}
-	errFile, err := utils.GetFile(proc.Errfile)
-	if err != nil {
-		return err
+	return
+}
+
+func (s *pluginService) Start(name string, workDir string, cmd string,
+	args []string, env map[string]string) (proc *Process, err error) {
+	proc = &Process{
+		Name:    name,
+		Cmd:     cmd,
+		Args:    args,
+		Env:     env,
+		WorkDir: workDir,
 	}
-	wd, _ := os.Getwd()
+	rStdIn, lStdOut, err := os.Pipe()
+	if err != nil {
+		return
+	}
+	proc.StdIn = lStdOut
+	lStdIn, rStdOut, err := os.Pipe()
+	if err != nil {
+		return
+	}
+	proc.StdOut = lStdIn
+	lErrIn, rErrOut, err := os.Pipe()
+	if err != nil {
+		return
+	}
+	proc.StdErr = lErrIn
+	finalEnv := make(map[string]string)
+	for _, e := range os.Environ() {
+		es := strings.Split(e, "=")
+		finalEnv[es[0]] = es[1]
+	}
+	for k, v := range env {
+		finalEnv[k] = v
+	}
 	procAtr := &os.ProcAttr{
-		Dir: wd,
-		Env: os.Environ(),
+		Dir: workDir,
+		Env: buildEnv(finalEnv),
 		Files: []*os.File{
-			os.Stdin,
-			outFile,
-			errFile,
+			rStdIn,
+			rStdOut,
+			rErrOut,
 		},
 	}
-	args := append([]string{proc.Name}, proc.Args...)
-	process, err := os.StartProcess(proc.Cmd, args, procAtr)
+	finalArgs := append([]string{cmd}, args...)
+	process, err := os.StartProcess(cmd, finalArgs, procAtr)
 	if err != nil {
-		return err
+		return
 	}
 	proc.process = process
 	proc.Pid = proc.process.Pid
-	err = utils.WriteFile(proc.Pidfile, []byte(strconv.Itoa(proc.process.Pid)))
-	if err != nil {
-		return err
+	proc.Statistics.InitUpTime()
+	s.procMap.Store(name, proc)
+	return
+}
+
+func (s *pluginService) FindByName(name string) *Process {
+	if p, ok := s.procMap.Load(name); ok {
+		return p.(*Process)
 	}
-	proc.Status.InitUptime()
-	proc.Status.SetStatus("started")
 	return nil
 }
 
-func (p *Process) Restart() error {
-	if proc.IsAlive() {
-		err := proc.GracefullyStop()
+func (s *pluginService) Stop(p *Process) error {
+	if s.FindByName(p.Name) == nil || p.process == nil {
+		return errors.New("process does not exist")
+	}
+	defer p.process.Release()
+	err := p.process.Signal(syscall.SIGTERM)
+	return err
+}
+
+func (s *pluginService) Restart(p *Process) (proc *Process, err error) {
+	if s.IsAlive(p) {
+		err := s.Stop(p)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return proc.Start()
+	return s.Start(p.Name, p.WorkDir, p.Cmd, p.Args, p.Env)
 }
 
-func (p *Process) Stop() error    {
-	if proc.process != nil {
-		err := proc.process.Signal(syscall.SIGTERM)
-		proc.Status.SetStatus("asked to stop")
-		return err
+func (s *pluginService) Kill(p *Process) error {
+	if s.FindByName(p.Name) == nil || p.process == nil {
+		return errors.New("process does not exist")
 	}
-	return errors.New("Process does not exist.")
+	defer p.process.Release()
+	err := p.process.Signal(syscall.SIGKILL)
+	return err
 }
 
-func (p *Process) Kill() error {
-	if proc.process != nil {
-		err := proc.process.Signal(syscall.SIGKILL)
-		proc.Status.SetStatus("stopped")
-		proc.release()
-		return err
-	}
-	return errors.New("Process does not exist.")
+func (s *pluginService) Clean(p *Process) error {
+	p.process.Release()
+	return os.RemoveAll(p.WorkDir)
 }
 
-func (p *Process) Watch() error             {}
-func (p *Process) IsAlive() bool            {}
-func (p *Process) GetPid() int              {}
-func (p *Process) GetStatus() int           {}
-func (p *Process) GetStdIn() io.ReadWriter  {}
-func (p *Process) GetStdOut() io.ReadWriter {}
-func (p *Process) GetStdErr() io.ReadWriter {}
-func (p *Process) GetWorkDir() string       {}
+func (s *pluginService) Watch(p *Process) error {
 
-// Delete will delete everything created by this process, including the out, err and pid file.
-// Returns an error in case there's any.
-func (proc *Process) Delete() error {
-	proc.release()
-	err := utils.DeleteFile(proc.Outfile)
-	if err != nil {
-		return err
-	}
-	err = utils.DeleteFile(proc.Errfile)
-	if err != nil {
-		return err
-	}
-	return os.RemoveAll(proc.Path)
 }
 
-// IsAlive will check if the process is alive or not.
-// Returns true if the process is alive or false otherwise.
-func (proc *Process) IsAlive() bool {
-	p, err := os.FindProcess(proc.Pid)
+func (s *pluginService) IsAlive(p *Process) bool {
+	if s.FindByName(p.Name) == nil || p.process == nil {
+		return false
+	}
+	_, err := os.FindProcess(p.Pid)
 	if err != nil {
 		return false
 	}
-	return p.Signal(syscall.Signal(0)) == nil
-}
-
-// Watch will stop execution and wait until the process change its state. Usually changing state, means that the process died.
-// Returns a tuple with the new process state and an error in case there's any.
-func (proc *Process) Watch() (*os.ProcessState, error) {
-	return proc.process.Wait()
-}
-
-// Will release the process and remove its PID file
-func (proc *Process) release() {
-	if proc.process != nil {
-		proc.process.Release()
-	}
-	utils.DeleteFile(proc.Pidfile)
-}
-
-// NotifyStopped that process was stopped so we can set its PID to -1
-func (proc *Process) NotifyStopped() {
-	proc.Pid = -1
-}
-
-// AddRestart is add one restart to proc status
-func (proc *Process) AddRestart() {
-	proc.Statistics.AddRestart()
-}
-
-// GetPid will return proc current PID
-func (proc *Process) GetPid() int {
-	return proc.Pid
-}
-
-// GetOutFile will return proc out file
-func (proc *Process) GetOutFile() string {
-	return proc.Outfile
-}
-
-// GetErrFile will return proc error file
-func (proc *Process) GetErrFile() string {
-	return proc.Errfile
-}
-
-// GetPidFile will return proc pid file
-func (proc *Process) GetPidFile() string {
-	return proc.Pidfile
-}
-
-// GetPath will return proc path
-func (proc *Process) GetPath() string {
-	return proc.Path
-}
-
-// GetStatus will return proc current status
-func (proc *Process) GetStatus() *ProcessStatistics {
-	if !proc.IsAlive() {
-		proc.ResetUpTime()
-	} else {
-		// update uptime
-		proc.SetUptime()
-	}
-	// update cpu and memory
-	proc.SetSysInfo()
-
-	return proc.Statistics
-}
-
-// SetStatus will set proc status
-func (proc *Process) SetStatus(status string) {
-	proc.Statistics.SetStatus(status)
-}
-
-// SetUpTime will set UpTime
-func (proc *Process) SetUptime() {
-	proc.Statistics.SetUpTime()
-}
-
-// ResetUpTime will set UpTime
-func (proc *Process) ResetUpTime() {
-	proc.Statistics.ResetUptime()
-}
-
-// SetSysInfo will get current proc cpu and memory usage
-func (proc *Process) SetSysInfo() {
-	proc.Statistics.SetSysInfo(proc.process.Pid)
-}
-
-// Identifier is that will be used by watcher to keep track of its processes
-func (proc *Process) Identifier() string {
-	return proc.Name
-}
-
-// ShouldKeepAlive will returns true if the process should be kept alive or not
-func (proc *Process) ShouldKeepAlive() bool {
-	return proc.KeepAlive
-}
-
-// GetName will return current proc name
-func (proc *Process) GetName() string {
-	return proc.Name
+	return p.process.Signal(syscall.Signal(0)) == nil
 }
