@@ -1,6 +1,7 @@
 package account
 
 import (
+	"sync"
 	"time"
 
 	"github.com/zhsyourai/URCF-engine/models"
@@ -16,8 +17,16 @@ type Service interface {
 	Verify(id string, password string) (models.Account, error)
 }
 
-func NewAccountService() Service {
-	return &accountService{repo: account.NewAccountRepository()}
+var instance *accountService
+var once sync.Once
+
+func GetInstance() Service {
+	once.Do(func() {
+		instance = &accountService{
+			repo: account.NewAccountRepository(),
+		}
+	})
+	return instance
 }
 
 type accountService struct {

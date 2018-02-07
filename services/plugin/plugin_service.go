@@ -1,6 +1,8 @@
 package plugin
 
 import (
+	"sync"
+
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/repositories/plugin"
 )
@@ -25,8 +27,16 @@ type Service interface {
 	GetInterface(id string) (error)
 }
 
-func NewPluginService() Service {
-	return &pluginService{repo: plugin.NewPluginRepository()}
+var instance *pluginService
+var once sync.Once
+
+func GetInstance() Service {
+	once.Do(func() {
+		instance = &pluginService{
+			repo: plugin.NewPluginRepository(),
+		}
+	})
+	return instance
 }
 
 type pluginService struct {
