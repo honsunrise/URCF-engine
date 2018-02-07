@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"github.com/zhsyourai/URCF-engine/services/account"
 	"github.com/kataras/iris"
+	"github.com/zhsyourai/URCF-engine/services/account"
 )
 
 type RegisterRequest struct {
@@ -13,7 +13,7 @@ type RegisterResponse struct {
 
 // AccountController is our /uaa controller.
 type AccountController struct {
-	Ctx iris.Context
+	Ctx     iris.Context
 	Service account.Service
 }
 

@@ -1,9 +1,10 @@
 package plugin
 
 import (
-	"testing"
-	"github.com/zhsyourai/URCF-engine/models"
 	"fmt"
+	"testing"
+
+	"github.com/zhsyourai/URCF-engine/models"
 )
 
 var repo = NewPluginRepository()

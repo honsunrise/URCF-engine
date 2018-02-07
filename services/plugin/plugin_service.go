@@ -20,8 +20,8 @@ const (
 type Service interface {
 	GetAll() ([]models.Plugin, error)
 	GetByID(id string) (models.Plugin, error)
-	Uninstall(id string, flag ...UnInstallFlag) error
-	Install(path string, flag ...InstallFlag) (models.Plugin, error)
+	Uninstall(id string, flag UnInstallFlag) error
+	Install(path string, flag InstallFlag) (models.Plugin, error)
 	GetInterface(id string) (error)
 }
 
@@ -41,11 +41,11 @@ func (s *pluginService) GetByID(id string) (models.Plugin, error) {
 	return models.Plugin{}, nil
 }
 
-func (s *pluginService) Uninstall(id string, flag ...UnInstallFlag) error {
+func (s *pluginService) Uninstall(id string, flag UnInstallFlag) error {
 	return nil
 }
 
-func (s *pluginService) Install(path string, flag ...InstallFlag) (models.Plugin, error) {
+func (s *pluginService) Install(path string, flag InstallFlag) (models.Plugin, error) {
 	return models.Plugin{}, nil
 }
 

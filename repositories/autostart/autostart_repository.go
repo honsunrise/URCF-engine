@@ -1,4 +1,4 @@
-package account
+package autostart
 
 import (
 	"bytes"
@@ -11,69 +11,69 @@ import (
 	"github.com/zhsyourai/URCF-engine/models"
 )
 
-// Repository handles the basic operations of a account entity/model.
-// It's an interface in order to be testable, i.e a memory account repository or
+// Repository handles the basic operations of a AutoStart entity/model.
+// It's an interface in order to be testable, i.e a memory AutoStart repository or
 // a connected to an sql database.
 type Repository interface {
 	io.Closer
-	InsertAccount(models.Account) error
-	FindAccountByID(id string) (models.Account, error)
-	FindAll() ([]models.Account, error)
-	DeleteAccountByID(id string) (models.Account, error)
-	UpdateAccountByID(id string, account map[string]interface{}) error
+	InsertAutoStart(models.AutoStart) error
+	FindAutoStartByID(id string) (models.AutoStart, error)
+	FindAll() ([]models.AutoStart, error)
+	DeleteAutoStartByID(id string) (models.AutoStart, error)
+	UpdateAutoStartByID(id string, AutoStart map[string]interface{}) error
 }
 
-// NewAccountRepository returns a new account memory-based repository,
+// NewAutostartRepository returns a new AutoStart memory-based repository,
 // the one and only repository type in our example.
-func NewAccountRepository() Repository {
-	db, err := leveldb.OpenFile("Account.db", nil)
+func NewAutostartRepository() Repository {
+	db, err := leveldb.OpenFile("AutoStart.db", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &accountRepository{db}
+	return &autostartRepository{db}
 }
 
-// accountRepository is a "Repository"
-// which manages the accounts using the memory data source (map).
-type accountRepository struct {
+// autostartRepository is a "Repository"
+// which manages the AutoStarts using the memory data source (map).
+type autostartRepository struct {
 	db *leveldb.DB
 }
 
-func (r *accountRepository) Close() error {
+func (r *autostartRepository) Close() error {
 	if r.db != nil {
 		return r.db.Close()
 	}
 	return nil
 }
 
-func (r *accountRepository) InsertAccount(account models.Account) error {
+func (r *autostartRepository) InsertAutoStart(autoStart models.AutoStart) error {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	err := enc.Encode(account)
+	err := enc.Encode(autoStart)
 	if err != nil {
 		return err
 	}
-	err = r.db.Put([]byte(account.ID), buf.Bytes(), nil)
+	err = r.db.Put([]byte(autoStart.ID), buf.Bytes(), nil)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *accountRepository) FindAccountByID(id string) (account models.Account, err error) {
+func (r *autostartRepository) FindAutoStartByID(id string) (autoStart models.AutoStart, err error) {
 	value, err := r.db.Get([]byte(id), nil)
 	if err != nil {
 		return
 	}
 	dec := gob.NewDecoder(bytes.NewBuffer(value))
-	err = dec.Decode(&account)
+	err = dec.Decode(&autoStart)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (r *accountRepository) FindAll() (accounts []models.Account, err error) {
+func (r *autostartRepository) FindAll() (autoStarts []models.AutoStart, err error) {
 	trans, err := r.db.OpenTransaction()
 	if err != nil {
 		return
@@ -81,14 +81,14 @@ func (r *accountRepository) FindAll() (accounts []models.Account, err error) {
 
 	iter := trans.NewIterator(nil, nil)
 	for iter.Next() {
-		var account models.Account
+		var autoStart models.AutoStart
 		dec := gob.NewDecoder(bytes.NewBuffer(iter.Value()))
-		err = dec.Decode(&account)
+		err = dec.Decode(&autoStart)
 		if err != nil {
 			trans.Discard()
 			return
 		}
-		accounts = append(accounts, account)
+		autoStarts = append(autoStarts, autoStart)
 	}
 	iter.Release()
 	err = iter.Error()
@@ -104,7 +104,7 @@ func (r *accountRepository) FindAll() (accounts []models.Account, err error) {
 	return
 }
 
-func (r *accountRepository) DeleteAccountByID(id string) (account models.Account, err error) {
+func (r *autostartRepository) DeleteAutoStartByID(id string) (autoStart models.AutoStart, err error) {
 	trans, err := r.db.OpenTransaction()
 	if err != nil {
 		return
@@ -114,7 +114,7 @@ func (r *accountRepository) DeleteAccountByID(id string) (account models.Account
 		return
 	}
 	dec := gob.NewDecoder(bytes.NewBuffer(value))
-	err = dec.Decode(&account)
+	err = dec.Decode(&autoStart)
 	if err != nil {
 		trans.Discard()
 		return
@@ -132,7 +132,7 @@ func (r *accountRepository) DeleteAccountByID(id string) (account models.Account
 	return
 }
 
-func (r *accountRepository) UpdateAccountByID(id string, account map[string]interface{}) error {
+func (r *autostartRepository) UpdateAutoStartByID(id string, autoStart map[string]interface{}) error {
 	trans, err := r.db.OpenTransaction()
 	if err != nil {
 		return err
@@ -144,19 +144,19 @@ func (r *accountRepository) UpdateAccountByID(id string, account map[string]inte
 		return err
 	}
 	dec := gob.NewDecoder(bytes.NewBuffer(value))
-	var originAccount models.Account
-	err = dec.Decode(&originAccount)
+	var originAutoStart models.AutoStart
+	err = dec.Decode(&originAutoStart)
 	if err != nil {
 		trans.Discard()
 		return err
 	}
-	s := reflect.ValueOf(&originAccount).Elem()
-	for k, v := range account {
+	s := reflect.ValueOf(&originAutoStart).Elem()
+	for k, v := range autoStart {
 		s.FieldByName(k).Set(reflect.ValueOf(v))
 	}
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	err = enc.Encode(originAccount)
+	err = enc.Encode(originAutoStart)
 	if err != nil {
 		trans.Discard()
 		return err

@@ -1,14 +1,15 @@
 package plugin
 
 import (
-	"github.com/zhsyourai/URCF-engine/models"
-	"github.com/google/uuid"
-	"log"
-	"github.com/syndtr/goleveldb/leveldb"
-	"io"
 	"bytes"
 	"encoding/gob"
+	"io"
+	"log"
 	"reflect"
+
+	"github.com/google/uuid"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/zhsyourai/URCF-engine/models"
 )
 
 // Repository handles the basic operations of a plugin entity/model.
@@ -63,7 +64,7 @@ func (r *pluginRepository) InsertPlugin(inputPlugin models.Plugin) (plugin model
 }
 
 func (r *pluginRepository) FindPluginByID(id string) (plugin models.Plugin, err error) {
-	value, err := r.db.Get([]byte(id),nil)
+	value, err := r.db.Get([]byte(id), nil)
 	if err != nil {
 		return
 	}
@@ -80,7 +81,7 @@ func (r *pluginRepository) DeletePluginByID(id string) (plugin models.Plugin, er
 	if err != nil {
 		return
 	}
-	value, err := trans.Get([]byte(id),nil)
+	value, err := trans.Get([]byte(id), nil)
 	if err != nil {
 		trans.Discard()
 		return
@@ -91,7 +92,7 @@ func (r *pluginRepository) DeletePluginByID(id string) (plugin models.Plugin, er
 		trans.Discard()
 		return
 	}
-	err = trans.Delete([]byte(id),nil)
+	err = trans.Delete([]byte(id), nil)
 	if err != nil {
 		trans.Discard()
 		return
@@ -110,7 +111,7 @@ func (r *pluginRepository) UpdatePluginByID(id string, plugin map[string]interfa
 		return err
 	}
 
-	value, err := trans.Get([]byte(id),nil)
+	value, err := trans.Get([]byte(id), nil)
 	if err != nil {
 		trans.Discard()
 		return err

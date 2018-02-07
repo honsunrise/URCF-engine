@@ -1,10 +1,11 @@
 package account
 
 import (
-	"testing"
-	"github.com/zhsyourai/URCF-engine/models"
 	"fmt"
 	"math/rand"
+	"testing"
+
+	"github.com/zhsyourai/URCF-engine/models"
 )
 
 var testID = "__test" + fmt.Sprint(rand.Int())
@@ -12,7 +13,7 @@ var repo = NewAccountRepository()
 
 func TestInsertAndFind(t *testing.T) {
 	err := repo.InsertAccount(models.Account{
-		ID: testID,
+		ID:      testID,
 		Enabled: true,
 		// Ignore other field, just for test
 	})
@@ -31,7 +32,7 @@ func TestInsertAndFind(t *testing.T) {
 
 func TestInsertAndUpdate(t *testing.T) {
 	err := repo.InsertAccount(models.Account{
-		ID: testID,
+		ID:      testID,
 		Enabled: true,
 		// Ignore other field, just for test
 	})
@@ -73,7 +74,7 @@ func TestInsertAndUpdate(t *testing.T) {
 
 func TestInsertAndDelete(t *testing.T) {
 	err := repo.InsertAccount(models.Account{
-		ID: testID,
+		ID:      testID,
 		Enabled: true,
 		// Ignore other field, just for test
 	})

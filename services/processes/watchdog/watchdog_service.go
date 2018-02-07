@@ -1,15 +1,16 @@
 package watchdog
 
 import (
-	"sync"
-	log "github.com/sirupsen/logrus"
-	"os"
 	"errors"
+	"os"
+	"sync"
 	"sync/atomic"
+
+	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/services/processes"
 )
 
-type WatchDog interface {
+type Service interface {
 	StartWatch(proc *processes.Process) error
 	StopWatch(proc *processes.Process) error
 	GetDeathsChan() chan *processes.Process
@@ -28,14 +29,17 @@ type watchDog struct {
 	watchProcesses map[string]*dog
 }
 
-// NewWatcherDog will create a watchDog instance.
-// Returns a watchDog instance.
-func NewWatcherDog() WatchDog {
-	watcher := &watchDog{
-		deathProcesses: make(chan *processes.Process),
-		watchProcesses: make(map[string]*dog),
-	}
-	return watcher
+var instance *watchDog
+var once sync.Once
+
+func GetInstance() Service {
+	once.Do(func() {
+		instance = &watchDog{
+			deathProcesses: make(chan *processes.Process),
+			watchProcesses: make(map[string]*dog),
+		}
+	})
+	return instance
 }
 
 func waitTargetProcess(proc *processes.Process, dog *dog) {

@@ -1,9 +1,9 @@
 package rpc
 
-func StartRPCServer() (err error)  {
+func StartRPCServer() (err error) {
 	return
 }
 
-func StopRPCServer() (err error)  {
+func StopRPCServer() (err error) {
 	return
 }

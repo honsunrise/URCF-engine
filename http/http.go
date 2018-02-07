@@ -2,18 +2,19 @@ package http
 
 import (
 	stdContext "context"
-	"github.com/kataras/iris"
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
+	"github.com/didip/tollbooth"
+	"github.com/iris-contrib/middleware/cors"
 	jwtMiddleware "github.com/iris-contrib/middleware/jwt"
 	prometheusMiddleware "github.com/iris-contrib/middleware/prometheus"
 	"github.com/iris-contrib/middleware/secure"
-	"github.com/iris-contrib/middleware/cors"
-	"time"
-	"github.com/zhsyourai/URCF-engine/http/controllers"
-	"github.com/kataras/iris/mvc"
-	"github.com/zhsyourai/URCF-engine/services/account"
-	"github.com/didip/tollbooth"
 	"github.com/iris-contrib/middleware/tollboothic"
+	"github.com/kataras/iris"
+	"github.com/kataras/iris/mvc"
+	"github.com/zhsyourai/URCF-engine/http/controllers"
+	"github.com/zhsyourai/URCF-engine/services/account"
 )
 
 func myHandler(ctx iris.Context) {

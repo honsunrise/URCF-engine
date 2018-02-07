@@ -1,9 +1,10 @@
 package account
 
 import (
+	"time"
+
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/repositories/account"
-	"time"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -16,7 +17,7 @@ type Service interface {
 }
 
 func NewAccountService() Service {
-	return &accountService{repo:account.NewAccountRepository()}
+	return &accountService{repo: account.NewAccountRepository()}
 }
 
 type accountService struct {
@@ -30,12 +31,12 @@ func (s *accountService) Register(username string, password string, role []strin
 		return
 	}
 	account = models.Account{
-		ID: username,
-		Password: hashedPassword,
-		Role: role,
+		ID:         username,
+		Password:   hashedPassword,
+		Role:       role,
 		CreateDate: now,
 		UpdateDate: now,
-		Enabled: true,
+		Enabled:    true,
 	}
 	err = s.repo.InsertAccount(account)
 	if err != nil {

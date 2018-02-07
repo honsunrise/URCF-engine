@@ -3,6 +3,8 @@ package processes
 import (
 	"io"
 	"os"
+
+	"github.com/zhsyourai/URCF-engine/models"
 )
 
 type ProcessStatus int
@@ -11,19 +13,8 @@ const (
 	Running ProcessStatus = iota,
 )
 
-type ProcessOption int
-
-const (
-	AutoStart   ProcessOption = iota
-	AutoRestart
-)
-
 type Process struct {
-	Name       string
-	Cmd        string
-	Args       []string
-	WorkDir    string
-	Env        map[string]string
+	models.ProcessParam
 	Pid        int
 	PidFile    string
 	StdIn      io.ReadWriter
@@ -32,6 +23,5 @@ type Process struct {
 	KeepAlive  bool
 	Statistics ProcessStatistics
 	Status     ProcessStatus
-	Option     ProcessOption
 	Process    *os.Process
 }

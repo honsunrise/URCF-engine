@@ -3,16 +3,18 @@ package processes
 import (
 	"errors"
 	"os"
-	"syscall"
 	"strings"
 	"sync"
-	"github.com/zhsyourai/URCF-engine/services/processes/watchdog"
+	"syscall"
+
 	log "github.com/sirupsen/logrus"
+	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/services/processes/watchdog"
 )
 
 type Service interface {
 	Start(name string, workDir string, cmd string,
-		args []string, env map[string]string) (*Process, error)
+		args []string, env map[string]string, option models.ProcessOption) (*Process, error)
 	FindByName(name string) *Process
 	Stop(s *Process) error
 	Restart(s *Process) (*Process, error)
@@ -22,19 +24,24 @@ type Service interface {
 	IsAlive(s *Process) bool
 }
 
-// pluginService is a os.pluginService wrapper with Statistics and more info that will be used on Master to maintain
+// processesService is a os.processesService wrapper with Statistics and more info that will be used on Master to maintain
 // the process health.
-type pluginService struct {
+type processesService struct {
 	procMap  sync.Map
-	watchDog watchdog.WatchDog
+	watchDog watchdog.Service
 }
 
-func NewPluginService() Service {
-	pluginService := &pluginService{
-		watchDog: watchdog.NewWatcherDog(),
-	}
-	go pluginService.runAutoStart()
-	return pluginService
+var instance *processesService
+var once sync.Once
+
+func GetInstance() Service {
+	once.Do(func() {
+		instance = &processesService{
+			watchDog: watchdog.GetInstance(),
+		}
+		go instance.runAutoReStart()
+	})
+	return instance
 }
 
 func buildEnv(env map[string]string) (result []string) {
@@ -44,36 +51,35 @@ func buildEnv(env map[string]string) (result []string) {
 	return
 }
 
-func (s *pluginService) runAutoStart() {
+func (s *processesService) runAutoReStart() {
 	for proc := range s.watchDog.GetDeathsChan() {
 		if !proc.KeepAlive {
-			master.Lock()
-			master.updateStatus(proc)
-			master.Unlock()
-			log.Infof("Proc %s does not have keep alive set. Will not be restarted.", proc.Identifier())
+			log.Infof("process %s does not have keep alive set. Will not be restarted.", proc.Name)
 			continue
 		}
-		log.Infof("Restarting proc %s.", proc.Identifier())
-		if proc.IsAlive() {
-			log.Warnf("Proc %s was supposed to be dead, but it is alive.", proc.Identifier())
+		log.Infof("Restarting process %s.", proc.Name)
+		if s.IsAlive(proc) {
+			log.Warnf("process %s was supposed to be dead, but it is alive.", proc.Name)
 		}
-		master.Lock()
-		err := master.restart(proc)
-		master.Unlock()
+
+		_, err := s.Restart(proc)
 		if err != nil {
-			log.Warnf("Could not restart process %s due to %s.", proc.Identifier(), err)
+			log.Warnf("Could not restart process %s due to %s.", proc.Name, err)
 		}
 	}
 }
 
-func (s *pluginService) Start(name string, workDir string, cmd string,
-	args []string, env map[string]string) (proc *Process, err error) {
+func (s *processesService) Start(name string, workDir string, cmd string,
+	args []string, env map[string]string, option models.ProcessOption) (proc *Process, err error) {
 	proc = &Process{
-		Name:    name,
-		Cmd:     cmd,
-		Args:    args,
-		Env:     env,
-		WorkDir: workDir,
+		ProcessParam: models.ProcessParam{
+			Name:    name,
+			Cmd:     cmd,
+			Args:    args,
+			Env:     env,
+			WorkDir: workDir,
+			Option:  option,
+		},
 	}
 	rStdIn, lStdOut, err := os.Pipe()
 	if err != nil {
@@ -112,6 +118,14 @@ func (s *pluginService) Start(name string, workDir string, cmd string,
 	if err != nil {
 		return
 	}
+
+	if option&models.AutoRestart != 0 {
+		err = s.watchDog.StartWatch(proc)
+		if err != nil {
+			return
+		}
+	}
+
 	proc.Process = process
 	proc.Pid = proc.Process.Pid
 	proc.Statistics.InitUpTime()
@@ -119,14 +133,14 @@ func (s *pluginService) Start(name string, workDir string, cmd string,
 	return
 }
 
-func (s *pluginService) FindByName(name string) *Process {
+func (s *processesService) FindByName(name string) *Process {
 	if p, ok := s.procMap.Load(name); ok {
 		return p.(*Process)
 	}
 	return nil
 }
 
-func (s *pluginService) Stop(p *Process) error {
+func (s *processesService) Stop(p *Process) error {
 	if s.FindByName(p.Name) == nil || p.Process == nil {
 		return errors.New("process does not exist")
 	}
@@ -135,17 +149,17 @@ func (s *pluginService) Stop(p *Process) error {
 	return err
 }
 
-func (s *pluginService) Restart(p *Process) (proc *Process, err error) {
+func (s *processesService) Restart(p *Process) (proc *Process, err error) {
 	if s.IsAlive(p) {
 		err := s.Stop(p)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return s.Start(p.Name, p.WorkDir, p.Cmd, p.Args, p.Env)
+	return s.Start(p.Name, p.WorkDir, p.Cmd, p.Args, p.Env, p.Option)
 }
 
-func (s *pluginService) Kill(p *Process) error {
+func (s *processesService) Kill(p *Process) error {
 	if s.FindByName(p.Name) == nil || p.Process == nil {
 		return errors.New("process does not exist")
 	}
@@ -154,16 +168,16 @@ func (s *pluginService) Kill(p *Process) error {
 	return err
 }
 
-func (s *pluginService) Clean(p *Process) error {
+func (s *processesService) Clean(p *Process) error {
 	p.Process.Release()
 	return os.RemoveAll(p.WorkDir)
 }
 
-func (s *pluginService) Watch(p *Process) error {
+func (s *processesService) Watch(p *Process) error {
 	return s.watchDog.StartWatch(p)
 }
 
-func (s *pluginService) IsAlive(p *Process) bool {
+func (s *processesService) IsAlive(p *Process) bool {
 	if s.FindByName(p.Name) == nil || p.Process == nil {
 		return false
 	}

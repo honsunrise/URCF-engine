@@ -1,10 +1,11 @@
 package account
 
 import (
-	"testing"
-	"github.com/zhsyourai/URCF-engine/repositories/account"
 	"fmt"
 	"math/rand"
+	"testing"
+
+	"github.com/zhsyourai/URCF-engine/repositories/account"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -19,7 +20,7 @@ func TestAccountService_Register(t *testing.T) {
 		t.Errorf("%s(%s)", "Register error", fmt.Sprint(err))
 	}
 
-	a, err :=s.GetByID(testID)
+	a, err := s.GetByID(testID)
 	if err != nil {
 		t.Errorf("%s(%s)", "Register error", fmt.Sprint(err))
 	}
@@ -35,15 +36,15 @@ func TestAccountService_Register(t *testing.T) {
 
 func TestAccountService_GetAll(t *testing.T) {
 	s := NewAccountService(repo)
-	_, err := s.Register(testID + "1", testPassword, []string{"admin"})
+	_, err := s.Register(testID+"1", testPassword, []string{"admin"})
 	if err != nil {
 		t.Errorf("%s(%s)", "Register error", fmt.Sprint(err))
 	}
-	_, err = s.Register(testID + "2", testPassword, []string{"admin"})
+	_, err = s.Register(testID+"2", testPassword, []string{"admin"})
 	if err != nil {
 		t.Errorf("%s(%s)", "Register error", fmt.Sprint(err))
 	}
-	_, err = s.Register(testID + "3", testPassword, []string{"admin"})
+	_, err = s.Register(testID+"3", testPassword, []string{"admin"})
 	if err != nil {
 		t.Errorf("%s(%s)", "Register error", fmt.Sprint(err))
 	}
@@ -52,6 +53,6 @@ func TestAccountService_GetAll(t *testing.T) {
 		t.Errorf("%s(%s)", "GetAll error", fmt.Sprint(err))
 	}
 	if len(accounts) != 3 {
-		t.Errorf("%s(%s)", "GetAll error", "Length 3 not equ (" + fmt.Sprint(len(accounts)) + ")")
+		t.Errorf("%s(%s)", "GetAll error", "Length 3 not equ ("+fmt.Sprint(len(accounts))+")")
 	}
 }
