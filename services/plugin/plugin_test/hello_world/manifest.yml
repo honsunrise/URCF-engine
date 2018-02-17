@@ -1,0 +1,11 @@
+name: "HelloWord"
+desc: "Test hello world plugin"
+architecture: "x86"
+homepage: "http://example.com"
+maintainer: "Hobson"
+checksums: ""
+version: 1.0
+conffiles:
+  - No
+sys-deps:
+  - wget

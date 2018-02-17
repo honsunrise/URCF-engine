@@ -1,4 +1,4 @@
-package plugin
+package plugin_test
 
 import (
 	"github.com/zhsyourai/URCF-engine/repositories/account"
