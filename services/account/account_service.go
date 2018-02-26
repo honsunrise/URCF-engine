@@ -12,7 +12,7 @@ import (
 type Service interface {
 	GetAll() ([]models.Account, error)
 	GetByID(id string) (models.Account, error)
-	DeleteByID(id string) error
+	DeleteByID(id string) (models.Account, error)
 	Register(id string, password string, role []string) (models.Account, error)
 	Verify(id string, password string) (models.Account, error)
 }
@@ -62,9 +62,8 @@ func (s *accountService) GetByID(id string) (models.Account, error) {
 	return s.repo.FindAccountByID(id)
 }
 
-func (s *accountService) DeleteByID(id string) (err error) {
-	_, err = s.repo.DeleteAccountByID(id)
-	return
+func (s *accountService) DeleteByID(id string) (models.Account, error) {
+	return s.repo.DeleteAccountByID(id)
 }
 
 func (s *accountService) Verify(id string, password string) (account models.Account, err error) {

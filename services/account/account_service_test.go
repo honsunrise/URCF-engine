@@ -5,16 +5,14 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/zhsyourai/URCF-engine/repositories/account"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var testID = "__test" + fmt.Sprint(rand.Int())
 var testPassword = "password" + fmt.Sprint(rand.Int())
-var repo = account.NewAccountRepository()
 
 func TestAccountService_Register(t *testing.T) {
-	s := NewAccountService(repo)
+	s := GetInstance()
 	_, err := s.Register(testID, testPassword, []string{"admin"})
 	if err != nil {
 		t.Errorf("%s(%s)", "Register error", fmt.Sprint(err))
@@ -35,7 +33,7 @@ func TestAccountService_Register(t *testing.T) {
 }
 
 func TestAccountService_GetAll(t *testing.T) {
-	s := NewAccountService(repo)
+	s := GetInstance()
 	_, err := s.Register(testID+"1", testPassword, []string{"admin"})
 	if err != nil {
 		t.Errorf("%s(%s)", "Register error", fmt.Sprint(err))
