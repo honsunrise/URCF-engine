@@ -1,4 +1,4 @@
-package account
+package configuration
 
 import (
 	"bytes"
@@ -17,44 +17,44 @@ import (
 // a connected to an sql database.
 type Repository interface {
 	io.Closer
-	InsertAccount(models.Account) error
-	FindAccountByID(id string) (models.Account, error)
-	FindAll() ([]models.Account, error)
-	DeleteAccountByID(id string) (models.Account, error)
-	UpdateAccountByID(id string, account map[string]interface{}) error
+	InsertConfig(config models.Config) error
+	FindConfigByKey(key string) (models.Config, error)
+	FindAll() ([]models.Config, error)
+	DeleteConfigByKey(key string) (models.Config, error)
+	UpdateConfigByKey(key string, config map[string]interface{}) error
 }
 
-// NewAccountRepository returns a new account memory-based repository,
+// NewConfigurationRepository returns a new account memory-based repository,
 // the one and only repository type in our example.
-func NewAccountRepository() Repository {
-	db, err := leveldb.OpenFile("Account.db", nil)
+func NewConfigurationRepository() Repository {
+	db, err := leveldb.OpenFile("Configuration.db", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &accountRepository{db}
+	return &configurationRepository{db}
 }
 
-// accountRepository is a "Repository"
+// configurationRepository is a "Repository"
 // which manages the accounts using the memory data source (map).
-type accountRepository struct {
+type configurationRepository struct {
 	db *leveldb.DB
 }
 
-func (r *accountRepository) Close() error {
+func (r *configurationRepository) Close() error {
 	if r.db != nil {
 		return r.db.Close()
 	}
 	return nil
 }
 
-func (r *accountRepository) InsertAccount(account models.Account) error {
+func (r *configurationRepository) InsertConfig(config models.Config) error {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	err := enc.Encode(account)
+	err := enc.Encode(config)
 	if err != nil {
 		return err
 	}
-	err = r.db.Put([]byte(account.ID), buf.Bytes(), &opt.WriteOptions{
+	err = r.db.Put([]byte(config.Key), buf.Bytes(), &opt.WriteOptions{
 		NoWriteMerge: true,
 		Sync: true,
 	})
@@ -64,8 +64,8 @@ func (r *accountRepository) InsertAccount(account models.Account) error {
 	return nil
 }
 
-func (r *accountRepository) FindAccountByID(id string) (account models.Account, err error) {
-	value, err := r.db.Get([]byte(id), nil)
+func (r *configurationRepository) FindConfigByKey(key string) (account models.Config, err error) {
+	value, err := r.db.Get([]byte(key), nil)
 	if err != nil {
 		return
 	}
@@ -77,7 +77,7 @@ func (r *accountRepository) FindAccountByID(id string) (account models.Account, 
 	return
 }
 
-func (r *accountRepository) FindAll() (accounts []models.Account, err error) {
+func (r *configurationRepository) FindAll() (accounts []models.Config, err error) {
 	trans, err := r.db.OpenTransaction()
 	if err != nil {
 		return
@@ -85,7 +85,7 @@ func (r *accountRepository) FindAll() (accounts []models.Account, err error) {
 
 	iter := trans.NewIterator(nil, nil)
 	for iter.Next() {
-		var account models.Account
+		var account models.Config
 		dec := gob.NewDecoder(bytes.NewBuffer(iter.Value()))
 		err = dec.Decode(&account)
 		if err != nil {
@@ -108,12 +108,12 @@ func (r *accountRepository) FindAll() (accounts []models.Account, err error) {
 	return
 }
 
-func (r *accountRepository) DeleteAccountByID(id string) (account models.Account, err error) {
+func (r *configurationRepository) DeleteConfigByKey(key string) (account models.Config, err error) {
 	trans, err := r.db.OpenTransaction()
 	if err != nil {
 		return
 	}
-	value, err := trans.Get([]byte(id), nil)
+	value, err := trans.Get([]byte(key), nil)
 	if err != nil {
 		return
 	}
@@ -123,7 +123,7 @@ func (r *accountRepository) DeleteAccountByID(id string) (account models.Account
 		trans.Discard()
 		return
 	}
-	err = trans.Delete([]byte(id), nil)
+	err = trans.Delete([]byte(key), nil)
 	if err != nil {
 		trans.Discard()
 		return
@@ -136,36 +136,36 @@ func (r *accountRepository) DeleteAccountByID(id string) (account models.Account
 	return
 }
 
-func (r *accountRepository) UpdateAccountByID(id string, account map[string]interface{}) error {
+func (r *configurationRepository) UpdateConfigByKey(key string, account map[string]interface{}) error {
 	trans, err := r.db.OpenTransaction()
 	if err != nil {
 		return err
 	}
 
-	value, err := trans.Get([]byte(id), nil)
+	value, err := trans.Get([]byte(key), nil)
 	if err != nil {
 		trans.Discard()
 		return err
 	}
 	dec := gob.NewDecoder(bytes.NewBuffer(value))
-	var originAccount models.Account
-	err = dec.Decode(&originAccount)
+	var originConfig models.Config
+	err = dec.Decode(&originConfig)
 	if err != nil {
 		trans.Discard()
 		return err
 	}
-	s := reflect.ValueOf(&originAccount).Elem()
+	s := reflect.ValueOf(&originConfig).Elem()
 	for k, v := range account {
 		s.FieldByName(k).Set(reflect.ValueOf(v))
 	}
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	err = enc.Encode(originAccount)
+	err = enc.Encode(originConfig)
 	if err != nil {
 		trans.Discard()
 		return err
 	}
-	err = trans.Put([]byte(id), buf.Bytes(), nil)
+	err = trans.Put([]byte(key), buf.Bytes(), nil)
 	if err != nil {
 		trans.Discard()
 		return err

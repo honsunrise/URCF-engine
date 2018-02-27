@@ -1,4 +1,4 @@
-package account
+package configuration
 
 import (
 	"fmt"
@@ -9,15 +9,10 @@ import (
 )
 
 var testID = "__test" + fmt.Sprint(rand.Int())
-var repo = NewAccountRepository()
+var repo = NewConfigurationRepository()
 
 func TestInsertAndFind(t *testing.T) {
 	err := repo.InsertAccount(models.Account{
-		ID:      testID,
-		Enabled: true,
-		// Ignore other field, just for test
-	})
-	err = repo.InsertAccount(models.Account{
 		ID:      testID,
 		Enabled: true,
 		// Ignore other field, just for test
