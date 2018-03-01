@@ -6,36 +6,42 @@ import (
 	"github.com/zhsyourai/URCF-engine/models"
 	"time"
 	"strings"
+	"sync/atomic"
+	"errors"
 )
 
 var startOf2018 = time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
 
 type Node struct {
 	models.Config
-	Child   []*Node
-	Parent  *Node
+	child   sync.Map
+	parent  *Node
 	service Service
 }
 
 func (n *Node) Get(key string) (*Node, error) {
-	for _, e := range n.Child {
-		if e.Key == key {
-			return e, nil
-		}
-	}
-	return n.service.Get(key)
+	return n.service.Get(n.parent.Key + "." + key)
+}
+
+func (n *Node) GetAll() (nodes []*Node, err error) {
+	n.child.Range(func(key, value interface{}) bool {
+		nodes = append(nodes, value.(*Node))
+		return true
+	})
+	return
 }
 
 func (n *Node) Put(key string, value interface{}) error {
-	panic("implement me")
+	return n.service.Put(n.parent.Key+"."+key, value)
 }
 
-func (n *Node) Delete(key string) *Node {
-	panic("implement me")
+func (n *Node) Delete(key string) (*Node, error) {
+	return n.service.Delete(n.parent.Key + "." + key)
 }
 
 type Service interface {
 	Get(key string) (*Node, error)
+	GetRoot() (*Node, error)
 	Put(key string, value interface{}) error
 	Delete(key string) (*Node, error)
 }
@@ -43,28 +49,31 @@ type Service interface {
 type configurationService struct {
 	repo     configuration.Repository
 	rootNode *Node
+	syncFlag atomic.Value
 }
 
-func (s *configurationService) Get(key string) (*Node, error) {
-	allPath := strings.Split(key, ".")
-	parentPath := ""
-	parentNode := s.rootNode
-	var currentNode *Node
-	for _, path := range allPath {
-		currentPath := parentPath + path
-		exist := false
-		for _, e := range parentNode.Child {
-			if e.Key == currentPath {
-				currentNode = e
-				exist = true
-				break
-			}
-		}
-		if !exist {
-			currentConfig, err := s.repo.FindConfigByKey(currentPath)
-			if err != nil {
-				if err.Error() != "leveldb: not found" {
-					return &Node{}, err
+func (s *configurationService) sync() error {
+	configs, err := s.repo.FindAll()
+	if err != nil {
+		return err
+	}
+	for _, conf := range configs {
+		allPath := strings.Split(conf.Key, ".")
+		parentPath := ""
+		parentNode := s.rootNode
+		var currentNode *Node
+		for i, path := range allPath {
+			currentPath := parentPath + path
+			tmp, exist := parentNode.child.Load(currentPath)
+			if exist {
+				currentNode = tmp.(*Node)
+				if i == len(allPath) - 1 {
+					currentNode.Config = conf
+				}
+			} else {
+				var currentConfig models.Config
+				if i == len(allPath) - 1 {
+					currentConfig = conf
 				} else {
 					currentConfig = models.Config{
 						Key:        currentPath,
@@ -75,15 +84,37 @@ func (s *configurationService) Get(key string) (*Node, error) {
 						Expires:    time.Duration(-1),
 					}
 				}
+				currentNode = &Node{
+					parent:  parentNode,
+					service: s,
+					Config:  currentConfig,
+				}
+				parentNode.child.Store(currentPath, currentNode)
 			}
-			currentNode = &Node{
-				Parent:  parentNode,
-				Child:   make([]*Node, 0, 10),
-				service: s,
-				Config:  currentConfig,
-			}
-			parentNode.Child = append(parentNode.Child, currentNode)
+			parentPath = currentPath + "."
+			parentNode = currentNode
 		}
+	}
+	s.syncFlag.Store(true)
+	return nil
+}
+
+func (s *configurationService) GetRoot() (*Node, error) {
+	return s.rootNode, nil
+}
+
+func (s *configurationService) Get(key string) (*Node, error) {
+	allPath := strings.Split(key, ".")
+	parentPath := ""
+	parentNode := s.rootNode
+	var currentNode *Node
+	for _, path := range allPath {
+		currentPath := parentPath + path
+		tmp, exist := parentNode.child.Load(currentPath)
+		if !exist {
+			return nil, errors.New("configuration: key not exist")
+		}
+		currentNode = tmp.(*Node)
 		parentPath = currentPath + "."
 		parentNode = currentNode
 	}
@@ -96,60 +127,50 @@ func (s *configurationService) Put(key string, value interface{}) error {
 	parentNode := s.rootNode
 	now := time.Now()
 	var currentNode *Node
-	for _, path := range allPath {
+	for i, path := range allPath {
 		currentPath := parentPath + path
-		exist := false
-		for _, e := range parentNode.Child {
-			if e.Key == currentPath {
-				currentNode = e
-				exist = true
-				break
-			}
-		}
-		if !exist {
-			currentConfig, err := s.repo.FindConfigByKey(currentPath)
-			if err != nil {
-				if err.Error() != "leveldb: not found" {
+		tmp, exist := parentNode.child.Load(currentPath)
+		if exist {
+			currentNode = tmp.(*Node)
+			if i == len(allPath) - 1 {
+				currentNode.Value = value
+				err := s.repo.InsertConfig(currentNode.Config)
+				if err != nil {
 					return err
-				} else {
-					currentConfig = models.Config{
-						Key:        currentPath,
-						Value:      nil,
-						CreateDate: startOf2018,
-						UpdateDate: startOf2018,
-						Scope:      "",
-						Expires:    time.Duration(-1),
-					}
-					if key == currentPath {
-						currentConfig = models.Config{
-							Key:        key,
-							Value:      value,
-							CreateDate: now,
-							UpdateDate: now,
-							Expires:    time.Duration(-1),
-							Scope:      "",
-						}
-						err := s.repo.InsertConfig(currentConfig)
-						if err != nil {
-							return err
-						}
-						return nil
-					}
+				}
+			}
+		} else {
+			var currentConfig models.Config
+			if i == len(allPath) - 1 {
+				currentConfig = models.Config{
+					Key:        key,
+					Value:      value,
+					CreateDate: now,
+					UpdateDate: now,
+					Expires:    time.Duration(-1),
+					Scope:      "",
+				}
+				err := s.repo.InsertConfig(currentConfig)
+				if err != nil {
+					return err
+				}
+
+			} else {
+				currentConfig = models.Config{
+					Key:        currentPath,
+					Value:      nil,
+					CreateDate: startOf2018,
+					UpdateDate: startOf2018,
+					Scope:      "",
+					Expires:    time.Duration(-1),
 				}
 			}
 			currentNode = &Node{
-				Parent:  parentNode,
-				Child:   make([]*Node, 0, 10),
+				parent:  parentNode,
 				service: s,
 				Config:  currentConfig,
 			}
-			parentNode.Child = append(parentNode.Child, currentNode)
-
-		}
-		currentNode.Value = value
-		err := s.repo.InsertConfig(currentNode.Config)
-		if err != nil {
-			return err
+			parentNode.child.Store(currentPath, currentNode)
 		}
 		parentPath = currentPath + "."
 		parentNode = currentNode
@@ -158,14 +179,28 @@ func (s *configurationService) Put(key string, value interface{}) error {
 }
 
 func (s *configurationService) Delete(key string) (*Node, error) {
-	config, err := s.repo.DeleteConfigByKey(key)
+	allPath := strings.Split(key, ".")
+	parentPath := ""
+	parentNode := s.rootNode
+	var currentNode *Node
+	var exist = false
+	for _, path := range allPath {
+		currentPath := parentPath + path
+		var tmp interface{}
+		tmp, exist = parentNode.child.Load(currentPath)
+		if !exist {
+			return nil, errors.New("configuration: key not exist")
+		}
+		currentNode = tmp.(*Node)
+		parentPath = currentPath + "."
+		parentNode = currentNode
+	}
+	currentNode.parent.child.Delete(key)
+	_, err := s.repo.DeleteConfigByKey(key)
 	if err != nil {
 		return &Node{}, err
 	}
-	return &Node{
-		service: s,
-		Config:  config,
-	}, nil
+	return currentNode, nil
 }
 
 var service *configurationService
@@ -176,11 +211,10 @@ func GetInstance() Service {
 		service = &configurationService{
 			repo: configuration.NewConfigurationRepository(),
 			rootNode: &Node{
-				Parent:  nil,
-				Child:   make([]*Node, 0, 100),
+				parent:  nil,
 				service: service,
 				Config: models.Config{
-					Key:        ".",
+					Key:        "_urcf_root_",
 					Value:      nil,
 					CreateDate: startOf2018,
 					UpdateDate: startOf2018,
@@ -189,6 +223,8 @@ func GetInstance() Service {
 				},
 			},
 		}
+		service.syncFlag.Store(false)
+		service.sync()
 	})
 	return service
 }
