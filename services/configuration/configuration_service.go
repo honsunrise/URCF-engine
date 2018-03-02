@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"errors"
+	"github.com/zhsyourai/URCF-engine/services"
 )
 
 var startOf2018 = time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -40,6 +41,7 @@ func (n *Node) Delete(key string) (*Node, error) {
 }
 
 type Service interface {
+	services.ServiceLifeCycle
 	Get(key string) (*Node, error)
 	GetRoot() (*Node, error)
 	Put(key string, value interface{}) error
@@ -47,9 +49,20 @@ type Service interface {
 }
 
 type configurationService struct {
+	services.InitHelper
 	repo     configuration.Repository
 	rootNode *Node
 	syncFlag atomic.Value
+}
+
+func (s *configurationService) Initialize(arguments ...interface{}) error {
+	return s.CallInitialize(func() {
+	})
+}
+
+func (s *configurationService) UnInitialize(arguments ...interface{}) error {
+	return s.CallUnInitialize(func() {
+	})
 }
 
 func (s *configurationService) sync() error {

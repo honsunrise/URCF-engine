@@ -11,7 +11,8 @@ import (
 
 func StartRPCServer() (err error) {
 	confServ := configuration.GetInstance()
-	address := confServ.Get("system.rpc.address").Value.(string)
+	value, err := confServ.Get("system.rpc.address")
+	address := value.Value.(string)
 	err = rpc.RegisterName("AccountRPC", &AccountRPC{
 		service: account.GetInstance(),
 	})

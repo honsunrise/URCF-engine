@@ -13,6 +13,8 @@ import (
 	"github.com/zhsyourai/URCF-engine/rpc"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"github.com/sevlyar/go-daemon"
+	"github.com/zhsyourai/URCF-engine/services/configuration"
+	"github.com/zhsyourai/URCF-engine/services/global_configuration"
 )
 
 var (
@@ -38,7 +40,11 @@ func main() {
 	}
 }
 
-func start() (err error) {
+func start(ctx *daemon.Context) (err error) {
+	gConfServ := global_configuration.GetGlobalConfig()
+	gConfServ.Initialize(*configFile)
+	confServ := configuration.GetInstance()
+	confServ.Initialize()
 	err = rpc.StartRPCServer()
 	if err != nil {
 		log.Fatal(err)
@@ -50,7 +56,7 @@ func start() (err error) {
 	return
 }
 
-func stop() (err error) {
+func stop(ctx *daemon.Context) (err error) {
 	err = rpc.StopRPCServer()
 	if err != nil {
 		log.Fatal(err)
@@ -59,6 +65,10 @@ func stop() (err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	confServ := configuration.GetInstance()
+	confServ.UnInitialize()
+	gConfServ := global_configuration.GetGlobalConfig()
+	gConfServ.UnInitialize()
 	return
 }
 
@@ -76,17 +86,11 @@ func isDaemonRunning(ctx *daemon.Context) (bool, *os.Process, error) {
 	return true, d, nil
 }
 
-func getCtx() *daemon.Context {
-	if *configFile == "" {
-		folderPath := os.Getenv("HOME")
-		*configFile = folderPath + "/.URCF/config.yml"
-		os.MkdirAll(path.Dir(*configFile), 0755)
-	}
-
+func getCtx(folderPath string) *daemon.Context {
 	ctx := &daemon.Context{
-		PidFileName: path.Join(filepath.Dir(*configFile), "main.pid"),
+		PidFileName: path.Join(folderPath, "main.pid"),
 		PidFilePerm: 0644,
-		LogFileName: path.Join(filepath.Dir(*configFile), "main.log"),
+		LogFileName: path.Join(folderPath, "main.log"),
 		LogFilePerm: 0640,
 		WorkDir:     "./",
 		Umask:       027,
@@ -114,7 +118,12 @@ func sendSignal(pid int, signal os.Signal) error {
 }
 
 func startServer() {
-	ctx := getCtx()
+	if *configFile == "" {
+		folderPath := os.Getenv("HOME") + "/.URCF"
+		*configFile = folderPath + "/config.yml"
+		os.MkdirAll(folderPath, 0755)
+	}
+	ctx := getCtx(filepath.Dir(*configFile))
 	if ok, _, _ := isDaemonRunning(ctx); ok {
 		log.Info("Server daemon is already running.")
 		return
@@ -133,7 +142,7 @@ func startServer() {
 	defer ctx.Release()
 
 	log.Info("Starting server daemon...")
-	err = start()
+	err = start(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -143,7 +152,7 @@ func startServer() {
 	signal.Notify(sigKill, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-sigKill
 	log.Info("Received signal to stop...")
-	err = stop()
+	err = stop(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -152,7 +161,7 @@ func startServer() {
 
 func stopServer() {
 	log.Info("Stopping server daemon ...")
-	ctx := getCtx()
+	ctx := getCtx(filepath.Dir(*configFile))
 	if ok, p, _ := isDaemonRunning(ctx); ok {
 		if err := p.Signal(syscall.Signal(syscall.SIGQUIT)); err != nil {
 			log.Fatalf("Failed to kill server daemon %v", err)
