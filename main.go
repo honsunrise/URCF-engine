@@ -15,6 +15,13 @@ import (
 	"github.com/sevlyar/go-daemon"
 	"github.com/zhsyourai/URCF-engine/services/configuration"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
+	logService "github.com/zhsyourai/URCF-engine/services/log"
+	"github.com/zhsyourai/URCF-engine/services/account"
+	"github.com/zhsyourai/URCF-engine/services/netfilter"
+	"github.com/zhsyourai/URCF-engine/services/processes/autostart"
+	"github.com/zhsyourai/URCF-engine/services/processes/watchdog"
+	"github.com/zhsyourai/URCF-engine/services/processes"
+	"github.com/zhsyourai/URCF-engine/services/plugin"
 )
 
 var (
@@ -45,6 +52,20 @@ func start(ctx *daemon.Context) (err error) {
 	gConfServ.Initialize(*configFile)
 	confServ := configuration.GetInstance()
 	confServ.Initialize()
+	accountServ := account.GetInstance()
+	accountServ.Initialize()
+	logServ := logService.GetInstance()
+	logServ.Initialize()
+	netfilterServ := netfilter.GetInstance()
+	netfilterServ.Initialize()
+	watchdogServ := watchdog.GetInstance()
+	watchdogServ.Initialize()
+	autostartServ := autostart.GetInstance()
+	autostartServ.Initialize()
+	processesServ := processes.GetInstance()
+	processesServ.Initialize()
+	pluginServ := plugin.GetInstance()
+	pluginServ.Initialize()
 	err = rpc.StartRPCServer()
 	if err != nil {
 		log.Fatal(err)
@@ -65,6 +86,20 @@ func stop(ctx *daemon.Context) (err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	pluginServ := plugin.GetInstance()
+	pluginServ.UnInitialize()
+	processesServ := processes.GetInstance()
+	processesServ.UnInitialize()
+	autostartServ := autostart.GetInstance()
+	autostartServ.UnInitialize()
+	watchdogServ := watchdog.GetInstance()
+	watchdogServ.UnInitialize()
+	netfilterServ := netfilter.GetInstance()
+	netfilterServ.UnInitialize()
+	logServ := logService.GetInstance()
+	logServ.UnInitialize()
+	accountServ := account.GetInstance()
+	accountServ.UnInitialize()
 	confServ := configuration.GetInstance()
 	confServ.UnInitialize()
 	gConfServ := global_configuration.GetGlobalConfig()

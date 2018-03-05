@@ -10,27 +10,43 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/repositories/autostart"
+	"github.com/zhsyourai/URCF-engine/services/processes/types"
 	"github.com/zhsyourai/URCF-engine/services/processes"
+	"github.com/zhsyourai/URCF-engine/services"
 )
 
 type Service interface {
+	services.ServiceLifeCycle
 	StartAll() error
 	EnableAll() error
 	DisableAll() error
-	Add(process processes.Process, startDelay int32, stopDelay int32, priority int32, parallel bool) (string, error)
+	Add(process types.Process, startDelay int32, stopDelay int32, priority int32, parallel bool) (string, error)
 	Remove(id string) error
 	Disable(id string) error
 	Enable(id string) error
 }
 
 type autoStart struct {
+	services.InitHelper
 	sync.Mutex
 	init             bool
-	processes        map[string]*processes.Process
+	processes        map[string]*types.Process
 	repo             autostart.Repository
 	cache            map[string]*models.AutoStart
 	sortCacheKey     []string
 	processesService processes.Service
+}
+
+func (a *autoStart) Initialize(arguments ...interface{}) error {
+	return a.CallInitialize(func() error {
+		return nil
+	})
+}
+
+func (a *autoStart) UnInitialize(arguments ...interface{}) error {
+	return a.CallUnInitialize(func() error {
+		return nil
+	})
 }
 
 var instance *autoStart
@@ -41,7 +57,7 @@ func GetInstance() Service {
 		instance = &autoStart{
 			cache:            make(map[string]*models.AutoStart),
 			sortCacheKey:     make([]string, 0),
-			processes:        make(map[string]*processes.Process),
+			processes:        make(map[string]*types.Process),
 			repo:             autostart.NewAutostartRepository(),
 			init:             false,
 			processesService: processes.GetInstance(),
@@ -128,7 +144,7 @@ func (a *autoStart) DisableAll() error {
 	return err
 }
 
-func (a *autoStart) Add(process processes.Process, startDelay int32, stopDelay int32, priority int32, parallel bool) (id string, err error) {
+func (a *autoStart) Add(process types.Process, startDelay int32, stopDelay int32, priority int32, parallel bool) (id string, err error) {
 	err = initCache(a)
 	if err != nil {
 		return

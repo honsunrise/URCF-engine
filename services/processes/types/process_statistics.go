@@ -1,4 +1,4 @@
-package processes
+package types
 
 import (
 	"time"

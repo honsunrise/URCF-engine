@@ -93,7 +93,7 @@ func StartHTTPServer() (err error) {
 func configureUAA(app *mvc.Application) {
 	// any dependencies bindings here...
 	app.Register(
-		account.NewAccountService(),
+		account.GetInstance(),
 	)
 
 	// controllers registration here...

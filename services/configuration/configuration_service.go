@@ -56,12 +56,14 @@ type configurationService struct {
 }
 
 func (s *configurationService) Initialize(arguments ...interface{}) error {
-	return s.CallInitialize(func() {
+	return s.CallInitialize(func() error {
+		return nil
 	})
 }
 
 func (s *configurationService) UnInitialize(arguments ...interface{}) error {
-	return s.CallUnInitialize(func() {
+	return s.CallUnInitialize(func() error {
+		return nil
 	})
 }
 

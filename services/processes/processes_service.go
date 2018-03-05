@@ -9,26 +9,42 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/services"
+	"github.com/zhsyourai/URCF-engine/services/processes/types"
 	"github.com/zhsyourai/URCF-engine/services/processes/watchdog"
 )
 
 type Service interface {
+	services.ServiceLifeCycle
 	Start(name string, workDir string, cmd string,
-		args []string, env map[string]string, option models.ProcessOption) (*Process, error)
-	FindByName(name string) *Process
-	Stop(s *Process) error
-	Restart(s *Process) (*Process, error)
-	Kill(s *Process) error
-	Clean(s *Process) error
-	Watch(s *Process) error
-	IsAlive(s *Process) bool
+		args []string, env map[string]string, option models.ProcessOption) (*types.Process, error)
+	FindByName(name string) *types.Process
+	Stop(s *types.Process) error
+	Restart(s *types.Process) (*types.Process, error)
+	Kill(s *types.Process) error
+	Clean(s *types.Process) error
+	Watch(s *types.Process) error
+	IsAlive(s *types.Process) bool
 }
 
 // processesService is a os.processesService wrapper with Statistics and more info that will be used on Master to maintain
 // the process health.
 type processesService struct {
+	services.InitHelper
 	procMap  sync.Map
 	watchDog watchdog.Service
+}
+
+func (s *processesService) Initialize(arguments ...interface{}) error {
+	return s.CallInitialize(func() error {
+		return nil
+	})
+}
+
+func (s *processesService) UnInitialize(arguments ...interface{}) error {
+	return s.CallUnInitialize(func() error {
+		return nil
+	})
 }
 
 var instance *processesService
@@ -70,8 +86,8 @@ func (s *processesService) runAutoReStart() {
 }
 
 func (s *processesService) Start(name string, workDir string, cmd string,
-	args []string, env map[string]string, option models.ProcessOption) (proc *Process, err error) {
-	proc = &Process{
+	args []string, env map[string]string, option models.ProcessOption) (proc *types.Process, err error) {
+	proc = &types.Process{
 		ProcessParam: models.ProcessParam{
 			Name:    name,
 			Cmd:     cmd,
@@ -133,14 +149,14 @@ func (s *processesService) Start(name string, workDir string, cmd string,
 	return
 }
 
-func (s *processesService) FindByName(name string) *Process {
+func (s *processesService) FindByName(name string) *types.Process {
 	if p, ok := s.procMap.Load(name); ok {
-		return p.(*Process)
+		return p.(*types.Process)
 	}
 	return nil
 }
 
-func (s *processesService) Stop(p *Process) error {
+func (s *processesService) Stop(p *types.Process) error {
 	if s.FindByName(p.Name) == nil || p.Process == nil {
 		return errors.New("process does not exist")
 	}
@@ -149,7 +165,7 @@ func (s *processesService) Stop(p *Process) error {
 	return err
 }
 
-func (s *processesService) Restart(p *Process) (proc *Process, err error) {
+func (s *processesService) Restart(p *types.Process) (proc *types.Process, err error) {
 	if s.IsAlive(p) {
 		err := s.Stop(p)
 		if err != nil {
@@ -159,7 +175,7 @@ func (s *processesService) Restart(p *Process) (proc *Process, err error) {
 	return s.Start(p.Name, p.WorkDir, p.Cmd, p.Args, p.Env, p.Option)
 }
 
-func (s *processesService) Kill(p *Process) error {
+func (s *processesService) Kill(p *types.Process) error {
 	if s.FindByName(p.Name) == nil || p.Process == nil {
 		return errors.New("process does not exist")
 	}
@@ -168,16 +184,16 @@ func (s *processesService) Kill(p *Process) error {
 	return err
 }
 
-func (s *processesService) Clean(p *Process) error {
+func (s *processesService) Clean(p *types.Process) error {
 	p.Process.Release()
 	return os.RemoveAll(p.WorkDir)
 }
 
-func (s *processesService) Watch(p *Process) error {
+func (s *processesService) Watch(p *types.Process) error {
 	return s.watchDog.StartWatch(p)
 }
 
-func (s *processesService) IsAlive(p *Process) bool {
+func (s *processesService) IsAlive(p *types.Process) bool {
 	if s.FindByName(p.Name) == nil || p.Process == nil {
 		return false
 	}

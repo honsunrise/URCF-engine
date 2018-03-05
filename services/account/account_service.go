@@ -7,9 +7,11 @@ import (
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/repositories/account"
 	"golang.org/x/crypto/bcrypt"
+	"github.com/zhsyourai/URCF-engine/services"
 )
 
 type Service interface {
+	services.ServiceLifeCycle
 	GetAll() ([]models.Account, error)
 	GetByID(id string) (models.Account, error)
 	DeleteByID(id string) (models.Account, error)
@@ -30,7 +32,20 @@ func GetInstance() Service {
 }
 
 type accountService struct {
+	services.InitHelper
 	repo account.Repository
+}
+
+func (s *accountService) Initialize(arguments ...interface{}) error {
+	return s.CallInitialize(func() error {
+		return nil
+	})
+}
+
+func (s *accountService) UnInitialize(arguments ...interface{}) error {
+	return s.CallUnInitialize(func() error {
+		return nil
+	})
 }
 
 func (s *accountService) Register(username string, password string, role []string) (account models.Account, err error) {

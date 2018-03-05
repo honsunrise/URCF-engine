@@ -1,4 +1,4 @@
-package processes
+package types
 
 import (
 	"io"
@@ -10,7 +10,7 @@ import (
 type ProcessStatus int
 
 const (
-	Running ProcessStatus = iota,
+	Running ProcessStatus = iota
 )
 
 type Process struct {

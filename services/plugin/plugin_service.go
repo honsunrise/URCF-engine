@@ -5,6 +5,7 @@ import (
 
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/repositories/plugin"
+	"github.com/zhsyourai/URCF-engine/services"
 )
 
 type InstallFlag int32
@@ -20,6 +21,7 @@ const (
 )
 
 type Service interface {
+	services.ServiceLifeCycle
 	GetAll() ([]models.Plugin, error)
 	GetByID(id string) (models.Plugin, error)
 	Uninstall(id string, flag UnInstallFlag) error
@@ -40,7 +42,20 @@ func GetInstance() Service {
 }
 
 type pluginService struct {
+	services.InitHelper
 	repo plugin.Repository
+}
+
+func (s *pluginService) Initialize(arguments ...interface{}) error {
+	return s.CallInitialize(func() error {
+		return nil
+	})
+}
+
+func (s *pluginService) UnInitialize(arguments ...interface{}) error {
+	return s.CallUnInitialize(func() error {
+		return nil
+	})
 }
 
 func (s *pluginService) GetAll() ([]models.Plugin, error) {
