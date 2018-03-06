@@ -4,15 +4,15 @@ import (
 	"net/rpc"
 	"net/http"
 	"net"
-	"github.com/zhsyourai/URCF-engine/services/configuration"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/services/account"
+	"github.com/zhsyourai/URCF-engine/services/global_configuration"
 )
 
 func StartRPCServer() (err error) {
-	confServ := configuration.GetInstance()
-	value, err := confServ.Get("system.rpc.address")
-	address := value.Value.(string)
+	confServ := global_configuration.GetGlobalConfig()
+	value := confServ.Get()
+	address := value.Rpc.Address
 	err = rpc.RegisterName("AccountRPC", &AccountRPC{
 		service: account.GetInstance(),
 	})
@@ -24,8 +24,8 @@ func StartRPCServer() (err error) {
 	if err != nil {
 		log.Fatal("listen error:", err)
 	}
-	http.Serve(l, nil)
-	return
+	log.Info("RPC listen at: ", address)
+	return http.Serve(l, nil)
 }
 
 func StopRPCServer() (err error) {

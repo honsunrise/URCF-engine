@@ -28,7 +28,14 @@ inline       Inline the field, which must be a struct or a map,
              they were part of the outer struct. For maps, keys must
              not conflict with the yaml keys of other struct fields.
 */
+
 type GlobalConfig struct {
+	Rpc struct {
+		Address string
+	}
+	Sys struct{
+		WorkPath string
+	}
 }
 
 type Service interface {
@@ -42,7 +49,12 @@ var once sync.Once
 
 func GetGlobalConfig() Service {
 	once.Do(func() {
-		instance = &globalConfigService{}
+		instance = &globalConfigService{
+			only: GlobalConfig{
+				Rpc: struct{ Address string }{Address: "localhost:8228"},
+				Sys: struct{ WorkPath string }{WorkPath: "./"},
+			},
+		}
 	})
 	return instance
 }

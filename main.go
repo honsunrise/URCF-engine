@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"path/filepath"
 	"syscall"
 
 	log "github.com/sirupsen/logrus"
@@ -37,7 +36,13 @@ var (
 )
 
 func main() {
-	switch kingpin.MustParse(app.Parse(os.Args[1:])) {
+	command := kingpin.MustParse(app.Parse(os.Args[1:]))
+	if *configFile == "" {
+		folderPath := os.Getenv("HOME") + "/.URCF"
+		*configFile = folderPath + "/config.yml"
+		os.MkdirAll(folderPath, 0755)
+	}
+	switch command {
 	case serveStop.FullCommand():
 		stopServer()
 	case serve.FullCommand():
@@ -48,8 +53,6 @@ func main() {
 }
 
 func start(ctx *daemon.Context) (err error) {
-	gConfServ := global_configuration.GetGlobalConfig()
-	gConfServ.Initialize(*configFile)
 	confServ := configuration.GetInstance()
 	confServ.Initialize()
 	accountServ := account.GetInstance()
@@ -66,14 +69,18 @@ func start(ctx *daemon.Context) (err error) {
 	processesServ.Initialize()
 	pluginServ := plugin.GetInstance()
 	pluginServ.Initialize()
-	err = rpc.StartRPCServer()
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = http.StartHTTPServer()
-	if err != nil {
-		log.Fatal(err)
-	}
+	go func() {
+		err = rpc.StartRPCServer()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+	go func() {
+		err = http.StartHTTPServer()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 	return
 }
 
@@ -102,8 +109,6 @@ func stop(ctx *daemon.Context) (err error) {
 	accountServ.UnInitialize()
 	confServ := configuration.GetInstance()
 	confServ.UnInitialize()
-	gConfServ := global_configuration.GetGlobalConfig()
-	gConfServ.UnInitialize()
 	return
 }
 
@@ -121,11 +126,13 @@ func isDaemonRunning(ctx *daemon.Context) (bool, *os.Process, error) {
 	return true, d, nil
 }
 
-func getCtx(folderPath string) *daemon.Context {
+func getCtx() *daemon.Context {
+	confServ := global_configuration.GetGlobalConfig()
+	workPath := confServ.Get().Sys.WorkPath
 	ctx := &daemon.Context{
-		PidFileName: path.Join(folderPath, "main.pid"),
+		PidFileName: path.Join(workPath, "main.pid"),
 		PidFilePerm: 0644,
-		LogFileName: path.Join(folderPath, "main.log"),
+		LogFileName: path.Join(workPath, "main.log"),
 		LogFilePerm: 0640,
 		WorkDir:     "./",
 		Umask:       027,
@@ -133,14 +140,23 @@ func getCtx(folderPath string) *daemon.Context {
 	return ctx
 }
 
-func waitForStartResult() bool {
+func waitForStartResult(p *os.Process) bool {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGUSR1, syscall.SIGUSR2)
-	waitedSignal := <-signalChan
-	if waitedSignal == syscall.SIGUSR1 {
-		return true
-	}
-	return false
+	ok := make(chan bool)
+	go func() {
+		waitedSignal := <-signalChan
+		if waitedSignal == syscall.SIGUSR1 {
+			ok <- true
+		}
+		ok <- false
+	}()
+
+	go func() {
+		p.Wait()
+		ok <- false
+	}()
+	return <-ok
 }
 
 func sendSignal(pid int, signal os.Signal) error {
@@ -153,12 +169,9 @@ func sendSignal(pid int, signal os.Signal) error {
 }
 
 func startServer() {
-	if *configFile == "" {
-		folderPath := os.Getenv("HOME") + "/.URCF"
-		*configFile = folderPath + "/config.yml"
-		os.MkdirAll(folderPath, 0755)
-	}
-	ctx := getCtx(filepath.Dir(*configFile))
+	gConfServ := global_configuration.GetGlobalConfig()
+	gConfServ.Initialize(*configFile)
+	ctx := getCtx()
 	if ok, _, _ := isDaemonRunning(ctx); ok {
 		log.Info("Server daemon is already running.")
 		return
@@ -170,8 +183,11 @@ func startServer() {
 	}
 
 	if d != nil {
-		waitForStartResult()
-		log.Info("Server daemon started")
+		if waitForStartResult(d) {
+			log.Info("Server daemon started")
+		} else {
+			log.Info("Server daemon start failed, detail see log file")
+		}
 		return
 	}
 	defer ctx.Release()
@@ -191,19 +207,28 @@ func startServer() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	gConfServ.UnInitialize(*configFile)
 	os.Exit(0)
 }
 
 func stopServer() {
+	gConfServ := global_configuration.GetGlobalConfig()
+	gConfServ.Initialize(*configFile)
 	log.Info("Stopping server daemon ...")
-	ctx := getCtx(filepath.Dir(*configFile))
-	if ok, p, _ := isDaemonRunning(ctx); ok {
+	ctx := getCtx()
+	defer ctx.Release()
+	if ok, p, err := isDaemonRunning(ctx); ok {
 		if err := p.Signal(syscall.Signal(syscall.SIGQUIT)); err != nil {
 			log.Fatalf("Failed to kill server daemon %v", err)
 		}
 	} else {
-		ctx.Release()
-		log.Info("Server Instance is not running.")
+		if err == nil {
+			log.Fatal("Search server install error", err)
+		} else {
+			log.Info("Server Instance is not running.")
+		}
 	}
 	log.Info("Server daemon terminated")
+	gConfServ.UnInitialize(*configFile)
+	os.Exit(0)
 }

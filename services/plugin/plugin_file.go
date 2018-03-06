@@ -8,6 +8,7 @@ import (
 	"os"
 
 	log "github.com/sirupsen/logrus"
+	"strconv"
 )
 
 type PositionError struct {
@@ -25,28 +26,49 @@ func (e *PositionError) Error() string {
 	return msg
 }
 
-// Initial magic number for ELF files.
-const UPPMAG = ".UPP"
+// Version is found in Header.Ident[EI_VERSION] and Header.Version.
+type Version uint32
 
-type FileHead struct {
-	Mag       [4]byte
-	Machine   uint16 /* Machine architecture. */
-	Version   uint32 /* ELF format version. */
-	Flags     uint32 /* Architecture-specific flags. */
-	Hsize     uint16 /* Size of header in bytes. */
-	Shentsize uint16 /* Size of section header entry. */
-	Shoff     uint32 /* Section header file offset. */
-	Shnum     uint16 /* Number of section header entries. */
+// Machine is found in Header.Machine.
+type Machine uint16
+
+const (
+	M_NONE    Machine = 0 /* Unknown machine. */
+	M_X86     Machine = 1 /* x86. */
+	M_X86_64  Machine = 2 /* x86-64. */
+	M_ARM     Machine = 3 /* ARM. */
+	M_AARCH64 Machine = 4 /* ARM 64-bit Architecture (AArch64) */
+	M_MIPS    Machine = 5 /* MIPS. */
+	M_IA_64   Machine = 6 /* Intel IA-64 Processor. */
+)
+
+var machineStrings = []intName{
+	{0, "M_NONE"},
+	{1, "M_X86"},
+	{2, "M_X86_64"},
+	{3, "M_ARM"},
+	{4, "M_AARCH64"},
+	{5, "M_MIPS"},
+	{6, "M_IA_64"},
 }
 
-type FileSection struct {
-	Type  uint32 /* Section type. */
-	Flags uint32 /* Section flags. */
-	Off   uint32 /* Offset in file. */
-	Size  uint32 /* Size in bytes. */
+func (i Machine) String() string   { return stringName(uint32(i), machineStrings, false) }
+func (i Machine) GoString() string { return stringName(uint32(i), machineStrings, true) }
+
+type Flags uint32
+
+var flagsStrings = []intName{
+	{0, "F_NONE"},
 }
+
+func (i Flags) String() string   { return stringName(uint32(i), flagsStrings, false) }
+func (i Flags) GoString() string { return stringName(uint32(i), flagsStrings, true) }
 
 type File struct {
+	io.Closer
+	Version Version
+	Machine Machine
+	Flags   Flags
 }
 
 func (*File) Open(name string) {
@@ -81,159 +103,70 @@ func NewFile(r io.ReaderAt) (*File, error) {
 	if _, err := sr.ReadAt(mag[0:], 0); err != nil {
 		return nil, err
 	}
-	if mag[0] != '.' || mag[1] != 'E' || mag[2] != 'L' || mag[3] != 'F' {
+	if mag[0] != '.' || mag[1] != 'U' || mag[2] != 'P' || mag[3] != 'P' {
 		return nil, &PositionError{0, "bad magic number", mag[0:4]}
 	}
 
 	f := new(File)
 
-	f.Version = Version(ident[EI_VERSION])
-	if f.Version != EV_CURRENT {
-		return nil, &PositionError{0, "unknown ELF version", f.Version}
-	}
-
 	// Read ELF file header
-	var phoff int64
-	var phentsize, phnum int
 	var shoff int64
-	var shentsize, shnum, shstrndx int
-	shstrndx = -1
-	switch f.Class {
-	case ELFCLASS32:
-		hdr := new(Header32)
-		sr.Seek(0, io.SeekStart)
-		if err := binary.Read(sr, f.ByteOrder, hdr); err != nil {
-			return nil, err
-		}
-		f.Type = Type(hdr.Type)
-		f.Machine = Machine(hdr.Machine)
-		f.Entry = uint64(hdr.Entry)
-		if v := Version(hdr.Version); v != f.Version {
-			return nil, &PositionError{0, "mismatched ELF version", v}
-		}
-		phoff = int64(hdr.Phoff)
-		phentsize = int(hdr.Phentsize)
-		phnum = int(hdr.Phnum)
-		shoff = int64(hdr.Shoff)
-		shentsize = int(hdr.Shentsize)
-		shnum = int(hdr.Shnum)
-		shstrndx = int(hdr.Shstrndx)
-	case ELFCLASS64:
-		hdr := new(Header64)
-		sr.Seek(0, io.SeekStart)
-		if err := binary.Read(sr, f.ByteOrder, hdr); err != nil {
-			return nil, err
-		}
-		f.Type = Type(hdr.Type)
-		f.Machine = Machine(hdr.Machine)
-		f.Entry = hdr.Entry
-		if v := Version(hdr.Version); v != f.Version {
-			return nil, &PositionError{0, "mismatched ELF version", v}
-		}
-		phoff = int64(hdr.Phoff)
-		phentsize = int(hdr.Phentsize)
-		phnum = int(hdr.Phnum)
-		shoff = int64(hdr.Shoff)
-		shentsize = int(hdr.Shentsize)
-		shnum = int(hdr.Shnum)
-		shstrndx = int(hdr.Shstrndx)
-	}
+	var shentsize, shnum int
 
-	if shnum > 0 && shoff > 0 && (shstrndx < 0 || shstrndx >= shnum) {
-		return nil, &PositionError{0, "invalid ELF shstrndx", shstrndx}
-	}
-
-	// Read section headers
-	f.Sections = make([]*Section, shnum)
-	names := make([]uint32, shnum)
-	for i := 0; i < shnum; i++ {
-		off := shoff + int64(i)*int64(shentsize)
-		sr.Seek(off, io.SeekStart)
-		s := new(Section)
-		switch f.Class {
-		case ELFCLASS32:
-			sh := new(Section32)
-			if err := binary.Read(sr, f.ByteOrder, sh); err != nil {
-				return nil, err
-			}
-			names[i] = sh.Name
-			s.SectionHeader = SectionHeader{
-				Type:      SectionType(sh.Type),
-				Flags:     SectionFlag(sh.Flags),
-				Addr:      uint64(sh.Addr),
-				Offset:    uint64(sh.Off),
-				FileSize:  uint64(sh.Size),
-				Link:      sh.Link,
-				Info:      sh.Info,
-				Addralign: uint64(sh.Addralign),
-				Entsize:   uint64(sh.Entsize),
-			}
-		case ELFCLASS64:
-			sh := new(Section64)
-			if err := binary.Read(sr, f.ByteOrder, sh); err != nil {
-				return nil, err
-			}
-			names[i] = sh.Name
-			s.SectionHeader = SectionHeader{
-				Type:      SectionType(sh.Type),
-				Flags:     SectionFlag(sh.Flags),
-				Offset:    sh.Off,
-				FileSize:  sh.Size,
-				Addr:      sh.Addr,
-				Link:      sh.Link,
-				Info:      sh.Info,
-				Addralign: sh.Addralign,
-				Entsize:   sh.Entsize,
-			}
-		}
-		s.sr = io.NewSectionReader(r, int64(s.Offset), int64(s.FileSize))
-
-		if s.Flags&SHF_COMPRESSED == 0 {
-			s.ReaderAt = s.sr
-			s.Size = s.FileSize
-		} else {
-			// Read the compression header.
-			switch f.Class {
-			case ELFCLASS32:
-				ch := new(Chdr32)
-				if err := binary.Read(s.sr, f.ByteOrder, ch); err != nil {
-					return nil, err
-				}
-				s.compressionType = CompressionType(ch.Type)
-				s.Size = uint64(ch.Size)
-				s.Addralign = uint64(ch.Addralign)
-				s.compressionOffset = int64(binary.Size(ch))
-			case ELFCLASS64:
-				ch := new(Chdr64)
-				if err := binary.Read(s.sr, f.ByteOrder, ch); err != nil {
-					return nil, err
-				}
-				s.compressionType = CompressionType(ch.Type)
-				s.Size = ch.Size
-				s.Addralign = ch.Addralign
-				s.compressionOffset = int64(binary.Size(ch))
-			}
-		}
-
-		f.Sections[i] = s
-	}
-
-	if len(f.Sections) == 0 {
-		return f, nil
-	}
-
-	// Load section header string table.
-	shstrtab, err := f.Sections[shstrndx].Data()
-	if err != nil {
+	hdr := new(FileHead)
+	sr.Seek(0, io.SeekStart)
+	if err := binary.Read(sr, binary.BigEndian, hdr); err != nil {
 		return nil, err
 	}
-	for i, s := range f.Sections {
-		var ok bool
-		s.Name, ok = getString(shstrtab, int(names[i]))
-		if !ok {
-			return nil, &PositionError{shoff + int64(i*shentsize), "bad section name index", names[i]}
-		}
+	f.Version = Version(hdr.Version)
+	f.Machine = Machine(hdr.Machine)
+	f.Flags = Flags(hdr.Flags)
+	shoff = int64(hdr.Shoff)
+	shentsize = int(hdr.Shentsize)
+	shnum = int(hdr.Shnum)
+
+	if shnum < 0 {
+		return nil, &PositionError{0, "invalid UPP shnum", shnum}
+	}
+
+	if shoff < 0 {
+		return nil, &PositionError{0, "invalid UPP shoff", shoff}
+	}
+
+	if shentsize < 0 {
+		return nil, &PositionError{0, "invalid UPP shoff", shentsize}
 	}
 
 	return f, nil
+}
+
+type intName struct {
+	i uint32
+	s string
+}
+
+func stringName(i uint32, names []intName, goSyntax bool) string {
+	for _, n := range names {
+		if n.i == i {
+			if goSyntax {
+				return "upp." + n.s
+			}
+			return n.s
+		}
+	}
+
+	// second pass - look for smaller to add with.
+	// assume sorted already
+	for j := len(names) - 1; j >= 0; j-- {
+		n := names[j]
+		if n.i < i {
+			s := n.s
+			if goSyntax {
+				s = "upp." + s
+			}
+			return s + "+" + strconv.FormatUint(uint64(i-n.i), 10)
+		}
+	}
+
+	return strconv.FormatUint(uint64(i), 10)
 }

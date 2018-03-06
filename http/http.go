@@ -31,7 +31,7 @@ var (
 	shutdownTimeout = 5 * time.Second
 )
 
-func StartHTTPServer() (err error) {
+func StartHTTPServer() error {
 
 	s := secure.New(secure.Options{
 		AllowedHosts:            []string{"ssl.example.com"},                                                                                                                         // AllowedHosts is a list of fully qualified domain names that are allowed. Default is empty list, which allows any and all host names.
@@ -82,12 +82,9 @@ func StartHTTPServer() (err error) {
 		// close all hosts
 		app.Shutdown(ctx)
 	})
-	go func() {
-		app.Run(iris.Addr(":8080"), iris.WithoutVersionChecker,
-			iris.WithoutInterruptHandler,
-			iris.WithConfiguration(iris.YAML("./http/configs/iris.yml")))
-	}()
-	return
+
+	return app.Run(iris.Addr(":8080"), iris.WithoutVersionChecker,
+		iris.WithoutInterruptHandler, iris.WithConfiguration(iris.YAML("./http/configs/iris.yml")))
 }
 
 func configureUAA(app *mvc.Application) {
