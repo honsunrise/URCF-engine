@@ -9,6 +9,8 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/services/global_configuration"
+	"path"
 )
 
 // Repository handles the basic operations of a AutoStart entity/model.
@@ -26,7 +28,9 @@ type Repository interface {
 // NewAutostartRepository returns a new AutoStart memory-based repository,
 // the one and only repository type in our example.
 func NewAutostartRepository() Repository {
-	db, err := leveldb.OpenFile("AutoStart.db", nil)
+	confServ := global_configuration.GetGlobalConfig()
+	dbFile := path.Join(confServ.Get().Sys.WorkPath, "database", "AutoStart.db")
+	db, err := leveldb.OpenFile(dbFile, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

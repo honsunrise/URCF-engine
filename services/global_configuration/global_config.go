@@ -29,13 +29,17 @@ inline       Inline the field, which must be a struct or a map,
              not conflict with the yaml keys of other struct fields.
 */
 
+type Rpc struct {
+	Port uint16
+}
+
+type Sys struct{
+	WorkPath string
+}
+
 type GlobalConfig struct {
-	Rpc struct {
-		Address string
-	}
-	Sys struct{
-		WorkPath string
-	}
+	Rpc Rpc
+	Sys Sys
 }
 
 type Service interface {
@@ -51,8 +55,8 @@ func GetGlobalConfig() Service {
 	once.Do(func() {
 		instance = &globalConfigService{
 			only: GlobalConfig{
-				Rpc: struct{ Address string }{Address: "localhost:8228"},
-				Sys: struct{ WorkPath string }{WorkPath: "./"},
+				Rpc: Rpc{Port: 8228},
+				Sys: Sys{WorkPath: "./"},
 			},
 		}
 	})

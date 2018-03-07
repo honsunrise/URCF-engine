@@ -36,7 +36,7 @@ var (
 )
 
 func main() {
-	command := kingpin.MustParse(app.Parse(os.Args[1:]))
+	command := kingpin.Parse()
 	if *configFile == "" {
 		folderPath := os.Getenv("HOME") + "/.URCF"
 		*configFile = folderPath + "/config.yml"
@@ -129,6 +129,9 @@ func isDaemonRunning(ctx *daemon.Context) (bool, *os.Process, error) {
 func getCtx() *daemon.Context {
 	confServ := global_configuration.GetGlobalConfig()
 	workPath := confServ.Get().Sys.WorkPath
+	if _, err := os.Stat(workPath); os.IsNotExist(err) {
+		os.MkdirAll(workPath, 0755)
+	}
 	ctx := &daemon.Context{
 		PidFileName: path.Join(workPath, "main.pid"),
 		PidFilePerm: 0644,

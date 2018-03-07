@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/services/global_configuration"
+	"path"
 )
 
 // Repository handles the basic operations of a plugin entity/model.
@@ -26,7 +28,9 @@ type Repository interface {
 // NewPluginRepository returns a new plugin memory-based repository,
 // the one and only repository type in our example.
 func NewPluginRepository() Repository {
-	db, err := leveldb.OpenFile("Plugin.db", nil)
+	confServ := global_configuration.GetGlobalConfig()
+	dbFile := path.Join(confServ.Get().Sys.WorkPath, "database", "Plugin.db")
+	db, err := leveldb.OpenFile(dbFile, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -10,6 +10,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/zhsyourai/URCF-engine/services/global_configuration"
+	"path"
 )
 
 // Repository handles the basic operations of a account entity/model.
@@ -27,7 +29,9 @@ type Repository interface {
 // NewConfigurationRepository returns a new account memory-based repository,
 // the one and only repository type in our example.
 func NewConfigurationRepository() Repository {
-	db, err := leveldb.OpenFile("Configuration.db", nil)
+	confServ := global_configuration.GetGlobalConfig()
+	dbFile := path.Join(confServ.Get().Sys.WorkPath, "database", "Configuration.db")
+	db, err := leveldb.OpenFile(dbFile, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
