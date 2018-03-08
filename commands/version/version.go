@@ -5,12 +5,14 @@ import (
 	"fmt"
 )
 
-func Prepare(app *kingpin.Application) (*kingpin.CmdClause, func() error) {
+func Prepare(app *kingpin.Application) map[string]func() error {
 	version := app.Command("version", "get version")
 	currentVersion := "0.1.0"
 
-	return version, func() error {
-		fmt.Println(currentVersion)
-		return nil
+	return map[string]func() error{
+		version.FullCommand(): func() error {
+			fmt.Println(currentVersion)
+			return nil
+		},
 	}
 }

@@ -1,13 +1,24 @@
-package rpc
+package server
 
 import (
 	"github.com/zhsyourai/URCF-engine/rpc/shared"
 	"github.com/zhsyourai/URCF-engine/services/account"
 	"github.com/zhsyourai/URCF-engine/models"
+	"net/rpc"
 )
 
 type AccountRPC struct {
 	service account.Service
+}
+
+func RegisterAccountRPC() error {
+	err := rpc.RegisterName("AccountRPC", &AccountRPC{
+		service: account.GetInstance(),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (t *AccountRPC) Register(args *shared.RegisterParam, reply *models.Account) (err error) {

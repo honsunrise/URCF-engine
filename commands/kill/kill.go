@@ -10,34 +10,36 @@ import (
 	"github.com/kataras/iris/core/errors"
 )
 
-func Prepare(app *kingpin.Application) (*kingpin.CmdClause, func() error) {
+func Prepare(app *kingpin.Application) map[string]func() error {
 	serveStop := app.Command("kill", "Kill daemon URCF.")
 	configFile := serveStop.Flag("config-file", "Config file location").String()
 
-	return serveStop, func() error {
-		if *configFile == "" {
-			folderPath := os.Getenv("HOME") + "/.URCF"
-			*configFile = folderPath + "/config.yml"
-			os.MkdirAll(folderPath, 0755)
-		}
-		gConfServ := global_configuration.GetGlobalConfig()
-		gConfServ.Initialize(*configFile)
-		defer gConfServ.UnInitialize(*configFile)
-		log.Info("Stopping server daemon ...")
-		ctx := daemon.GetCtx()
-		defer ctx.Release()
-		if ok, p, err := daemon.IsDaemonRunning(ctx); ok {
-			if err := p.Signal(syscall.Signal(syscall.SIGQUIT)); err != nil {
-				return err
+	return map[string]func() error{
+		serveStop.FullCommand(): func() error {
+			if *configFile == "" {
+				folderPath := os.Getenv("HOME") + "/.URCF"
+				*configFile = folderPath + "/config.yml"
+				os.MkdirAll(folderPath, 0755)
 			}
-		} else {
-			if err == nil {
-				return errors.New("Search server instance error")
+			gConfServ := global_configuration.GetGlobalConfig()
+			gConfServ.Initialize(*configFile)
+			defer gConfServ.UnInitialize(*configFile)
+			log.Info("Stopping server daemon ...")
+			ctx := daemon.GetCtx()
+			defer ctx.Release()
+			if ok, p, err := daemon.IsDaemonRunning(ctx); ok {
+				if err := p.Signal(syscall.Signal(syscall.SIGQUIT)); err != nil {
+					return err
+				}
 			} else {
-				log.Info("Server Instance is not running.")
+				if err == nil {
+					return errors.New("Search server instance error")
+				} else {
+					log.Info("Server Instance is not running.")
+				}
 			}
-		}
-		log.Info("Server daemon terminated")
-		return nil
+			log.Info("Server daemon terminated")
+			return nil
+		},
 	}
 }

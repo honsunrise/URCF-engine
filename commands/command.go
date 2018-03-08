@@ -14,12 +14,13 @@ var app = kingpin.New("urcf", "Universal Remote Config Framework Engine")
 
 var registry = make(map[string]func() error)
 
-func register(cmd *kingpin.CmdClause, processor func() error)  {
-	command := cmd.FullCommand()
-	if registry[command] != nil {
-		panic(fmt.Errorf("command %q is already registered", command))
+func register(processors map[string]func() error)  {
+	for command, processor := range processors {
+		if registry[command] != nil {
+			panic(fmt.Errorf("command %q is already registered", command))
+		}
+		registry[command] = processor
 	}
-	registry[command] = processor
 }
 
 func init() {

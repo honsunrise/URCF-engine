@@ -5,18 +5,16 @@ import (
 	"net/http"
 	"net"
 	log "github.com/sirupsen/logrus"
-	"github.com/zhsyourai/URCF-engine/services/account"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
 	"strconv"
+	"github.com/zhsyourai/URCF-engine/rpc/server"
 )
 
 func StartRPCServer() (err error) {
 	confServ := global_configuration.GetGlobalConfig()
 	value := confServ.Get()
 	address := "localhost:" + strconv.FormatInt(int64(value.Rpc.Port), 10)
-	err = rpc.RegisterName("AccountRPC", &AccountRPC{
-		service: account.GetInstance(),
-	})
+	err = server.RegisterAccountRPC()
 	if err != nil {
 		log.Fatal("Register Account RPC error:", err)
 	}

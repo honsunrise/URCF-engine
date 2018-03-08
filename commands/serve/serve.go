@@ -21,49 +21,50 @@ import (
 	"github.com/kataras/iris/core/errors"
 )
 
-func Prepare(app *kingpin.Application) (*kingpin.CmdClause, func() error) {
+func Prepare(app *kingpin.Application) map[string]func() error {
 	serve      := app.Command("serve", "Create URCF daemon.")
 	configFile := serve.Flag("config-file", "Config file location").String()
 	startAsDaemon := serve.Flag("daemon", "Config file location").Default("false").Bool()
-
-	return serve, func() error {
-		if *configFile == "" {
-			folderPath := os.Getenv("HOME") + "/.URCF"
-			*configFile = folderPath + "/config.yml"
-			os.MkdirAll(folderPath, 0755)
-		}
-		*startAsDaemon = true
-
-		gConfServ := global_configuration.GetGlobalConfig()
-		gConfServ.Initialize(*configFile)
-		defer gConfServ.UnInitialize(*configFile)
-		if *startAsDaemon {
-			ctx := daemon.GetCtx()
-			defer ctx.Release()
-
-			if ok, _, _ := daemon.IsDaemonRunning(ctx); ok {
-				return errors.New("server daemon is already running.")
+	return map[string]func() error{
+		serve.FullCommand(): func() error {
+			if *configFile == "" {
+				folderPath := os.Getenv("HOME") + "/.URCF"
+				*configFile = folderPath + "/config.yml"
+				os.MkdirAll(folderPath, 0755)
 			}
+			*startAsDaemon = true
 
-			d, err := ctx.Reborn()
-			if err != nil {
-				return err
-			}
+			gConfServ := global_configuration.GetGlobalConfig()
+			gConfServ.Initialize(*configFile)
+			defer gConfServ.UnInitialize(*configFile)
+			if *startAsDaemon {
+				ctx := daemon.GetCtx()
+				defer ctx.Release()
 
-			if d != nil {
-				if waitForStartResult(d) {
-					log.Info("Server daemon started")
-				} else {
-					return errors.New("Server daemon start failed, detail see log file")
+				if ok, _, _ := daemon.IsDaemonRunning(ctx); ok {
+					return errors.New("server daemon is already running.")
 				}
-				return nil
+
+				d, err := ctx.Reborn()
+				if err != nil {
+					return err
+				}
+
+				if d != nil {
+					if waitForStartResult(d) {
+						log.Info("Server daemon started")
+					} else {
+						return errors.New("Server daemon start failed, detail see log file")
+					}
+					return nil
+				}
+				log.Info("Starting server daemon...")
+				return run()
+			} else {
+				return run()
 			}
-			log.Info("Starting server daemon...")
-			return run()
-		} else {
-			return run()
-		}
-		return nil
+			return nil
+		},
 	}
 }
 
