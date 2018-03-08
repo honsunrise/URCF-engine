@@ -32,7 +32,6 @@ func Prepare(app *kingpin.Application) map[string]func() error {
 				*configFile = folderPath + "/config.yml"
 				os.MkdirAll(folderPath, 0755)
 			}
-			*startAsDaemon = true
 
 			gConfServ := global_configuration.GetGlobalConfig()
 			gConfServ.Initialize(*configFile)
@@ -59,23 +58,26 @@ func Prepare(app *kingpin.Application) map[string]func() error {
 					return nil
 				}
 				log.Info("Starting server daemon...")
-				return run()
+				return run(*startAsDaemon)
 			} else {
-				return run()
+				return run(*startAsDaemon)
 			}
 			return nil
 		},
 	}
 }
 
-func run() error {
+func run(isDaemon bool) error {
 	err := start()
 	if err != nil {
 		log.Fatal(err)
 		return err
 	}
-	sendSignal(os.Getppid(), syscall.SIGUSR1)
-	log.Info("Server daemon started")
+	if isDaemon {
+		sendSignal(os.Getppid(), syscall.SIGUSR1)
+		log.Info("Server daemon started")
+	}
+
 	sigKill := make(chan os.Signal, 1)
 	signal.Notify(sigKill, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-sigKill
