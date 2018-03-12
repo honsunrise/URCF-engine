@@ -8,7 +8,13 @@ import (
 	"github.com/zhsyourai/URCF-engine/repositories/account"
 	"golang.org/x/crypto/bcrypt"
 	"github.com/zhsyourai/URCF-engine/services"
+	"github.com/kataras/iris/core/errors"
+	log "github.com/sirupsen/logrus"
 )
+
+var UserNotFoundErr = errors.New("user not found")
+var OldPasswordNotCorrectErr = errors.New("old password not correct")
+var PasswordModifyErr = errors.New("password modify error")
 
 type Service interface {
 	services.ServiceLifeCycle
@@ -17,6 +23,7 @@ type Service interface {
 	DeleteByID(id string) (models.Account, error)
 	Register(id string, password string, role []string) (models.Account, error)
 	Verify(id string, password string) (models.Account, error)
+	ChangePassword(id string, oldPassword string, newPassword string) error
 }
 
 var instance *accountService
@@ -70,17 +77,68 @@ func (s *accountService) Register(username string, password string, role []strin
 }
 
 func (s *accountService) GetAll() ([]models.Account, error) {
-	return s.repo.FindAll()
+	accs, err := s.repo.FindAll()
+	if err != nil {
+		log.Error(err)
+		return []models.Account{}, err
+	}
+	return accs, nil
 }
 
 func (s *accountService) GetByID(id string) (models.Account, error) {
-	return s.repo.FindAccountByID(id)
+	acc, err := s.repo.FindAccountByID(id)
+	if err != nil {
+		log.Error(err)
+		return models.Account{}, UserNotFoundErr
+	}
+	return acc, nil
 }
 
 func (s *accountService) DeleteByID(id string) (models.Account, error) {
-	return s.repo.DeleteAccountByID(id)
+	acc, err := s.repo.DeleteAccountByID(id)
+	if err != nil {
+		log.Error(err)
+		return models.Account{}, UserNotFoundErr
+	}
+	return acc, nil
 }
 
-func (s *accountService) Verify(id string, password string) (account models.Account, err error) {
-	return
+func (s *accountService) Verify(id string, password string) (models.Account, error) {
+	acc, err := s.repo.FindAccountByID(id)
+	if err != nil {
+		log.Error(err)
+		return models.Account{}, UserNotFoundErr
+	}
+	err = bcrypt.CompareHashAndPassword(acc.Password, []byte(password))
+	if err != nil {
+		log.Error(err)
+		return models.Account{}, UserNotFoundErr
+	}
+	return acc, nil
+}
+
+func (s *accountService) ChangePassword(id string, oldPassword string, newPassword string) error {
+	acc, err := s.repo.FindAccountByID(id)
+	if err != nil {
+		log.Error(err)
+		return UserNotFoundErr
+	}
+	err = bcrypt.CompareHashAndPassword(acc.Password, []byte(oldPassword))
+	if err != nil {
+		log.Error(err)
+		return OldPasswordNotCorrectErr
+	}
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		log.Error(err)
+		return PasswordModifyErr
+	}
+	err = s.repo.UpdateAccountByID(id, map[string]interface{} {
+		"Password": hashedPassword,
+	})
+	if err != nil {
+		log.Error(err)
+		return PasswordModifyErr
+	}
+	return nil
 }

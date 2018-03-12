@@ -12,6 +12,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
 	"path"
+	"errors"
+	"fmt"
 )
 
 // Repository handles the basic operations of a account entity/model.
@@ -160,7 +162,12 @@ func (r *accountRepository) UpdateAccountByID(id string, account map[string]inte
 	}
 	s := reflect.ValueOf(&originAccount).Elem()
 	for k, v := range account {
-		s.FieldByName(k).Set(reflect.ValueOf(v))
+		field := s.FieldByName(k)
+		if field.IsValid() {
+			field.Set(reflect.ValueOf(v))
+		} else {
+			return errors.New(fmt.Sprintf("field %s not exist", k))
+		}
 	}
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)

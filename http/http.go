@@ -4,9 +4,8 @@ import (
 	stdContext "context"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/didip/tollbooth"
-	"github.com/iris-contrib/middleware/cors"
+	corsMiddleware "github.com/iris-contrib/middleware/cors"
 	prometheusMiddleware "github.com/iris-contrib/middleware/prometheus"
 	"github.com/iris-contrib/middleware/secure"
 	"github.com/iris-contrib/middleware/tollboothic"
@@ -14,24 +13,16 @@ import (
 	"github.com/kataras/iris/mvc"
 	"github.com/zhsyourai/URCF-engine/http/helper"
 	"github.com/zhsyourai/URCF-engine/services/account"
-	"github.com/zhsyourai/URCF-engine/http/controllers"
+	"github.com/zhsyourai/URCF-engine/http/controllers/anonymous"
+	"github.com/zhsyourai/URCF-engine/http/controllers/auth"
 )
-
-func myHandler(ctx iris.Context) {
-	user := ctx.Values().Get("jwt").(*jwt.Token)
-
-	ctx.Writef("This is an authenticated request\n")
-	ctx.Writef("Claim content:\n")
-
-	ctx.Writef("%s", user.Signature)
-}
 
 var (
 	app             = iris.New()
 	shutdownTimeout = 5 * time.Second
 )
 
-const debug = false
+const debug = true
 
 func StartHTTPServer() error {
 	secureConf := secure.New(secure.Options{
@@ -52,46 +43,47 @@ func StartHTTPServer() error {
 	})
 
 	prometheus := prometheusMiddleware.New("serviceName", 300, 1200, 5000)
-	crs := cors.New(cors.Options{
+	cors := corsMiddleware.New(corsMiddleware.Options{
 		AllowedOrigins:   []string{"*"}, // allows everything, use that to change the hosts.
+		AllowedMethods:   []string{"*"},
+		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
+		Debug: debug,
 	})
-
-	limiter := tollbooth.NewLimiter(1000, nil)
 
 	app.Use(prometheus.ServeHTTP)
 	app.Use(secureConf.Serve)
-	app.Use(crs)
+	app.Use(cors)
 
-	err := configureUAA(mvc.New(app.Party("/uaa", tollboothic.LimitHandler(limiter), myHandler)))
+	err := configureUAA(app)
 	if err != nil {
 		return err
 	}
-
-	iris.RegisterOnInterrupt(func() {
-		ctx, cancel := stdContext.WithTimeout(stdContext.Background(), shutdownTimeout)
-		defer cancel()
-		// close all hosts
-		app.Shutdown(ctx)
-	})
 
 	return app.Run(iris.Addr(":8080"), iris.WithoutVersionChecker,
 		iris.WithoutInterruptHandler, iris.WithConfiguration(iris.YAML("./http/configs/iris.yml")))
 }
 
-func configureUAA(app *mvc.Application) error {
-	jwtHandler, err := helper.NewJWT()
+func configureUAA(app *iris.Application) error {
+	jwtHelper, err := helper.NewJWT()
 	if err != nil {
 		return err
 	}
-	// any dependencies bindings here...
-	app.Register(
-		account.GetInstance(),
-		jwtHandler,
-	)
+	limiter := tollbooth.NewLimiter(1000, nil)
 
-	// controllers registration here...
-	app.Handle(new(controllers.AccountController))
+	mvcApp := mvc.New(app.Party("/uaa", tollboothic.LimitHandler(limiter)))
+	mvcApp.Register(
+		account.GetInstance(),
+		jwtHelper,
+	)
+	mvcApp.Handle(new(anonymous.AccountController))
+
+	mvcApp = mvc.New(app.Party("/uaa", tollboothic.LimitHandler(limiter), jwtHelper.Serve))
+	mvcApp.Register(
+		account.GetInstance(),
+		jwtHelper,
+	)
+	mvcApp.Handle(new(auth.AccountController))
 	return nil
 }
 
