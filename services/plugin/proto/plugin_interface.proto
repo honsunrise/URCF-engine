@@ -1,0 +1,27 @@
+syntax = "proto3";
+package proto;
+
+import "google/protobuf/any.proto";
+
+message ErrorStatus {
+    string message = 1;
+    repeated google.protobuf.Any details = 2;
+}
+
+message Empty {
+}
+
+message GetResponse {
+    bytes value = 1;
+}
+
+message CommandRequest {
+    string command = 1;
+    repeated string params = 2;
+}
+
+service PluginInterface {
+    rpc Initialization (Empty) returns (ErrorStatus);
+    rpc UnInitialization (Empty) returns (ErrorStatus);
+    rpc Command (CommandRequest) returns (ErrorStatus);
+}
