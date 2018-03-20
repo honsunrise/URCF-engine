@@ -17,9 +17,10 @@ type Process struct {
 	models.ProcessParam
 	Pid        int
 	PidFile    string
-	StdIn      io.ReadWriter
-	StdOut     io.ReadWriter
-	StdErr     io.ReadWriter
+	StdIn      io.Writer
+	StdOut     io.Reader
+	StdErr     io.Reader
+	DataOut    io.Reader
 	KeepAlive  bool
 	Statistics ProcessStatistics
 	Status     ProcessStatus

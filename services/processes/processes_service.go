@@ -12,19 +12,32 @@ import (
 	"github.com/zhsyourai/URCF-engine/services"
 	"github.com/zhsyourai/URCF-engine/services/processes/types"
 	"github.com/zhsyourai/URCF-engine/services/processes/watchdog"
+	"io"
+	"bufio"
+	"unicode"
+	"github.com/hashicorp/go-hclog"
+	logservice "github.com/zhsyourai/URCF-engine/services/log"
 )
 
 type Service interface {
 	services.ServiceLifeCycle
-	Start(name string, workDir string, cmd string,
-		args []string, env map[string]string, option models.ProcessOption) (*types.Process, error)
+	Prepare(name string, workDir string, cmd string, args []string, env map[string]string,
+		option models.ProcessOption) (*types.Process, error)
 	FindByName(name string) *types.Process
-	Stop(s *types.Process) error
-	Restart(s *types.Process) (*types.Process, error)
-	Kill(s *types.Process) error
-	Clean(s *types.Process) error
-	Watch(s *types.Process) error
-	IsAlive(s *types.Process) bool
+	Start(p *types.Process) (*types.Process, error)
+	Stop(p *types.Process) error
+	Restart(p *types.Process) (*types.Process, error)
+	Kill(p *types.Process) error
+	Clean(p *types.Process) error
+	Watch(p *types.Process) error
+	IsAlive(p *types.Process) bool
+	WaitChan(p *types.Process) chan struct{}
+}
+
+type processesPair struct {
+	proc *types.Process
+	procAttr *os.ProcAttr
+	finalArgs []string
 }
 
 // processesService is a os.processesService wrapper with Statistics and more info that will be used on Master to maintain
@@ -85,8 +98,8 @@ func (s *processesService) runAutoReStart() {
 	}
 }
 
-func (s *processesService) Start(name string, workDir string, cmd string,
-	args []string, env map[string]string, option models.ProcessOption) (proc *types.Process, err error) {
+func (s *processesService) Prepare(name string, workDir string, cmd string, args []string, env map[string]string,
+	option models.ProcessOption) (proc *types.Process, err error) {
 	proc = &types.Process{
 		ProcessParam: models.ProcessParam{
 			Name:    name,
@@ -97,21 +110,37 @@ func (s *processesService) Start(name string, workDir string, cmd string,
 			Option:  option,
 		},
 	}
-	rStdIn, lStdOut, err := os.Pipe()
+	rStdIn, lStdIn, err := os.Pipe()
 	if err != nil {
 		return
 	}
-	proc.StdIn = lStdOut
-	lStdIn, rStdOut, err := os.Pipe()
+	proc.StdIn = lStdIn
+	lStdOut, rStdOut, err := os.Pipe()
 	if err != nil {
 		return
 	}
-	proc.StdOut = lStdIn
-	lErrIn, rErrOut, err := os.Pipe()
+	proc.StdOut = lStdOut
+	lStdErr, rStdErr, err := os.Pipe()
 	if err != nil {
 		return
 	}
-	proc.StdErr = lErrIn
+	proc.StdErr = lStdErr
+	lDataOut, rDataOut, err := os.Pipe()
+	if err != nil {
+		return
+	}
+	proc.DataOut = lDataOut
+	if option&models.HookLog != 0 {
+		err = s.hookLog(name, lStdErr)
+		if err != nil {
+			return
+		}
+		err = s.hookLog(name, lStdOut)
+		if err != nil {
+			return
+		}
+	}
+
 	finalEnv := make(map[string]string)
 	for _, e := range os.Environ() {
 		es := strings.Split(e, "=")
@@ -126,53 +155,73 @@ func (s *processesService) Start(name string, workDir string, cmd string,
 		Files: []*os.File{
 			rStdIn,
 			rStdOut,
-			rErrOut,
+			rStdErr,
+			rDataOut,
 		},
 	}
-	finalArgs := append([]string{cmd}, args...)
-	process, err := os.StartProcess(cmd, finalArgs, procAtr)
-	if err != nil {
-		return
+
+	s.procMap.Store(name, &processesPair{
+		proc: proc,
+		procAttr: procAtr,
+		finalArgs: append([]string{cmd}, args...),
+	})
+
+	return
+}
+
+func (s *processesService) FindByName(name string) *types.Process {
+	if p, ok := s.procMap.Load(name); ok {
+		return p.(*processesPair).proc
+	}
+	return nil
+}
+
+func (s *processesService) Start(proc *types.Process) (*types.Process, error) {
+	p, ok := s.procMap.Load(proc.Name)
+	if !ok || p.(*processesPair).proc == nil{
+		return nil, errors.New("process does not exist")
 	}
 
-	if option&models.AutoRestart != 0 {
+	process, err := os.StartProcess(proc.Cmd, p.(*processesPair).finalArgs, p.(*processesPair).procAttr)
+	if err != nil {
+		return nil, err
+	}
+
+	if proc.Option&models.AutoRestart != 0 {
 		err = s.watchDog.StartWatch(proc)
 		if err != nil {
-			return
+			return nil, err
 		}
 	}
 
 	proc.Process = process
 	proc.Pid = proc.Process.Pid
 	proc.Statistics.InitUpTime()
-	s.procMap.Store(name, proc)
-	return
+	return proc, nil
 }
 
-func (s *processesService) FindByName(name string) *types.Process {
-	if p, ok := s.procMap.Load(name); ok {
-		return p.(*types.Process)
-	}
-	return nil
-}
-
-func (s *processesService) Stop(p *types.Process) error {
-	if s.FindByName(p.Name) == nil || p.Process == nil {
+func (s *processesService) Stop(proc *types.Process) error {
+	p, ok := s.procMap.Load(proc.Name)
+	if !ok || p.(*processesPair).proc == nil{
 		return errors.New("process does not exist")
 	}
-	defer p.Process.Release()
-	err := p.Process.Signal(syscall.SIGTERM)
+	defer proc.Process.Release()
+	err := proc.Process.Signal(syscall.SIGTERM)
 	return err
 }
 
-func (s *processesService) Restart(p *types.Process) (proc *types.Process, err error) {
+func (s *processesService) Restart(p *types.Process) (*types.Process, error) {
 	if s.IsAlive(p) {
 		err := s.Stop(p)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return s.Start(p.Name, p.WorkDir, p.Cmd, p.Args, p.Env, p.Option)
+	process, err := s.Prepare(p.Name, p.WorkDir, p.Cmd, p.Args, p.Env, p.Option)
+	if err != nil {
+		return nil, err
+	}
+	return s.Start(process)
 }
 
 func (s *processesService) Kill(p *types.Process) error {
@@ -202,4 +251,57 @@ func (s *processesService) IsAlive(p *types.Process) bool {
 		return false
 	}
 	return p.Process.Signal(syscall.Signal(0)) == nil
+}
+
+func (s *processesService) WaitChan(p *types.Process) chan struct{} {
+	exitCh := make(chan struct{})
+	go func() {
+		p.Process.Wait()
+		// Mark that we exited
+		close(exitCh)
+	}()
+	return exitCh
+}
+
+
+func (s *processesService) hookLog(name string, r io.Reader) error {
+	logServ := logservice.GetInstance()
+	logger, err := logServ.GetLogger(name)
+	if err != nil {
+		return err
+	}
+	go func() {
+		bufR := bufio.NewReader(r)
+		for {
+			line, err := bufR.ReadString('\n')
+			if line != "" {
+				line = strings.TrimRightFunc(line, unicode.IsSpace)
+				entry, err := parseJSON(line)
+				if err != nil {
+					logger.Debug(line)
+				} else {
+					out := flattenKVPairs(entry.KVPairs)
+
+					logger = logger.WithField("timestamp", entry.Timestamp.Format(hclog.TimeFormat))
+					switch hclog.LevelFromString(entry.Level) {
+					case log.DebugLevel:
+						logger.Debug(entry.Message, out...)
+					case log.InfoLevel:
+						logger.Info(entry.Message, out...)
+					case log.WarnLevel:
+						logger.Warn(entry.Message, out...)
+					case log.ErrorLevel:
+						logger.Error(entry.Message, out...)
+					case log.FatalLevel:
+						logger.Error(entry.Message, out...)
+					}
+				}
+			}
+
+			if err == io.EOF {
+				break
+			}
+		}
+	}();
+	return nil
 }

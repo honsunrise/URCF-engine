@@ -3,7 +3,9 @@ package models
 type ProcessOption int
 
 const (
-	AutoRestart ProcessOption = iota
+	None = 0
+	AutoRestart ProcessOption = 1 << iota
+	HookLog
 )
 
 type ProcessParam struct {

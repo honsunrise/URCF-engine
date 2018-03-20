@@ -3,10 +3,12 @@ package log
 import (
 	"sync"
 	"github.com/zhsyourai/URCF-engine/services"
+	log "github.com/sirupsen/logrus"
 )
 
 type Service interface {
 	services.ServiceLifeCycle
+	GetLogger(name string) (*log.Entry, error)
 }
 
 var instance *logService
@@ -23,6 +25,12 @@ func GetInstance() Service {
 type logService struct {
 	services.InitHelper
 
+}
+
+func (s *logService) GetLogger(name string) (*log.Entry, error) {
+	logger := log.New()
+	logger.Out = w
+	return logger.WithField("name", name), nil
 }
 
 func (s *logService) Initialize(arguments ...interface{}) error {
