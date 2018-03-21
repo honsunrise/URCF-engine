@@ -12,33 +12,41 @@ import (
 	"bufio"
 	"strings"
 	"fmt"
-	"strconv"
 	log "github.com/sirupsen/logrus"
 	"errors"
+	"strconv"
+)
+
+type Protocol int32
+
+const (
+	GRPCProtocol Protocol = 1 << iota
 )
 
 type ClientConfig struct {
 	Plugins          map[string]interface{}
-	Version
+	Version          SemanticVersion
 	Name             string
 	Cmd              string
 	Args             []string
 	WorkDir          string
 	MinPort, MaxPort uint
 	StartTimeout     time.Duration
+	AllowedProtocols Protocol
 }
 
 type Client struct {
 	sync.Mutex
-	context     context.Context
-	config      *ClientConfig
-	process     *types.Process
-	address     net.Addr
+	context  context.Context
+	config   *ClientConfig
+	process  *types.Process
+	address  net.Addr
+	protocol Protocol
 }
 
 func NewClient(config *ClientConfig) *Client {
 	return &Client{
-		config: config,
+		config:  config,
 		context: context.Background(),
 	}
 }
@@ -86,14 +94,12 @@ func (c *Client) Start() error {
 	select {
 	case <-timeout:
 		err = errors.New("timeout while waiting for plugin to start")
-	case <-procServ.WaitChan(process):
+	case <-procServ.WaitExitChan(process):
 		err = errors.New("plugin exited before we could connect")
 	case lineBytes := <-linesCh:
-		// Trim the line and split by "|" in order to get the parts of
-		// the output.
 		line := strings.TrimSpace(string(lineBytes))
 		parts := strings.SplitN(line, "|", 6)
-		if len(parts) < 4 {
+		if len(parts) < 5 {
 			err = fmt.Errorf(
 				"Unrecognized remote plugin message: %s\n\n"+
 					"This usually means that the plugin is either invalid or simply\n"+
@@ -101,37 +107,36 @@ func (c *Client) Start() error {
 			return err
 		}
 
-		// Check the core protocol. Wrapped in a {} for scoping.
+		// Check the core protocol version
 		{
-			var coreProtocol int64
-			coreProtocol, err = strconv.ParseInt(parts[0], 10, 0)
+			var coreProtocol *SemanticVersion
+			coreProtocol, err = NewSemVerFromString(parts[0])
 			if err != nil {
-				err = fmt.Errorf("Error parsing core protocol version: %s", err)
 				return err
 			}
 
-			if int(coreProtocol) != CoreProtocolVersion {
+			if CoreProtocolVersion.Compatible(coreProtocol) {
 				err = fmt.Errorf("Incompatible core API version with plugin. "+
-					"Plugin version: %s, Core version: %d\n\n"+
+					"Plugin version: %s, Core version: %s\n\n"+
 					"To fix this, the plugin usually only needs to be recompiled.\n"+
-					"Please report this to the plugin author.", parts[0], CoreProtocolVersion)
+					"Please report this to the plugin author.", coreProtocol, CoreProtocolVersion)
 				return err
 			}
 		}
+		// Check the API protocol version
+		{
+			var protocol *SemanticVersion
+			protocol, err = NewSemVerFromString(parts[1])
+			if err != nil {
+				return err
+			}
 
-		// Parse the protocol version
-		var protocol int64
-		protocol, err = strconv.ParseInt(parts[1], 10, 0)
-		if err != nil {
-			err = fmt.Errorf("Error parsing protocol version: %s", err)
-			return err
-		}
-
-		// Test the API version
-		if uint(protocol) != c.config.ProtocolVersion {
-			err = fmt.Errorf("Incompatible API version with plugin. "+
-				"Plugin version: %s, Core version: %d", parts[1], c.config.ProtocolVersion)
-			return err
+			// Test the API version
+			if c.config.Version.Compatible(protocol) {
+				err = fmt.Errorf("Incompatible API version with plugin. "+
+					"Plugin version: %s, Core version: %s", protocol, c.config.Version)
+				return err
+			}
 		}
 
 		switch parts[2] {
@@ -143,28 +148,22 @@ func (c *Client) Start() error {
 			err = fmt.Errorf("Unknown address type: %s", parts[3])
 		}
 
-		// If we have a server type, then record that. We default to net/rpc
-		// for backwards compatibility.
-		c.protocol = ProtocolNetRPC
-		if len(parts) >= 5 {
-			c.protocol = Protocol(parts[4])
+		ui64 := uint64(0)
+		ui64, err = strconv.ParseUint(parts[4], 10, 0)
+		if err != nil {
+			return err
 		}
+		c.protocol = Protocol(ui64)
 
-		found := false
-		for _, p := range c.config.AllowedProtocols {
-			if p == c.protocol {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if (c.config.AllowedProtocols & c.protocol) == 0 {
 			err = fmt.Errorf("Unsupported plugin protocol %q. Supported: %v",
 				c.protocol, c.config.AllowedProtocols)
 			return err
 		}
-	}
 
-	return err
+
+	}
+	return nil
 }
 
 func (c *Client) Stop() error {

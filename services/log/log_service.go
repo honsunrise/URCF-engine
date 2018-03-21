@@ -29,7 +29,6 @@ type logService struct {
 
 func (s *logService) GetLogger(name string) (*log.Entry, error) {
 	logger := log.New()
-	logger.Out = w
 	return logger.WithField("name", name), nil
 }
 

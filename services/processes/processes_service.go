@@ -31,7 +31,7 @@ type Service interface {
 	Clean(p *types.Process) error
 	Watch(p *types.Process) error
 	IsAlive(p *types.Process) bool
-	WaitChan(p *types.Process) chan struct{}
+	WaitExitChan(p *types.Process) chan struct{}
 }
 
 type processesPair struct {

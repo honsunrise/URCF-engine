@@ -6,8 +6,6 @@ import (
 	"strconv"
 )
 
-const CoreProtocolVersion = 1
-
 type DetailCompareResult int32
 
 const (
@@ -212,3 +210,5 @@ func (semVer *SemanticVersion) Compatible(other *SemanticVersion) bool {
 		}
 	}
 }
+
+var CoreProtocolVersion, _ = NewSemVerFromString("1.0.0-rc1")
