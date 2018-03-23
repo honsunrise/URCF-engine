@@ -13,7 +13,7 @@ It has these top-level messages:
 	GetResponse
 	CommandRequest
 */
-package proto
+package grpc
 
 import proto1 "github.com/golang/protobuf/proto"
 import fmt "fmt"
