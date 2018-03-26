@@ -1,0 +1,26 @@
+syntax = "proto3";
+package grpc;
+
+import "google/protobuf/any.proto";
+
+message ErrorStatus {
+    string message = 1;
+    repeated google.protobuf.Any details = 2;
+}
+
+message Empty {
+}
+
+message CommandRequest {
+    string name = 1;
+    repeated google.protobuf.Any params = 2;
+}
+
+message CommandHelp {
+    string help = 1;
+}
+
+service CommandInterface {
+    rpc Command (CommandRequest) returns (ErrorStatus);
+    rpc GetHelp (Empty) returns (CommandHelp);
+}
