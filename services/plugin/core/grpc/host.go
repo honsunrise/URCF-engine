@@ -8,8 +8,7 @@ import (
 	"sync"
 	"github.com/hashicorp/yamux"
 	"google.golang.org/grpc"
-	"crypto/tls"
-	"google.golang.org/grpc/credentials"
+	"github.com/zhsyourai/URCF-engine/services/plugin/core"
 )
 
 type Host struct {
@@ -26,7 +25,7 @@ func NewHost() *Host {
 
 func (h *Host) Serve() error {
 	// Register a listener so we can accept a connection
-	listener, err := plugin.Listener()
+	listener, err := core.Listener()
 	if err != nil {
 		log.Error("plugin host start error", err)
 		return err
@@ -114,4 +113,12 @@ func (h *Host) handleConn(connect net.Conn) {
 	go func() {
 		NewPluginInterfaceClient(conn)
 	}()
+}
+
+func (h *Host) ListClient() {
+
+}
+
+func (h *Host) GetClient(name string) {
+
 }

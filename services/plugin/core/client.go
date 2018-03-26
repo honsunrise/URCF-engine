@@ -1,4 +1,4 @@
-package plugin
+package core
 
 import (
 	"time"
@@ -15,6 +15,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"errors"
 	"strconv"
+	"crypto/tls"
+	"github.com/zhsyourai/URCF-engine/services/plugin/core/grpc"
 )
 
 type Protocol int32
@@ -24,7 +26,7 @@ const (
 )
 
 type ClientConfig struct {
-	Plugins          map[string]interface{}
+	Plugins          map[string]PluginInterface
 	Version          SemanticVersion
 	Name             string
 	Cmd              string
@@ -33,10 +35,12 @@ type ClientConfig struct {
 	MinPort, MaxPort uint
 	StartTimeout     time.Duration
 	AllowedProtocols Protocol
+	TLS              *tls.Config
 }
 
 type Client struct {
-	sync.Mutex
+	client   ClientInterface
+	lock     sync.Mutex
 	context  context.Context
 	config   *ClientConfig
 	process  *types.Process
@@ -161,6 +165,17 @@ func (c *Client) Start() error {
 			return err
 		}
 
+		switch c.protocol {
+		case GRPCProtocol:
+			c.client, err = grpc.NewGRPCClient(c.context, c.address, c.config)
+			if err != nil {
+				return err
+			}
+		default:
+			err = fmt.Errorf("Unsupported plugin protocol %q. Supported: %v",
+				c.protocol, c.config.AllowedProtocols)
+			return err
+		}
 
 	}
 	return nil

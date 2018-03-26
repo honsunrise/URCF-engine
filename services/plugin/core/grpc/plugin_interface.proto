@@ -1,5 +1,5 @@
 syntax = "proto3";
-package proto;
+package grpc;
 
 import "google/protobuf/any.proto";
 
@@ -11,17 +11,12 @@ message ErrorStatus {
 message Empty {
 }
 
-message GetResponse {
-    bytes value = 1;
-}
-
-message CommandRequest {
-    string command = 1;
-    repeated string params = 2;
+message DeployRequest {
+    string name = 1;
 }
 
 service PluginInterface {
     rpc Initialization (Empty) returns (ErrorStatus);
+    rpc Deploy (DeployRequest) returns (ErrorStatus);
     rpc UnInitialization (Empty) returns (ErrorStatus);
-    rpc Command (CommandRequest) returns (ErrorStatus);
 }
