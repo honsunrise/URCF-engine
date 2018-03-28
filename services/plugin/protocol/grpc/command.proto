@@ -16,11 +16,15 @@ message CommandRequest {
     repeated google.protobuf.Any params = 2;
 }
 
-message CommandHelp {
+message CommandHelprequest {
+    string subcommand = 1;
+}
+
+message CommandHelpResp {
     string help = 1;
 }
 
 service CommandInterface {
     rpc Command (CommandRequest) returns (ErrorStatus);
-    rpc GetHelp (Empty) returns (CommandHelp);
+    rpc GetHelp (CommandHelprequest) returns (CommandHelpResp);
 }
