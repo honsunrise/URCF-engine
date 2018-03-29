@@ -11,7 +11,7 @@ It has these top-level messages:
 	ErrorStatus
 	DeployRequest
 */
-package plugin_core
+package plugin_grpc
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"

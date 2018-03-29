@@ -8,7 +8,7 @@ import (
 	"os"
 
 	log "github.com/sirupsen/logrus"
-	"strconv"
+	"github.com/zhsyourai/URCF-engine/utils"
 )
 
 type PositionError struct {
@@ -42,7 +42,7 @@ const (
 	M_IA_64   Machine = 6 /* Intel IA-64 Processor. */
 )
 
-var machineStrings = []intName{
+var machineStrings = []utils.IntName{
 	{0, "M_NONE"},
 	{1, "M_X86"},
 	{2, "M_X86_64"},
@@ -52,17 +52,17 @@ var machineStrings = []intName{
 	{6, "M_IA_64"},
 }
 
-func (i Machine) String() string   { return stringName(uint32(i), machineStrings, false) }
-func (i Machine) GoString() string { return stringName(uint32(i), machineStrings, true) }
+func (i Machine) String() string   { return utils.StringName(uint32(i), machineStrings, "upp.",false) }
+func (i Machine) GoString() string { return utils.StringName(uint32(i), machineStrings, "upp.",true) }
 
 type Flags uint32
 
-var flagsStrings = []intName{
+var flagsStrings = []utils.IntName{
 	{0, "F_NONE"},
 }
 
-func (i Flags) String() string   { return stringName(uint32(i), flagsStrings, false) }
-func (i Flags) GoString() string { return stringName(uint32(i), flagsStrings, true) }
+func (i Flags) String() string   { return utils.StringName(uint32(i), flagsStrings, "upp.",false) }
+func (i Flags) GoString() string { return utils.StringName(uint32(i), flagsStrings, "upp.",true) }
 
 type File struct {
 	io.Closer
@@ -138,35 +138,4 @@ func NewFile(r io.ReaderAt) (*File, error) {
 	}
 
 	return f, nil
-}
-
-type intName struct {
-	i uint32
-	s string
-}
-
-func stringName(i uint32, names []intName, goSyntax bool) string {
-	for _, n := range names {
-		if n.i == i {
-			if goSyntax {
-				return "upp." + n.s
-			}
-			return n.s
-		}
-	}
-
-	// second pass - look for smaller to add with.
-	// assume sorted already
-	for j := len(names) - 1; j >= 0; j-- {
-		n := names[j]
-		if n.i < i {
-			s := n.s
-			if goSyntax {
-				s = "upp." + s
-			}
-			return s + "+" + strconv.FormatUint(uint64(i-n.i), 10)
-		}
-	}
-
-	return strconv.FormatUint(uint64(i), 10)
 }

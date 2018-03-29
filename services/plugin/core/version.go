@@ -128,6 +128,20 @@ func arrayCompare(this []string, other []string) int {
 	}
 }
 
+func (semVer *SemanticVersion) String() string {
+	var ret string
+	ret += strconv.FormatInt(int64(semVer.Major), 10)
+	ret += "."
+	ret += strconv.FormatInt(int64(semVer.Minor), 10)
+	ret += "."
+	ret += strconv.FormatInt(int64(semVer.Patch), 10)
+	ret += "-"
+	ret += strings.Join(semVer.PreRelease, ".")
+	ret += "+"
+	ret += strings.Join(semVer.Build, ".")
+	return ret
+}
+
 func (semVer *SemanticVersion) DetailCompare(other *SemanticVersion) DetailCompareResult {
 	if !other.valid || !semVer.valid {
 		panic(errors.New("invalid SemanticVersion can't compare"))

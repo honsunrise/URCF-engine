@@ -9,6 +9,16 @@ import (
 	"fmt"
 )
 
+func GetRandomListenerAddr() (net.Addr, error) {
+	lis, err := Listener()
+	if err != nil {
+		return nil, err
+	}
+	defer lis.Close()
+
+	return lis.Addr(), nil
+}
+
 func Listener() (net.Listener, error) {
 	if runtime.GOOS == "windows" {
 		return listener_tcp()

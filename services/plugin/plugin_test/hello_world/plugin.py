@@ -1,6 +1,7 @@
 from concurrent import futures
 import sys
 import time
+import io
 
 import grpc
 
@@ -53,11 +54,11 @@ def serve():
     health_pb2_grpc.add_HealthServicer_to_server(health, server)
     server.add_insecure_port('127.0.0.1:1234')
     server.start()
-
+    io.open(3)
     # Output information
     print("1|1|tcp|127.0.0.1:23456|grpc")
     sys.stdout.flush()
-
+    os.fdopen()
     try:
         while True:
             time.sleep(60 * 60 * 24)

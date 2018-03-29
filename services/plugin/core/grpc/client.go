@@ -53,8 +53,8 @@ func dialWithAddrAndTls(context context.Context, addr net.Addr, tls *tls.Config)
 	return conn, nil
 }
 
-func NewGRPCClient(context context.Context, addr net.Addr, config *core.ClientConfig) (core.ClientInterface, error) {
-	conn, err := dialWithAddrAndTls(context, addr, config.TLS)
+func NewGRPCClient(context context.Context, config *core.ClientConfig) (core.ClientInterface, error) {
+	conn, err := dialWithAddrAndTls(context, config.Address, config.TLS)
 	if err != nil {
 		return nil, err
 	}
