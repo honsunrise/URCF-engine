@@ -15,12 +15,12 @@ class CommandInterfaceStub(object):
       channel: A grpc.Channel.
     """
     self.Command = channel.unary_unary(
-        '/grpc.CommandInterface/Command',
+        '/plugin.protocol.CommandInterface/Command',
         request_serializer=command__pb2.CommandRequest.SerializeToString,
         response_deserializer=command__pb2.ErrorStatus.FromString,
         )
     self.GetHelp = channel.unary_unary(
-        '/grpc.CommandInterface/GetHelp',
+        '/plugin.protocol.CommandInterface/GetHelp',
         request_serializer=command__pb2.CommandHelprequest.SerializeToString,
         response_deserializer=command__pb2.CommandHelpResp.FromString,
         )
@@ -59,5 +59,5 @@ def add_CommandInterfaceServicer_to_server(servicer, server):
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(
-      'grpc.CommandInterface', rpc_method_handlers)
+      'plugin.protocol.CommandInterface', rpc_method_handlers)
   server.add_generic_rpc_handlers((generic_handler,))

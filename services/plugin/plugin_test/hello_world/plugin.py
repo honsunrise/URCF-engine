@@ -5,6 +5,7 @@ import time
 import grpc
 
 import command_pb2_grpc
+import plugin_interface_pb2_grpc
 
 from grpc_health.v1.health import HealthServicer
 from grpc_health.v1 import health_pb2, health_pb2_grpc
@@ -26,14 +27,29 @@ class CommandServicer(command_pb2_grpc.CommandInterfaceServicer):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+class PluginServicer(plugin_interface_pb2_grpc.PluginInterfaceServicer):
+    """Implementation of Plugin service."""
+    def __init__(self, server):
+        self._server = server
+
+    def Initialization(self, request, context):
+        pass
+
+    def Deploy(self, request, context):
+        if request.name == "command":
+            command_pb2_grpc.add_CommandInterfaceServicer_to_server(CommandServicer(), self._server)
+
+    def UnInitialization(self, request, context):
+        pass
+
+
 def serve():
     # We need to build a health service to work with go-plugin
     health = HealthServicer()
-    health.set("plugin", health_pb2.HealthCheckResponse.ServingStatus.Value('SERVING'))
-
+    health.set("command", health_pb2.HealthCheckResponse.ServingStatus.Value('SERVING'))
     # Start the server.
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    command_pb2_grpc.add_CommandInterfaceServicer_to_server(CommandServicer(), server)
+    plugin_interface_pb2_grpc.add_PluginInterfaceServicer_to_server(PluginServicer(server), server)
     health_pb2_grpc.add_HealthServicer_to_server(health, server)
     server.add_insecure_port('127.0.0.1:1234')
     server.start()

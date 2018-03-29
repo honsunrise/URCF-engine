@@ -1,14 +1,12 @@
 syntax = "proto3";
-package grpc;
+package plugin.core;
 
 import "google/protobuf/any.proto";
+import "google/protobuf/empty.proto";
 
 message ErrorStatus {
     string message = 1;
     repeated google.protobuf.Any details = 2;
-}
-
-message Empty {
 }
 
 message DeployRequest {
@@ -16,7 +14,7 @@ message DeployRequest {
 }
 
 service PluginInterface {
-    rpc Initialization (Empty) returns (ErrorStatus);
+    rpc Initialization (google.protobuf.Empty) returns (ErrorStatus);
     rpc Deploy (DeployRequest) returns (ErrorStatus);
-    rpc UnInitialization (Empty) returns (ErrorStatus);
+    rpc UnInitialization (google.protobuf.Empty) returns (ErrorStatus);
 }

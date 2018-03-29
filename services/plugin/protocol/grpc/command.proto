@@ -1,14 +1,11 @@
 syntax = "proto3";
-package grpc;
+package plugin.protocol;
 
 import "google/protobuf/any.proto";
 
 message ErrorStatus {
     string message = 1;
     repeated google.protobuf.Any details = 2;
-}
-
-message Empty {
 }
 
 message CommandRequest {
