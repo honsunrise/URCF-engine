@@ -20,6 +20,8 @@ import (
 	"github.com/zhsyourai/URCF-engine/utils"
 )
 
+var CoreProtocolVersion, _ = utils.NewSemVerFromString("1.0.0-rc1")
+
 type Protocol int32
 
 const (
@@ -71,7 +73,7 @@ const (
 
 type ClientConfig struct {
 	Plugins          map[string]PluginInterface
-	Version          *SemanticVersion
+	Version          *utils.SemanticVersion
 	Name             string
 	Cmd              string
 	Args             []string
@@ -115,7 +117,7 @@ func NewClient(config *ClientConfig) (*Client, error) {
 	}
 
 	if config.Version == nil {
-		config.Version, _ = NewSemVerFromString("1.0.0")
+		config.Version, _ = utils.NewSemVerFromString("1.0.0")
 	}
 
 	if config.Address == nil {
@@ -194,8 +196,8 @@ func (c *Client) Start() error {
 
 		switch strings.ToLower(parts[0]) {
 		case strings.ToLower(MSG_COREVERSION):
-			var coreProtocol *SemanticVersion
-			coreProtocol, err = NewSemVerFromString(parts[1])
+			var coreProtocol *utils.SemanticVersion
+			coreProtocol, err = utils.NewSemVerFromString(parts[1])
 			if err != nil {
 				return err
 			}
@@ -207,8 +209,8 @@ func (c *Client) Start() error {
 				return err
 			}
 		case strings.ToLower(MSG_VERSION):
-			var protocol *SemanticVersion
-			protocol, err = NewSemVerFromString(parts[1])
+			var protocol *utils.SemanticVersion
+			protocol, err = utils.NewSemVerFromString(parts[1])
 			if err != nil {
 				return err
 			}
@@ -251,10 +253,22 @@ func (c *Client) Start() error {
 			c.protocol, c.config.AllowedProtocols)
 		return err
 	}
+
+	err = c.client.Initialization()
+	if err != nil {
+		return nil
+	}
 	return nil
 }
 
-func (c *Client) Stop() error {
+func (c *Client) Deploy(name string) (interface{}, error) {
+	return c.client.Deploy(name)
+}
 
+func (c *Client) Stop() error {
+	err := c.client.UnInitialization()
+	if err != nil {
+		return nil
+	}
 	return nil
 }

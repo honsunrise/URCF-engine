@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"time"
+	"github.com/zhsyourai/URCF-engine/utils"
+)
 
 type Plugin struct {
 	ID          string
@@ -8,4 +11,7 @@ type Plugin struct {
 	Enabled     bool
 	InstallDate time.Time
 	Path        string
+	WorkDir     string
+	EnterPoint  []string
+	Version     utils.SemanticVersion
 }

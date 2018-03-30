@@ -1,4 +1,4 @@
-package core
+package utils
 
 import (
 	"strings"
@@ -224,5 +224,3 @@ func (semVer *SemanticVersion) Compatible(other *SemanticVersion) bool {
 		}
 	}
 }
-
-var CoreProtocolVersion, _ = NewSemVerFromString("1.0.0-rc1")

@@ -2,7 +2,7 @@
 import grpc
 
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
-import plugin_interface_pb2 as plugin__interface__pb2
+from . import plugin_interface_pb2 as plugin__interface__pb2
 
 
 class PluginInterfaceStub(object):
@@ -16,17 +16,17 @@ class PluginInterfaceStub(object):
       channel: A grpc.Channel.
     """
     self.Initialization = channel.unary_unary(
-        '/plugin.core.PluginInterface/Initialization',
+        '/proto.PluginInterface/Initialization',
         request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
         response_deserializer=plugin__interface__pb2.ErrorStatus.FromString,
         )
     self.Deploy = channel.unary_unary(
-        '/plugin.core.PluginInterface/Deploy',
+        '/proto.PluginInterface/Deploy',
         request_serializer=plugin__interface__pb2.DeployRequest.SerializeToString,
         response_deserializer=plugin__interface__pb2.ErrorStatus.FromString,
         )
     self.UnInitialization = channel.unary_unary(
-        '/plugin.core.PluginInterface/UnInitialization',
+        '/proto.PluginInterface/UnInitialization',
         request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
         response_deserializer=plugin__interface__pb2.ErrorStatus.FromString,
         )
@@ -77,5 +77,5 @@ def add_PluginInterfaceServicer_to_server(servicer, server):
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(
-      'plugin.core.PluginInterface', rpc_method_handlers)
+      'proto.PluginInterface', rpc_method_handlers)
   server.add_generic_rpc_handlers((generic_handler,))

@@ -1,69 +1,30 @@
-from concurrent import futures
-import sys
 import time
-import io
 
-import grpc
+import plugin_sdk
 
-import command_pb2_grpc
-import plugin_interface_pb2_grpc
 
-from grpc_health.v1.health import HealthServicer
-from grpc_health.v1 import health_pb2, health_pb2_grpc
-
-class CommandServicer(command_pb2_grpc.CommandInterfaceServicer):
-    """Implementation of Command service."""
-
-    def Command(self, request, context):
-        # missing associated documentation comment in .proto file
-        pass
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetHelp(self, request, context):
-        # missing associated documentation comment in .proto file
-        pass
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-class PluginServicer(plugin_interface_pb2_grpc.PluginInterfaceServicer):
-    """Implementation of Plugin service."""
-    def __init__(self, server):
-        self._server = server
-
-    def Initialization(self, request, context):
+class HelloWorld(plugin_sdk.Plugin):
+    def config(self):
         pass
 
-    def Deploy(self, request, context):
-        if request.name == "command":
-            command_pb2_grpc.add_CommandInterfaceServicer_to_server(CommandServicer(), self._server)
+    def command(self, name):
+        if name == "Hello":
+            return "World"
 
-    def UnInitialization(self, request, context):
-        pass
+    def get_help(self, name):
+        return "Hello"
 
 
 def serve():
     # We need to build a health service to work with go-plugin
-    health = HealthServicer()
-    health.set("command", health_pb2.HealthCheckResponse.ServingStatus.Value('SERVING'))
-    # Start the server.
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    plugin_interface_pb2_grpc.add_PluginInterfaceServicer_to_server(PluginServicer(server), server)
-    health_pb2_grpc.add_HealthServicer_to_server(health, server)
-    server.add_insecure_port('127.0.0.1:1234')
-    server.start()
-    io.open(3)
-    # Output information
-    print("1|1|tcp|127.0.0.1:23456|grpc")
-    sys.stdout.flush()
-    os.fdopen()
+    hello = HelloWorld()
+    hello.serve()
     try:
         while True:
             time.sleep(60 * 60 * 24)
     except KeyboardInterrupt:
-        server.stop(0)
+        hello.stop(0)
+
 
 if __name__ == '__main__':
     serve()

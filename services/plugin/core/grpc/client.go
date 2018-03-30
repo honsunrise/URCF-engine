@@ -10,13 +10,15 @@ import (
 	"errors"
 	"fmt"
 	"github.com/zhsyourai/URCF-engine/services/plugin/core"
+	"github.com/zhsyourai/URCF-engine/services/plugin/core/grpc/proto"
+	"github.com/golang/protobuf/ptypes/empty"
 )
 
 type GRPCClient struct {
 	conn    *grpc.ClientConn
 	config  *core.ClientConfig
 	context context.Context
-	client  PluginInterfaceClient
+	client  proto.PluginInterfaceClient
 }
 
 func convertNetAddrToGRPCAddr(addr net.Addr) string {
@@ -61,14 +63,14 @@ func NewGRPCClient(context context.Context, config *core.ClientConfig) (core.Cli
 
 	return &GRPCClient{
 		config:  config,
-		client:  NewPluginInterfaceClient(conn),
+		client:  proto.NewPluginInterfaceClient(conn),
 		context: context,
 		conn:    conn,
 	}, nil
 }
 
 func (c *GRPCClient) Initialization() error {
-	retErr, err := c.client.Initialization(c.context, &Empty{})
+	retErr, err := c.client.Initialization(c.context, &empty.Empty{})
 	if err != nil {
 		return err
 	}
@@ -79,7 +81,7 @@ func (c *GRPCClient) Initialization() error {
 }
 
 func (c *GRPCClient) UnInitialization() error {
-	retErr, err := c.client.UnInitialization(c.context, &Empty{})
+	retErr, err := c.client.UnInitialization(c.context, &empty.Empty{})
 	if err != nil {
 		return err
 	}
@@ -90,7 +92,7 @@ func (c *GRPCClient) UnInitialization() error {
 }
 
 func (c *GRPCClient) Deploy(name string) (interface{}, error) {
-	retErr, err := c.client.Deploy(c.context, &DeployRequest{
+	retErr, err := c.client.Deploy(c.context, &proto.DeployRequest{
 		Name: name,
 	})
 	if err != nil {
