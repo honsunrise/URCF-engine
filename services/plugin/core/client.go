@@ -61,7 +61,7 @@ func (ps Protocols) Exist(item Protocol) bool {
 const (
 	ENV_PLUGIN_LISTENER_ADDRESS   = "ENV_PLUGIN_LISTENER_ADDRESS"
 	ENV_ALLOW_PLUGIN_RPC_PROTOCOL = "ENV_ALLOW_PLUGIN_RPC_PROTOCOL"
-	ENV_REQUEST_VERSION = "ENV_REQUEST_VERSION"
+	ENV_REQUEST_VERSION           = "ENV_REQUEST_VERSION"
 
 	MSG_COREVERSION  = "CoreVersion"
 	MSG_VERSION      = "Version"
@@ -219,13 +219,10 @@ func (c *Client) Start() error {
 				return err
 			}
 		case strings.ToLower(MSG_ADDRESS):
-			switch parts[2] {
-			case "tcp":
-				c.address, err = net.ResolveTCPAddr("tcp", parts[3])
-			case "unix":
-				c.address, err = net.ResolveUnixAddr("unix", parts[3])
-			default:
-				err = fmt.Errorf("Unknown address type: %s", parts[3])
+			addr := utils.ParseSchemeAddress(parts[1])
+			if addr == nil {
+				err = fmt.Errorf("Unsupported address format: %s", parts[1])
+				return err
 			}
 		case strings.ToLower(MSG_RPC_PROTOCOL):
 			ui64 := uint64(0)
@@ -234,13 +231,14 @@ func (c *Client) Start() error {
 				return err
 			}
 			c.protocol = Protocol(ui64)
-			if (c.config.AllowedProtocols.Exist(c.protocol)){
+			if (c.config.AllowedProtocols.Exist(c.protocol)) {
 				err = fmt.Errorf("Unsupported plugin protocol %q. Supported: %v",
 					c.protocol, c.config.AllowedProtocols)
 				return err
 			}
 		}
 	}
+
 	switch c.protocol {
 	case NoneProtocol:
 	case GRPCProtocol:
