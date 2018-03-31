@@ -3,17 +3,17 @@ package utils
 import "strconv"
 
 type IntName struct {
-	i uint32
-	s string
+	I uint32
+	S string
 }
 
 func StringName(i uint32, names []IntName, goSyntaxPre string, goSyntax bool) string {
 	for _, n := range names {
-		if n.i == i {
+		if n.I == i {
 			if goSyntax {
-				return goSyntaxPre + n.s
+				return goSyntaxPre + n.S
 			}
-			return n.s
+			return n.S
 		}
 	}
 
@@ -21,12 +21,12 @@ func StringName(i uint32, names []IntName, goSyntaxPre string, goSyntax bool) st
 	// assume sorted already
 	for j := len(names) - 1; j >= 0; j-- {
 		n := names[j]
-		if n.i < i {
-			s := n.s
+		if n.I < i {
+			s := n.S
 			if goSyntax {
 				s = goSyntaxPre + s
 			}
-			return s + "+" + strconv.FormatUint(uint64(i-n.i), 10)
+			return s + "+" + strconv.FormatUint(uint64(i-n.I), 10)
 		}
 	}
 

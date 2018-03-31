@@ -1,17 +1,44 @@
 package plugin_test
 
 import (
-	"github.com/zhsyourai/URCF-engine/repositories/account"
-	"fmt"
-	"math/rand"
 	"testing"
+	"time"
 	"github.com/zhsyourai/URCF-engine/services/plugin/protocol"
+	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/utils"
 )
 
-var testID = "__test" + fmt.Sprint(rand.Int())
-var testPassword = "password" + fmt.Sprint(rand.Int())
-var repo = account.NewAccountRepository()
-
 func TestPluginService(t *testing.T) {
-	stub := protocol.NewPluginStub()
+	go func() {
+
+		stub := protocol.NewPluginStub()
+		client, err := stub.StartUp(&models.Plugin{
+			ID: "test_hello_world",
+			Title: "Hello World!",
+			Enabled: true,
+			InstallDate: time.Now(),
+			Path: "./plugin_sdk",
+			WorkDir: "./hello_world",
+			EnterPoint: []string {
+				"/usr/bin/python3",
+				"plugin.py",
+			},
+			Version: *utils.SemanticVersionMust(utils.NewSemVerFromString("1.0.0")),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		commands, err := client.ListCommand()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("Commands %v", commands)
+		if len(commands) != 1 {
+			t.Fatal("Command len not correct!")
+		}
+		if commands[0] != "hello" {
+			t.Fatal("Command hello not supported!")
+		}
+	}()
+	<-time.After(time.Minute * 1)
 }

@@ -39,6 +39,13 @@ type SemanticVersion struct {
 	valid      bool
 }
 
+func SemanticVersionMust(semVer *SemanticVersion, err error) *SemanticVersion {
+	if err != nil {
+		panic(err)
+	}
+	return semVer
+}
+
 func NewSemVerFromString(ver string) (semVer *SemanticVersion, err error) {
 	semVer = &SemanticVersion{
 		Major: 0, Minor: 0, Patch: 0, valid: false,

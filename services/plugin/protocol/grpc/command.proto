@@ -1,27 +1,40 @@
 syntax = "proto3";
 package grpc;
 
-import "google/protobuf/any.proto";
-
-message ErrorStatus {
-    string message = 1;
-    repeated google.protobuf.Any details = 2;
-}
+import "google/protobuf/empty.proto";
 
 message CommandRequest {
     string name = 1;
-    repeated google.protobuf.Any params = 2;
+    repeated string params = 2;
 }
 
-message CommandHelprequest {
+message CommandResp {
+    string result = 1;
+    oneof optional_err {
+        string error = 2;
+    }
+}
+
+message CommandHelpRequest {
     string subcommand = 1;
 }
 
 message CommandHelpResp {
     string help = 1;
+    oneof optional_err {
+        string error = 2;
+    }
+}
+
+message ListCommandResp {
+    repeated string commands = 1;
+    oneof optional_err {
+        string error = 2;
+    }
 }
 
 service CommandInterface {
-    rpc Command (CommandRequest) returns (ErrorStatus);
-    rpc GetHelp (CommandHelprequest) returns (CommandHelpResp);
+    rpc Command (CommandRequest) returns (CommandResp);
+    rpc GetHelp (CommandHelpRequest) returns (CommandHelpResp);
+    rpc ListCommand(google.protobuf.Empty) returns (ListCommandResp);
 }

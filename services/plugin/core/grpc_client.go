@@ -1,4 +1,4 @@
-package grpc
+package core
 
 import (
 	"google.golang.org/grpc"
@@ -9,14 +9,13 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"errors"
 	"fmt"
-	"github.com/zhsyourai/URCF-engine/services/plugin/core"
-	"github.com/zhsyourai/URCF-engine/services/plugin/core/grpc/proto"
+	"github.com/zhsyourai/URCF-engine/services/plugin/core/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 )
 
 type GRPCClient struct {
 	conn    *grpc.ClientConn
-	config  *core.ClientConfig
+	config  *ClientConfig
 	context context.Context
 	client  proto.PluginInterfaceClient
 }
@@ -55,7 +54,7 @@ func dialWithAddrAndTls(context context.Context, addr net.Addr, tls *tls.Config)
 	return conn, nil
 }
 
-func NewGRPCClient(context context.Context, config *core.ClientConfig) (core.ClientInterface, error) {
+func NewGRPCClient(context context.Context, config *ClientConfig) (ClientInterface, error) {
 	conn, err := dialWithAddrAndTls(context, config.Address, config.TLS)
 	if err != nil {
 		return nil, err

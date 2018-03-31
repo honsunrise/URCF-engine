@@ -50,5 +50,5 @@ func ParseSchemeAddress(addr string) net.Addr {
 		return retAddr
 	}
 
-	return
+	return nil
 }

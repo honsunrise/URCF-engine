@@ -8,17 +8,18 @@ It is generated from these files:
 	command.proto
 
 It has these top-level messages:
-	ErrorStatus
 	CommandRequest
-	CommandHelprequest
+	CommandResp
+	CommandHelpRequest
 	CommandHelpResp
+	ListCommandResp
 */
 package grpc
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "github.com/golang/protobuf/ptypes/any"
+import google_protobuf "github.com/golang/protobuf/ptypes/empty"
 
 import (
 	context "golang.org/x/net/context"
@@ -36,39 +37,15 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-type ErrorStatus struct {
-	Message string                 `protobuf:"bytes,1,opt,name=message" json:"message,omitempty"`
-	Details []*google_protobuf.Any `protobuf:"bytes,2,rep,name=details" json:"details,omitempty"`
-}
-
-func (m *ErrorStatus) Reset()                    { *m = ErrorStatus{} }
-func (m *ErrorStatus) String() string            { return proto.CompactTextString(m) }
-func (*ErrorStatus) ProtoMessage()               {}
-func (*ErrorStatus) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
-
-func (m *ErrorStatus) GetMessage() string {
-	if m != nil {
-		return m.Message
-	}
-	return ""
-}
-
-func (m *ErrorStatus) GetDetails() []*google_protobuf.Any {
-	if m != nil {
-		return m.Details
-	}
-	return nil
-}
-
 type CommandRequest struct {
-	Name   string                 `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	Params []*google_protobuf.Any `protobuf:"bytes,2,rep,name=params" json:"params,omitempty"`
+	Name   string   `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Params []string `protobuf:"bytes,2,rep,name=params" json:"params,omitempty"`
 }
 
 func (m *CommandRequest) Reset()                    { *m = CommandRequest{} }
 func (m *CommandRequest) String() string            { return proto.CompactTextString(m) }
 func (*CommandRequest) ProtoMessage()               {}
-func (*CommandRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (*CommandRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
 func (m *CommandRequest) GetName() string {
 	if m != nil {
@@ -77,23 +54,117 @@ func (m *CommandRequest) GetName() string {
 	return ""
 }
 
-func (m *CommandRequest) GetParams() []*google_protobuf.Any {
+func (m *CommandRequest) GetParams() []string {
 	if m != nil {
 		return m.Params
 	}
 	return nil
 }
 
-type CommandHelprequest struct {
+type CommandResp struct {
+	Result string `protobuf:"bytes,1,opt,name=result" json:"result,omitempty"`
+	// Types that are valid to be assigned to OptionalErr:
+	//	*CommandResp_Error
+	OptionalErr isCommandResp_OptionalErr `protobuf_oneof:"optional_err"`
+}
+
+func (m *CommandResp) Reset()                    { *m = CommandResp{} }
+func (m *CommandResp) String() string            { return proto.CompactTextString(m) }
+func (*CommandResp) ProtoMessage()               {}
+func (*CommandResp) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
+type isCommandResp_OptionalErr interface {
+	isCommandResp_OptionalErr()
+}
+
+type CommandResp_Error struct {
+	Error string `protobuf:"bytes,2,opt,name=error,oneof"`
+}
+
+func (*CommandResp_Error) isCommandResp_OptionalErr() {}
+
+func (m *CommandResp) GetOptionalErr() isCommandResp_OptionalErr {
+	if m != nil {
+		return m.OptionalErr
+	}
+	return nil
+}
+
+func (m *CommandResp) GetResult() string {
+	if m != nil {
+		return m.Result
+	}
+	return ""
+}
+
+func (m *CommandResp) GetError() string {
+	if x, ok := m.GetOptionalErr().(*CommandResp_Error); ok {
+		return x.Error
+	}
+	return ""
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*CommandResp) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _CommandResp_OneofMarshaler, _CommandResp_OneofUnmarshaler, _CommandResp_OneofSizer, []interface{}{
+		(*CommandResp_Error)(nil),
+	}
+}
+
+func _CommandResp_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*CommandResp)
+	// optional_err
+	switch x := m.OptionalErr.(type) {
+	case *CommandResp_Error:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		b.EncodeStringBytes(x.Error)
+	case nil:
+	default:
+		return fmt.Errorf("CommandResp.OptionalErr has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _CommandResp_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*CommandResp)
+	switch tag {
+	case 2: // optional_err.error
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.OptionalErr = &CommandResp_Error{x}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _CommandResp_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*CommandResp)
+	// optional_err
+	switch x := m.OptionalErr.(type) {
+	case *CommandResp_Error:
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.Error)))
+		n += len(x.Error)
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+type CommandHelpRequest struct {
 	Subcommand string `protobuf:"bytes,1,opt,name=subcommand" json:"subcommand,omitempty"`
 }
 
-func (m *CommandHelprequest) Reset()                    { *m = CommandHelprequest{} }
-func (m *CommandHelprequest) String() string            { return proto.CompactTextString(m) }
-func (*CommandHelprequest) ProtoMessage()               {}
-func (*CommandHelprequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (m *CommandHelpRequest) Reset()                    { *m = CommandHelpRequest{} }
+func (m *CommandHelpRequest) String() string            { return proto.CompactTextString(m) }
+func (*CommandHelpRequest) ProtoMessage()               {}
+func (*CommandHelpRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
-func (m *CommandHelprequest) GetSubcommand() string {
+func (m *CommandHelpRequest) GetSubcommand() string {
 	if m != nil {
 		return m.Subcommand
 	}
@@ -102,12 +173,32 @@ func (m *CommandHelprequest) GetSubcommand() string {
 
 type CommandHelpResp struct {
 	Help string `protobuf:"bytes,1,opt,name=help" json:"help,omitempty"`
+	// Types that are valid to be assigned to OptionalErr:
+	//	*CommandHelpResp_Error
+	OptionalErr isCommandHelpResp_OptionalErr `protobuf_oneof:"optional_err"`
 }
 
 func (m *CommandHelpResp) Reset()                    { *m = CommandHelpResp{} }
 func (m *CommandHelpResp) String() string            { return proto.CompactTextString(m) }
 func (*CommandHelpResp) ProtoMessage()               {}
 func (*CommandHelpResp) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+
+type isCommandHelpResp_OptionalErr interface {
+	isCommandHelpResp_OptionalErr()
+}
+
+type CommandHelpResp_Error struct {
+	Error string `protobuf:"bytes,2,opt,name=error,oneof"`
+}
+
+func (*CommandHelpResp_Error) isCommandHelpResp_OptionalErr() {}
+
+func (m *CommandHelpResp) GetOptionalErr() isCommandHelpResp_OptionalErr {
+	if m != nil {
+		return m.OptionalErr
+	}
+	return nil
+}
 
 func (m *CommandHelpResp) GetHelp() string {
 	if m != nil {
@@ -116,11 +207,164 @@ func (m *CommandHelpResp) GetHelp() string {
 	return ""
 }
 
+func (m *CommandHelpResp) GetError() string {
+	if x, ok := m.GetOptionalErr().(*CommandHelpResp_Error); ok {
+		return x.Error
+	}
+	return ""
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*CommandHelpResp) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _CommandHelpResp_OneofMarshaler, _CommandHelpResp_OneofUnmarshaler, _CommandHelpResp_OneofSizer, []interface{}{
+		(*CommandHelpResp_Error)(nil),
+	}
+}
+
+func _CommandHelpResp_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*CommandHelpResp)
+	// optional_err
+	switch x := m.OptionalErr.(type) {
+	case *CommandHelpResp_Error:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		b.EncodeStringBytes(x.Error)
+	case nil:
+	default:
+		return fmt.Errorf("CommandHelpResp.OptionalErr has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _CommandHelpResp_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*CommandHelpResp)
+	switch tag {
+	case 2: // optional_err.error
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.OptionalErr = &CommandHelpResp_Error{x}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _CommandHelpResp_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*CommandHelpResp)
+	// optional_err
+	switch x := m.OptionalErr.(type) {
+	case *CommandHelpResp_Error:
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.Error)))
+		n += len(x.Error)
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+type ListCommandResp struct {
+	Commands []string `protobuf:"bytes,1,rep,name=commands" json:"commands,omitempty"`
+	// Types that are valid to be assigned to OptionalErr:
+	//	*ListCommandResp_Error
+	OptionalErr isListCommandResp_OptionalErr `protobuf_oneof:"optional_err"`
+}
+
+func (m *ListCommandResp) Reset()                    { *m = ListCommandResp{} }
+func (m *ListCommandResp) String() string            { return proto.CompactTextString(m) }
+func (*ListCommandResp) ProtoMessage()               {}
+func (*ListCommandResp) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+
+type isListCommandResp_OptionalErr interface {
+	isListCommandResp_OptionalErr()
+}
+
+type ListCommandResp_Error struct {
+	Error string `protobuf:"bytes,2,opt,name=error,oneof"`
+}
+
+func (*ListCommandResp_Error) isListCommandResp_OptionalErr() {}
+
+func (m *ListCommandResp) GetOptionalErr() isListCommandResp_OptionalErr {
+	if m != nil {
+		return m.OptionalErr
+	}
+	return nil
+}
+
+func (m *ListCommandResp) GetCommands() []string {
+	if m != nil {
+		return m.Commands
+	}
+	return nil
+}
+
+func (m *ListCommandResp) GetError() string {
+	if x, ok := m.GetOptionalErr().(*ListCommandResp_Error); ok {
+		return x.Error
+	}
+	return ""
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*ListCommandResp) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _ListCommandResp_OneofMarshaler, _ListCommandResp_OneofUnmarshaler, _ListCommandResp_OneofSizer, []interface{}{
+		(*ListCommandResp_Error)(nil),
+	}
+}
+
+func _ListCommandResp_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*ListCommandResp)
+	// optional_err
+	switch x := m.OptionalErr.(type) {
+	case *ListCommandResp_Error:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		b.EncodeStringBytes(x.Error)
+	case nil:
+	default:
+		return fmt.Errorf("ListCommandResp.OptionalErr has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _ListCommandResp_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*ListCommandResp)
+	switch tag {
+	case 2: // optional_err.error
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.OptionalErr = &ListCommandResp_Error{x}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _ListCommandResp_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*ListCommandResp)
+	// optional_err
+	switch x := m.OptionalErr.(type) {
+	case *ListCommandResp_Error:
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.Error)))
+		n += len(x.Error)
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
 func init() {
-	proto.RegisterType((*ErrorStatus)(nil), "grpc.ErrorStatus")
 	proto.RegisterType((*CommandRequest)(nil), "grpc.CommandRequest")
-	proto.RegisterType((*CommandHelprequest)(nil), "grpc.CommandHelprequest")
+	proto.RegisterType((*CommandResp)(nil), "grpc.CommandResp")
+	proto.RegisterType((*CommandHelpRequest)(nil), "grpc.CommandHelpRequest")
 	proto.RegisterType((*CommandHelpResp)(nil), "grpc.CommandHelpResp")
+	proto.RegisterType((*ListCommandResp)(nil), "grpc.ListCommandResp")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -134,8 +378,9 @@ const _ = grpc1.SupportPackageIsVersion4
 // Client API for CommandInterface service
 
 type CommandInterfaceClient interface {
-	Command(ctx context.Context, in *CommandRequest, opts ...grpc1.CallOption) (*ErrorStatus, error)
-	GetHelp(ctx context.Context, in *CommandHelprequest, opts ...grpc1.CallOption) (*CommandHelpResp, error)
+	Command(ctx context.Context, in *CommandRequest, opts ...grpc1.CallOption) (*CommandResp, error)
+	GetHelp(ctx context.Context, in *CommandHelpRequest, opts ...grpc1.CallOption) (*CommandHelpResp, error)
+	ListCommand(ctx context.Context, in *google_protobuf.Empty, opts ...grpc1.CallOption) (*ListCommandResp, error)
 }
 
 type commandInterfaceClient struct {
@@ -146,8 +391,8 @@ func NewCommandInterfaceClient(cc *grpc1.ClientConn) CommandInterfaceClient {
 	return &commandInterfaceClient{cc}
 }
 
-func (c *commandInterfaceClient) Command(ctx context.Context, in *CommandRequest, opts ...grpc1.CallOption) (*ErrorStatus, error) {
-	out := new(ErrorStatus)
+func (c *commandInterfaceClient) Command(ctx context.Context, in *CommandRequest, opts ...grpc1.CallOption) (*CommandResp, error) {
+	out := new(CommandResp)
 	err := grpc1.Invoke(ctx, "/grpc.CommandInterface/Command", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -155,9 +400,18 @@ func (c *commandInterfaceClient) Command(ctx context.Context, in *CommandRequest
 	return out, nil
 }
 
-func (c *commandInterfaceClient) GetHelp(ctx context.Context, in *CommandHelprequest, opts ...grpc1.CallOption) (*CommandHelpResp, error) {
+func (c *commandInterfaceClient) GetHelp(ctx context.Context, in *CommandHelpRequest, opts ...grpc1.CallOption) (*CommandHelpResp, error) {
 	out := new(CommandHelpResp)
 	err := grpc1.Invoke(ctx, "/grpc.CommandInterface/GetHelp", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *commandInterfaceClient) ListCommand(ctx context.Context, in *google_protobuf.Empty, opts ...grpc1.CallOption) (*ListCommandResp, error) {
+	out := new(ListCommandResp)
+	err := grpc1.Invoke(ctx, "/grpc.CommandInterface/ListCommand", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -167,8 +421,9 @@ func (c *commandInterfaceClient) GetHelp(ctx context.Context, in *CommandHelpreq
 // Server API for CommandInterface service
 
 type CommandInterfaceServer interface {
-	Command(context.Context, *CommandRequest) (*ErrorStatus, error)
-	GetHelp(context.Context, *CommandHelprequest) (*CommandHelpResp, error)
+	Command(context.Context, *CommandRequest) (*CommandResp, error)
+	GetHelp(context.Context, *CommandHelpRequest) (*CommandHelpResp, error)
+	ListCommand(context.Context, *google_protobuf.Empty) (*ListCommandResp, error)
 }
 
 func RegisterCommandInterfaceServer(s *grpc1.Server, srv CommandInterfaceServer) {
@@ -194,7 +449,7 @@ func _CommandInterface_Command_Handler(srv interface{}, ctx context.Context, dec
 }
 
 func _CommandInterface_GetHelp_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc1.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CommandHelprequest)
+	in := new(CommandHelpRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -206,7 +461,25 @@ func _CommandInterface_GetHelp_Handler(srv interface{}, ctx context.Context, dec
 		FullMethod: "/grpc.CommandInterface/GetHelp",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CommandInterfaceServer).GetHelp(ctx, req.(*CommandHelprequest))
+		return srv.(CommandInterfaceServer).GetHelp(ctx, req.(*CommandHelpRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CommandInterface_ListCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc1.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CommandInterfaceServer).ListCommand(ctx, in)
+	}
+	info := &grpc1.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/grpc.CommandInterface/ListCommand",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CommandInterfaceServer).ListCommand(ctx, req.(*google_protobuf.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -223,6 +496,10 @@ var _CommandInterface_serviceDesc = grpc1.ServiceDesc{
 			MethodName: "GetHelp",
 			Handler:    _CommandInterface_GetHelp_Handler,
 		},
+		{
+			MethodName: "ListCommand",
+			Handler:    _CommandInterface_ListCommand_Handler,
+		},
 	},
 	Streams:  []grpc1.StreamDesc{},
 	Metadata: "command.proto",
@@ -231,22 +508,25 @@ var _CommandInterface_serviceDesc = grpc1.ServiceDesc{
 func init() { proto.RegisterFile("command.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 271 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x90, 0xcf, 0x4b, 0xfb, 0x40,
-	0x10, 0xc5, 0xc9, 0xf7, 0x5b, 0x1a, 0x9c, 0xe2, 0xaf, 0xa1, 0x42, 0xcc, 0x41, 0x4a, 0x40, 0xe8,
-	0x41, 0xb6, 0x10, 0x3d, 0x79, 0x13, 0x11, 0xf5, 0x1a, 0x0f, 0x9e, 0x37, 0xe9, 0x34, 0x0a, 0xd9,
-	0x1f, 0xee, 0x6e, 0x0e, 0xbd, 0xfa, 0x97, 0xcb, 0x26, 0xbb, 0x90, 0x22, 0x78, 0x9b, 0xbc, 0xbc,
-	0xf9, 0xec, 0x7b, 0x03, 0xc7, 0x8d, 0x12, 0x82, 0xcb, 0x2d, 0xd3, 0x46, 0x39, 0x85, 0xb3, 0xd6,
-	0xe8, 0x26, 0xbf, 0x6c, 0x95, 0x6a, 0x3b, 0xda, 0x0c, 0x5a, 0xdd, 0xef, 0x36, 0x5c, 0xee, 0x47,
-	0x43, 0xf1, 0x0e, 0x8b, 0x27, 0x63, 0x94, 0x79, 0x73, 0xdc, 0xf5, 0x16, 0x33, 0x48, 0x05, 0x59,
-	0xcb, 0x5b, 0xca, 0x92, 0x55, 0xb2, 0x3e, 0xaa, 0xe2, 0x27, 0x32, 0x48, 0xb7, 0xe4, 0xf8, 0x67,
-	0x67, 0xb3, 0x7f, 0xab, 0xff, 0xeb, 0x45, 0xb9, 0x64, 0x23, 0x95, 0x45, 0x2a, 0x7b, 0x90, 0xfb,
-	0x2a, 0x9a, 0x8a, 0x0a, 0x4e, 0x1e, 0xc7, 0x28, 0x15, 0x7d, 0xf5, 0x64, 0x1d, 0x22, 0xcc, 0x24,
-	0x17, 0x11, 0x3c, 0xcc, 0x78, 0x03, 0x73, 0xcd, 0x0d, 0x17, 0x7f, 0x43, 0x83, 0xa7, 0xb8, 0x03,
-	0x0c, 0xcc, 0x17, 0xea, 0xb4, 0x09, 0xdc, 0x2b, 0x00, 0xdb, 0xd7, 0xa1, 0x77, 0xa0, 0x4f, 0x94,
-	0xe2, 0x1a, 0x4e, 0x27, 0x5b, 0x15, 0x59, 0xed, 0xa3, 0x7c, 0x50, 0xa7, 0x63, 0x14, 0x3f, 0x97,
-	0xdf, 0x09, 0x9c, 0x05, 0xdf, 0xab, 0x74, 0x64, 0x76, 0xbc, 0x21, 0x2c, 0x21, 0x0d, 0x1a, 0x2e,
-	0x99, 0xbf, 0x25, 0x3b, 0x2c, 0x95, 0x9f, 0x8f, 0xea, 0xf4, 0x86, 0xf7, 0x90, 0x3e, 0x93, 0xf3,
-	0x6f, 0x61, 0x76, 0xb0, 0x33, 0x09, 0x9d, 0x5f, 0xfc, 0xfa, 0xe3, 0x83, 0xd5, 0xf3, 0xa1, 0xf7,
-	0xed, 0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x9a, 0xa6, 0xcf, 0xb4, 0xc7, 0x01, 0x00, 0x00,
+	// 313 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0xc1, 0x4e, 0xc2, 0x40,
+	0x10, 0xb5, 0x88, 0x20, 0x83, 0x82, 0x4e, 0x94, 0x34, 0x35, 0x31, 0xa4, 0x27, 0x4e, 0x4b, 0x82,
+	0x9e, 0x0c, 0x27, 0x8d, 0x11, 0x13, 0xb9, 0x34, 0xf1, 0x6c, 0x16, 0x1c, 0x2a, 0x49, 0xdb, 0x5d,
+	0x77, 0xb7, 0x07, 0xff, 0xce, 0x4f, 0x33, 0xdb, 0x6e, 0x49, 0x4b, 0x3c, 0x70, 0xdb, 0xf7, 0x76,
+	0xde, 0xdb, 0x7d, 0x33, 0x03, 0xe7, 0x6b, 0x91, 0xa6, 0x3c, 0xfb, 0x64, 0x52, 0x09, 0x23, 0xb0,
+	0x1d, 0x2b, 0xb9, 0x0e, 0x6e, 0x62, 0x21, 0xe2, 0x84, 0xa6, 0x05, 0xb7, 0xca, 0x37, 0x53, 0x4a,
+	0xa5, 0xf9, 0x29, 0x4b, 0xc2, 0x39, 0x0c, 0x9e, 0x4a, 0x4d, 0x44, 0xdf, 0x39, 0x69, 0x83, 0x08,
+	0xed, 0x8c, 0xa7, 0xe4, 0x7b, 0x63, 0x6f, 0xd2, 0x8b, 0x8a, 0x33, 0x8e, 0xa0, 0x23, 0xb9, 0xe2,
+	0xa9, 0xf6, 0x5b, 0xe3, 0xe3, 0x49, 0x2f, 0x72, 0x28, 0x5c, 0x42, 0x7f, 0xa7, 0xd6, 0xd2, 0x96,
+	0x29, 0xd2, 0x79, 0x62, 0x9c, 0xd8, 0x21, 0x1c, 0xc1, 0x09, 0x29, 0x25, 0x94, 0xdf, 0xb2, 0xf4,
+	0xe2, 0x28, 0x2a, 0xe1, 0xe3, 0x00, 0xce, 0x84, 0x34, 0x5b, 0x91, 0xf1, 0xe4, 0x83, 0x94, 0x0a,
+	0xef, 0x01, 0x9d, 0xdd, 0x82, 0x12, 0x59, 0x7d, 0xe8, 0x16, 0x40, 0xe7, 0x2b, 0x97, 0xcc, 0x39,
+	0xd7, 0x98, 0x70, 0x09, 0xc3, 0x86, 0x4a, 0x4b, 0x9b, 0xe1, 0x8b, 0x12, 0x59, 0x65, 0xb0, 0xe7,
+	0x83, 0x3f, 0xf1, 0x0e, 0xc3, 0xb7, 0xad, 0x36, 0xf5, 0x5c, 0x01, 0x9c, 0xba, 0xc7, 0xb4, 0xef,
+	0x15, 0x0d, 0xd8, 0xe1, 0x43, 0x6d, 0x67, 0xbf, 0x1e, 0x5c, 0x38, 0xcf, 0xd7, 0xcc, 0x90, 0xda,
+	0xf0, 0x35, 0xe1, 0x0c, 0xba, 0x8e, 0xc3, 0x2b, 0x66, 0x87, 0xc5, 0x9a, 0xc3, 0x08, 0x2e, 0xf7,
+	0x58, 0x2d, 0xf1, 0x01, 0xba, 0x2f, 0x64, 0x6c, 0x54, 0xf4, 0x1b, 0xb7, 0xb5, 0x9e, 0x05, 0xd7,
+	0xff, 0xdc, 0x68, 0x89, 0x73, 0xe8, 0xd7, 0xb2, 0xe1, 0x88, 0x95, 0xab, 0xc1, 0xaa, 0xd5, 0x60,
+	0xcf, 0x76, 0x35, 0x2a, 0xf5, 0x5e, 0x1b, 0x56, 0x9d, 0xa2, 0xec, 0xee, 0x2f, 0x00, 0x00, 0xff,
+	0xff, 0x5a, 0x76, 0xa2, 0x03, 0x66, 0x02, 0x00, 0x00,
 }

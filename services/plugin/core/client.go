@@ -16,7 +16,6 @@ import (
 	"errors"
 	"strconv"
 	"crypto/tls"
-	"github.com/zhsyourai/URCF-engine/services/plugin/core/grpc"
 	"github.com/zhsyourai/URCF-engine/utils"
 )
 
@@ -179,64 +178,66 @@ func (c *Client) Start() error {
 
 	// Start looking for the address
 	log.Debug("waiting for RPC address", "path", c.config.Cmd)
-	select {
-	case <-timeout:
-		err = errors.New("timeout while waiting for plugin to start")
-	case <-procServ.WaitExitChan(process):
-		err = errors.New("plugin exited before we could connect")
-	case lineBytes := <-linesCh:
-		line := strings.TrimSpace(string(lineBytes))
-		parts := strings.SplitN(line, ":", 6)
-		if len(parts) != 2 {
-			err = fmt.Errorf("Unrecognized remote plugin message: %s\n", line)
-			return err
-		}
-		parts[0] = strings.TrimSpace(parts[0])
-		parts[1] = strings.TrimSpace(parts[2])
+	for true {
+		select {
+		case <-timeout:
+			return errors.New("timeout while waiting for plugin to start")
+		case <-procServ.WaitExitChan(process):
+			return errors.New("plugin exited before we could connect")
+		case lineBytes := <-linesCh:
+			line := strings.TrimSpace(string(lineBytes))
+			parts := strings.SplitN(line, ":", 6)
+			if len(parts) != 2 {
+				err = fmt.Errorf("Unrecognized remote plugin message: %s\n", line)
+				return err
+			}
+			parts[0] = strings.TrimSpace(parts[0])
+			parts[1] = strings.TrimSpace(parts[2])
 
-		switch strings.ToLower(parts[0]) {
-		case strings.ToLower(MSG_COREVERSION):
-			var coreProtocol *utils.SemanticVersion
-			coreProtocol, err = utils.NewSemVerFromString(parts[1])
-			if err != nil {
-				return err
-			}
+			switch strings.ToLower(parts[0]) {
+			case strings.ToLower(MSG_COREVERSION):
+				var coreProtocol *utils.SemanticVersion
+				coreProtocol, err = utils.NewSemVerFromString(parts[1])
+				if err != nil {
+					return err
+				}
 
-			if CoreProtocolVersion.Compatible(coreProtocol) {
-				err = fmt.Errorf("Incompatible core API version with plugin. "+
-					"Plugin version: %s, Core version: %s\n\n"+
-					"Please report this to the plugin author.", coreProtocol, CoreProtocolVersion)
-				return err
-			}
-		case strings.ToLower(MSG_VERSION):
-			var protocol *utils.SemanticVersion
-			protocol, err = utils.NewSemVerFromString(parts[1])
-			if err != nil {
-				return err
-			}
+				if CoreProtocolVersion.Compatible(coreProtocol) {
+					err = fmt.Errorf("Incompatible core API version with plugin. "+
+						"Plugin version: %s, Core version: %s\n\n"+
+						"Please report this to the plugin author.", coreProtocol, CoreProtocolVersion)
+					return err
+				}
+			case strings.ToLower(MSG_VERSION):
+				var protocol *utils.SemanticVersion
+				protocol, err = utils.NewSemVerFromString(parts[1])
+				if err != nil {
+					return err
+				}
 
-			if c.config.Version.Compatible(protocol) {
-				err = fmt.Errorf("Incompatible API version with plugin. "+
-					"Plugin version: %s, Request version: %s", protocol, c.config.Version)
-				return err
-			}
-		case strings.ToLower(MSG_ADDRESS):
-			addr := utils.ParseSchemeAddress(parts[1])
-			if addr == nil {
-				err = fmt.Errorf("Unsupported address format: %s", parts[1])
-				return err
-			}
-		case strings.ToLower(MSG_RPC_PROTOCOL):
-			ui64 := uint64(0)
-			ui64, err = strconv.ParseUint(parts[1], 10, 0)
-			if err != nil {
-				return err
-			}
-			c.protocol = Protocol(ui64)
-			if (c.config.AllowedProtocols.Exist(c.protocol)) {
-				err = fmt.Errorf("Unsupported plugin protocol %q. Supported: %v",
-					c.protocol, c.config.AllowedProtocols)
-				return err
+				if c.config.Version.Compatible(protocol) {
+					err = fmt.Errorf("Incompatible API version with plugin. "+
+						"Plugin version: %s, Request version: %s", protocol, c.config.Version)
+					return err
+				}
+			case strings.ToLower(MSG_ADDRESS):
+				addr := utils.ParseSchemeAddress(parts[1])
+				if addr == nil {
+					err = fmt.Errorf("Unsupported address format: %s", parts[1])
+					return err
+				}
+			case strings.ToLower(MSG_RPC_PROTOCOL):
+				ui64 := uint64(0)
+				ui64, err = strconv.ParseUint(parts[1], 10, 0)
+				if err != nil {
+					return err
+				}
+				c.protocol = Protocol(ui64)
+				if (c.config.AllowedProtocols.Exist(c.protocol)) {
+					err = fmt.Errorf("Unsupported plugin protocol %q. Supported: %v",
+						c.protocol, c.config.AllowedProtocols)
+					return err
+				}
 			}
 		}
 	}
@@ -244,7 +245,7 @@ func (c *Client) Start() error {
 	switch c.protocol {
 	case NoneProtocol:
 	case GRPCProtocol:
-		c.client, err = grpc.NewGRPCClient(c.context, c.config)
+		c.client, err = NewGRPCClient(c.context, c.config)
 		if err != nil {
 			return err
 		}
@@ -263,6 +264,10 @@ func (c *Client) Start() error {
 
 func (c *Client) Deploy(name string) (interface{}, error) {
 	return c.client.Deploy(name)
+}
+
+func (c *Client) Protocol() Protocol {
+	return c.protocol
 }
 
 func (c *Client) Stop() error {

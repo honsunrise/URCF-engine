@@ -2,6 +2,8 @@
 import grpc
 
 from . import command_pb2 as command__pb2
+from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
+
 
 class CommandInterfaceStub(object):
   # missing associated documentation comment in .proto file
@@ -16,12 +18,17 @@ class CommandInterfaceStub(object):
     self.Command = channel.unary_unary(
         '/grpc.CommandInterface/Command',
         request_serializer=command__pb2.CommandRequest.SerializeToString,
-        response_deserializer=command__pb2.ErrorStatus.FromString,
+        response_deserializer=command__pb2.CommandResp.FromString,
         )
     self.GetHelp = channel.unary_unary(
         '/grpc.CommandInterface/GetHelp',
-        request_serializer=command__pb2.CommandHelprequest.SerializeToString,
+        request_serializer=command__pb2.CommandHelpRequest.SerializeToString,
         response_deserializer=command__pb2.CommandHelpResp.FromString,
+        )
+    self.ListCommand = channel.unary_unary(
+        '/grpc.CommandInterface/ListCommand',
+        request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+        response_deserializer=command__pb2.ListCommandResp.FromString,
         )
 
 
@@ -43,18 +50,30 @@ class CommandInterfaceServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def ListCommand(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_CommandInterfaceServicer_to_server(servicer, server):
   rpc_method_handlers = {
       'Command': grpc.unary_unary_rpc_method_handler(
           servicer.Command,
           request_deserializer=command__pb2.CommandRequest.FromString,
-          response_serializer=command__pb2.ErrorStatus.SerializeToString,
+          response_serializer=command__pb2.CommandResp.SerializeToString,
       ),
       'GetHelp': grpc.unary_unary_rpc_method_handler(
           servicer.GetHelp,
-          request_deserializer=command__pb2.CommandHelprequest.FromString,
+          request_deserializer=command__pb2.CommandHelpRequest.FromString,
           response_serializer=command__pb2.CommandHelpResp.SerializeToString,
+      ),
+      'ListCommand': grpc.unary_unary_rpc_method_handler(
+          servicer.ListCommand,
+          request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+          response_serializer=command__pb2.ListCommandResp.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(

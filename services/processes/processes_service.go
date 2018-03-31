@@ -15,7 +15,6 @@ import (
 	"io"
 	"bufio"
 	"unicode"
-	"github.com/hashicorp/go-hclog"
 	logservice "github.com/zhsyourai/URCF-engine/services/log"
 )
 
@@ -253,7 +252,7 @@ func (s *processesService) IsAlive(p *types.Process) bool {
 	return p.Process.Signal(syscall.Signal(0)) == nil
 }
 
-func (s *processesService) WaitChan(p *types.Process) chan struct{} {
+func (s *processesService) WaitExitChan(p *types.Process) chan struct{} {
 	exitCh := make(chan struct{})
 	go func() {
 		p.Process.Wait()
@@ -276,26 +275,27 @@ func (s *processesService) hookLog(name string, r io.Reader) error {
 			line, err := bufR.ReadString('\n')
 			if line != "" {
 				line = strings.TrimRightFunc(line, unicode.IsSpace)
-				entry, err := parseJSON(line)
-				if err != nil {
-					logger.Debug(line)
-				} else {
-					out := flattenKVPairs(entry.KVPairs)
-
-					logger = logger.WithField("timestamp", entry.Timestamp.Format(hclog.TimeFormat))
-					switch hclog.LevelFromString(entry.Level) {
-					case log.DebugLevel:
-						logger.Debug(entry.Message, out...)
-					case log.InfoLevel:
-						logger.Info(entry.Message, out...)
-					case log.WarnLevel:
-						logger.Warn(entry.Message, out...)
-					case log.ErrorLevel:
-						logger.Error(entry.Message, out...)
-					case log.FatalLevel:
-						logger.Error(entry.Message, out...)
-					}
-				}
+				logger.Debug(line)
+				//entry, err := parseJSON(line)
+				//if err != nil {
+				//	logger.Debug(line)
+				//} else {
+				//	out := flattenKVPairs(entry.KVPairs)
+				//
+				//	logger = logger.WithField("timestamp", entry.Timestamp.Format(hclog.TimeFormat))
+				//	switch hclog.LevelFromString(entry.Level) {
+				//	case log.DebugLevel:
+				//		logger.Debug(entry.Message, out...)
+				//	case log.InfoLevel:
+				//		logger.Info(entry.Message, out...)
+				//	case log.WarnLevel:
+				//		logger.Warn(entry.Message, out...)
+				//	case log.ErrorLevel:
+				//		logger.Error(entry.Message, out...)
+				//	case log.FatalLevel:
+				//		logger.Error(entry.Message, out...)
+				//	}
+				//}
 			}
 
 			if err == io.EOF {
