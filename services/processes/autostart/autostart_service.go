@@ -91,8 +91,12 @@ func (a *autoStart) StartAll() error {
 	go func() {
 		for _, as := range a.cache {
 			if as.Parallel {
-				a.processes[as.Name], err = a.processesService.Start(as.Name, as.WorkDir, as.Cmd,
+				a.processes[as.Name], err = a.processesService.Prepare(as.Name, as.WorkDir, as.Cmd,
 					as.Args, as.Env, as.Option)
+				if err != nil {
+					log.Errorf("process %s autostart error: %v", as.Name, err)
+				}
+				a.processes[as.Name], err = a.processesService.Start(a.processes[as.Name])
 				if err != nil {
 					log.Errorf("process %s autostart error: %v", as.Name, err)
 				}
@@ -101,10 +105,14 @@ func (a *autoStart) StartAll() error {
 		for _, as := range a.cache {
 			if !as.Parallel {
 				<-time.After(time.Second * time.Duration(as.StartDelay))
-				a.processes[as.Name], err = a.processesService.Start(as.Name, as.WorkDir, as.Cmd,
+				a.processes[as.Name], err = a.processesService.Prepare(as.Name, as.WorkDir, as.Cmd,
 					as.Args, as.Env, as.Option)
 				if err != nil {
 					log.Warnf("process %s autostart error: %v", as.Name, err)
+				}
+				a.processes[as.Name], err = a.processesService.Start(a.processes[as.Name])
+				if err != nil {
+					log.Errorf("process %s autostart error: %v", as.Name, err)
 				}
 			}
 		}
