@@ -1,12 +1,12 @@
 package global_configuration
 
 import (
-	"gopkg.in/yaml.v2"
 	log "github.com/sirupsen/logrus"
-	"os"
-	"io/ioutil"
-	"sync"
 	"github.com/zhsyourai/URCF-engine/services"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"os"
+	"sync"
 )
 
 /*
@@ -33,7 +33,7 @@ type Rpc struct {
 	Port uint16
 }
 
-type Sys struct{
+type Sys struct {
 	WorkPath string
 }
 
@@ -94,7 +94,7 @@ func (s *globalConfigService) Initialize(arguments ...interface{}) error {
 }
 
 func (s *globalConfigService) UnInitialize(arguments ...interface{}) error {
-	return s.CallUnInitialize(func() error{
+	return s.CallUnInitialize(func() error {
 		err := s.configFile.Close()
 		if err != nil {
 			log.Fatalf("error: %v", err)

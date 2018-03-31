@@ -1,9 +1,9 @@
 package log
 
 import (
-	"sync"
-	"github.com/zhsyourai/URCF-engine/services"
 	log "github.com/sirupsen/logrus"
+	"github.com/zhsyourai/URCF-engine/services"
+	"sync"
 )
 
 type Service interface {
@@ -50,4 +50,3 @@ func (s *logService) UnInitialize(arguments ...interface{}) error {
 		return nil
 	})
 }
-

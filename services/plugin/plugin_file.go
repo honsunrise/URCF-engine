@@ -52,8 +52,8 @@ var machineStrings = []utils.IntName{
 	{6, "M_IA_64"},
 }
 
-func (i Machine) String() string   { return utils.StringName(uint32(i), machineStrings, "upp.",false) }
-func (i Machine) GoString() string { return utils.StringName(uint32(i), machineStrings, "upp.",true) }
+func (i Machine) String() string   { return utils.StringName(uint32(i), machineStrings, "upp.", false) }
+func (i Machine) GoString() string { return utils.StringName(uint32(i), machineStrings, "upp.", true) }
 
 type Flags uint32
 
@@ -61,8 +61,8 @@ var flagsStrings = []utils.IntName{
 	{0, "F_NONE"},
 }
 
-func (i Flags) String() string   { return utils.StringName(uint32(i), flagsStrings, "upp.",false) }
-func (i Flags) GoString() string { return utils.StringName(uint32(i), flagsStrings, "upp.",true) }
+func (i Flags) String() string   { return utils.StringName(uint32(i), flagsStrings, "upp.", false) }
+func (i Flags) GoString() string { return utils.StringName(uint32(i), flagsStrings, "upp.", true) }
 
 type File struct {
 	io.Closer

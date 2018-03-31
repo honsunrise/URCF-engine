@@ -1,12 +1,12 @@
 package protocol
 
 import (
-	"github.com/zhsyourai/URCF-engine/services/plugin/core"
-	"github.com/zhsyourai/URCF-engine/models"
-	"github.com/zhsyourai/URCF-engine/services/plugin/protocol/grpc"
-	"github.com/kataras/iris/core/errors"
 	"context"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/kataras/iris/core/errors"
+	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/services/plugin/core"
+	"github.com/zhsyourai/URCF-engine/services/plugin/protocol/grpc"
 )
 
 type PluginStub struct {
@@ -14,8 +14,7 @@ type PluginStub struct {
 }
 
 func NewPluginStub() *PluginStub {
-	return &PluginStub{
-	}
+	return &PluginStub{}
 }
 
 type warpGrpcCommandProtocolClient struct {
@@ -25,7 +24,7 @@ type warpGrpcCommandProtocolClient struct {
 
 func (wg *warpGrpcCommandProtocolClient) Command(name string, params ...string) (string, error) {
 	commandResp, err := wg.client.Command(wg.context, &grpc.CommandRequest{
-		Name: name,
+		Name:   name,
 		Params: params,
 	})
 	if err != nil {
@@ -50,7 +49,7 @@ func (wg *warpGrpcCommandProtocolClient) GetHelp(name string) (string, error) {
 	return chResp.GetHelp(), nil
 }
 
-func (wg *warpGrpcCommandProtocolClient) ListCommand() ([]string, error){
+func (wg *warpGrpcCommandProtocolClient) ListCommand() ([]string, error) {
 	lcResp, err := wg.client.ListCommand(wg.context, &empty.Empty{})
 	if err != nil {
 		return nil, err

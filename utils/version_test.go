@@ -1,15 +1,14 @@
 package utils
 
 import (
-	"testing"
 	"errors"
+	"testing"
 )
-
 
 // 1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-alpha.beta < 1.0.0-beta < 1.0.0-beta.2 < 1.0.0-beta.11111
 // < 1.0.0-beta.k < 1.0.0-rc.1 < 1.0.0
 func TestSemanticVersion_Compare(t *testing.T) {
-	testList := []string {
+	testList := []string{
 		"1.0.0-alpha",
 		"1.0.0-alpha.1",
 		"1.0.0-alpha.beta",
@@ -31,7 +30,7 @@ func TestSemanticVersion_Compare(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if (i == j) {
+			if i == j {
 				if v1.Compare(v2) != Same {
 					t.Fatal(errors.New("Version compare not correct"))
 				}
@@ -46,6 +45,5 @@ func TestSemanticVersion_Compare(t *testing.T) {
 			}
 		}
 	}
-
 
 }

@@ -1,9 +1,9 @@
 package utils
 
 import (
+	"net"
 	"reflect"
 	"strings"
-	"net"
 )
 
 func HasElem(s interface{}, elem interface{}) bool {
@@ -33,7 +33,7 @@ func ParseSchemeAddress(addr string) net.Addr {
 	if !ok {
 		return nil
 	}
-	switch strings.ToLower(network){
+	switch strings.ToLower(network) {
 	case "tcp":
 	case "tcp4":
 	case "tcp6":

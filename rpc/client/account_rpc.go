@@ -1,8 +1,8 @@
 package client
 
 import (
-	"github.com/zhsyourai/URCF-engine/rpc/shared"
 	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/rpc/shared"
 	"net/rpc"
 )
 
@@ -24,11 +24,11 @@ func NewAccountRPC(address string) (*AccountRPC, error) {
 
 func (t *AccountRPC) Register(id string, password string, role []string) (reply models.Account, err error) {
 	param := &shared.RegisterParam{
-		Id: id,
+		Id:       id,
 		Password: password,
-		Role: role,
+		Role:     role,
 	}
-	err = t.client.Call(AccountRPCName + ".Register", param, &reply)
+	err = t.client.Call(AccountRPCName+".Register", param, &reply)
 	return
 }
 

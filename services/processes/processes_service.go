@@ -7,15 +7,15 @@ import (
 	"sync"
 	"syscall"
 
+	"bufio"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services"
+	logservice "github.com/zhsyourai/URCF-engine/services/log"
 	"github.com/zhsyourai/URCF-engine/services/processes/types"
 	"github.com/zhsyourai/URCF-engine/services/processes/watchdog"
 	"io"
-	"bufio"
 	"unicode"
-	logservice "github.com/zhsyourai/URCF-engine/services/log"
 )
 
 type Service interface {
@@ -34,8 +34,8 @@ type Service interface {
 }
 
 type processesPair struct {
-	proc *types.Process
-	procAttr *os.ProcAttr
+	proc      *types.Process
+	procAttr  *os.ProcAttr
 	finalArgs []string
 }
 
@@ -160,8 +160,8 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 	}
 
 	s.procMap.Store(name, &processesPair{
-		proc: proc,
-		procAttr: procAtr,
+		proc:      proc,
+		procAttr:  procAtr,
 		finalArgs: append([]string{cmd}, args...),
 	})
 
@@ -177,7 +177,7 @@ func (s *processesService) FindByName(name string) *types.Process {
 
 func (s *processesService) Start(proc *types.Process) (*types.Process, error) {
 	p, ok := s.procMap.Load(proc.Name)
-	if !ok || p.(*processesPair).proc == nil{
+	if !ok || p.(*processesPair).proc == nil {
 		return nil, errors.New("process does not exist")
 	}
 
@@ -201,7 +201,7 @@ func (s *processesService) Start(proc *types.Process) (*types.Process, error) {
 
 func (s *processesService) Stop(proc *types.Process) error {
 	p, ok := s.procMap.Load(proc.Name)
-	if !ok || p.(*processesPair).proc == nil{
+	if !ok || p.(*processesPair).proc == nil {
 		return errors.New("process does not exist")
 	}
 	defer proc.Process.Release()
@@ -262,7 +262,6 @@ func (s *processesService) WaitExitChan(p *types.Process) chan struct{} {
 	return exitCh
 }
 
-
 func (s *processesService) hookLog(name string, r io.Reader) error {
 	logServ := logservice.GetInstance()
 	logger, err := logServ.GetLogger(name)
@@ -302,6 +301,6 @@ func (s *processesService) hookLog(name string, r io.Reader) error {
 				break
 			}
 		}
-	}();
+	}()
 	return nil
 }

@@ -1,11 +1,11 @@
 package plugin_test
 
 import (
+	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/services/plugin/protocol"
+	"github.com/zhsyourai/URCF-engine/utils"
 	"testing"
 	"time"
-	"github.com/zhsyourai/URCF-engine/services/plugin/protocol"
-	"github.com/zhsyourai/URCF-engine/models"
-	"github.com/zhsyourai/URCF-engine/utils"
 )
 
 func TestPluginService(t *testing.T) {
@@ -13,13 +13,13 @@ func TestPluginService(t *testing.T) {
 
 		stub := protocol.NewPluginStub()
 		client, err := stub.StartUp(&models.Plugin{
-			ID: "test_hello_world",
-			Title: "Hello World!",
-			Enabled: true,
+			ID:          "test_hello_world",
+			Title:       "Hello World!",
+			Enabled:     true,
 			InstallDate: time.Now(),
-			Path: "./plugin_sdk",
-			WorkDir: "./hello_world",
-			EnterPoint: []string {
+			Path:        "./plugin_sdk",
+			WorkDir:     "./hello_world",
+			EnterPoint: []string{
 				"/usr/bin/python3",
 				"plugin.py",
 			},

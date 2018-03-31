@@ -1,13 +1,13 @@
 package kill
 
 import (
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kataras/iris/core/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/daemon"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
-	"syscall"
-	log "github.com/sirupsen/logrus"
+	"gopkg.in/alecthomas/kingpin.v2"
 	"os"
-	"github.com/kataras/iris/core/errors"
+	"syscall"
 )
 
 func Prepare(app *kingpin.Application) map[string]func() error {

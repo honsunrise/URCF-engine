@@ -4,12 +4,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zhsyourai/URCF-engine/models"
-	"github.com/zhsyourai/URCF-engine/repositories/account"
-	"golang.org/x/crypto/bcrypt"
-	"github.com/zhsyourai/URCF-engine/services"
 	"github.com/kataras/iris/core/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/repositories/account"
+	"github.com/zhsyourai/URCF-engine/services"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var UserNotFoundErr = errors.New("user not found")
@@ -133,7 +133,7 @@ func (s *accountService) ChangePassword(id string, oldPassword string, newPasswo
 		log.Error(err)
 		return PasswordModifyErr
 	}
-	err = s.repo.UpdateAccountByID(id, map[string]interface{} {
+	err = s.repo.UpdateAccountByID(id, map[string]interface{}{
 		"Password": hashedPassword,
 	})
 	if err != nil {

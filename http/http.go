@@ -11,10 +11,10 @@ import (
 	"github.com/iris-contrib/middleware/tollboothic"
 	"github.com/kataras/iris"
 	"github.com/kataras/iris/mvc"
-	"github.com/zhsyourai/URCF-engine/http/helper"
-	"github.com/zhsyourai/URCF-engine/services/account"
 	"github.com/zhsyourai/URCF-engine/http/controllers/anonymous"
 	"github.com/zhsyourai/URCF-engine/http/controllers/auth"
+	"github.com/zhsyourai/URCF-engine/http/helper"
+	"github.com/zhsyourai/URCF-engine/services/account"
 )
 
 var (
@@ -48,7 +48,7 @@ func StartHTTPServer() error {
 		AllowedMethods:   []string{"*"},
 		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
-		Debug: debug,
+		Debug:            debug,
 	})
 
 	app.Use(prometheus.ServeHTTP)

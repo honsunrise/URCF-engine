@@ -26,7 +26,7 @@ type Service interface {
 	GetByID(id string) (models.Plugin, error)
 	Uninstall(id string, flag UnInstallFlag) error
 	Install(path string, flag InstallFlag) (models.Plugin, error)
-	GetInterface(id string) (error)
+	GetInterface(id string) error
 }
 
 var instance *pluginService
@@ -74,6 +74,6 @@ func (s *pluginService) Install(path string, flag InstallFlag) (models.Plugin, e
 	return models.Plugin{}, nil
 }
 
-func (s *pluginService) GetInterface(id string) (error) {
+func (s *pluginService) GetInterface(id string) error {
 	return nil
 }

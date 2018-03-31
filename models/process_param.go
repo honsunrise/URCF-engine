@@ -3,7 +3,7 @@ package models
 type ProcessOption int
 
 const (
-	None = 0
+	None                      = 0
 	AutoRestart ProcessOption = 1 << iota
 	HookLog
 )

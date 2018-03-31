@@ -2,8 +2,8 @@ package grpc
 
 import "context"
 import (
-	grpc1 "google.golang.org/grpc"
 	"errors"
+	grpc1 "google.golang.org/grpc"
 )
 
 type CommandPlugin struct {

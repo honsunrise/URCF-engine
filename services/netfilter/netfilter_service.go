@@ -1,8 +1,8 @@
 package netfilter
 
 import (
-	"sync"
 	"github.com/zhsyourai/URCF-engine/services"
+	"sync"
 )
 
 type Service interface {
@@ -14,8 +14,7 @@ var once sync.Once
 
 func GetInstance() Service {
 	once.Do(func() {
-		instance = &netfilterService{
-		}
+		instance = &netfilterService{}
 	})
 	return instance
 }
@@ -35,4 +34,3 @@ func (s *netfilterService) UnInitialize(arguments ...interface{}) error {
 		return nil
 	})
 }
-

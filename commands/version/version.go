@@ -1,8 +1,8 @@
 package version
 
 import (
-	"gopkg.in/alecthomas/kingpin.v2"
 	"fmt"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 func Prepare(app *kingpin.Application) map[string]func() error {

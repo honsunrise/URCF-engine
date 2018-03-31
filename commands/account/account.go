@@ -1,9 +1,9 @@
 package account
 
 import (
-	"gopkg.in/alecthomas/kingpin.v2"
-	"github.com/zhsyourai/URCF-engine/rpc/client"
 	"fmt"
+	"github.com/zhsyourai/URCF-engine/rpc/client"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 func Prepare(app *kingpin.Application) map[string]func() error {

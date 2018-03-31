@@ -1,28 +1,28 @@
 package serve
 
 import (
-	"gopkg.in/alecthomas/kingpin.v2"
-	"github.com/zhsyourai/URCF-engine/daemon"
-	"os"
-	"github.com/zhsyourai/URCF-engine/services/netfilter"
-	"github.com/zhsyourai/URCF-engine/services/processes/watchdog"
-	"github.com/zhsyourai/URCF-engine/services/processes"
-	"syscall"
-	"github.com/zhsyourai/URCF-engine/services/global_configuration"
-	"os/signal"
+	"github.com/kataras/iris/core/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/zhsyourai/URCF-engine/daemon"
 	"github.com/zhsyourai/URCF-engine/http"
 	"github.com/zhsyourai/URCF-engine/rpc"
-	"github.com/zhsyourai/URCF-engine/services/configuration"
-	logService "github.com/zhsyourai/URCF-engine/services/log"
 	"github.com/zhsyourai/URCF-engine/services/account"
-	"github.com/zhsyourai/URCF-engine/services/processes/autostart"
+	"github.com/zhsyourai/URCF-engine/services/configuration"
+	"github.com/zhsyourai/URCF-engine/services/global_configuration"
+	logService "github.com/zhsyourai/URCF-engine/services/log"
+	"github.com/zhsyourai/URCF-engine/services/netfilter"
 	"github.com/zhsyourai/URCF-engine/services/plugin"
-	"github.com/kataras/iris/core/errors"
+	"github.com/zhsyourai/URCF-engine/services/processes"
+	"github.com/zhsyourai/URCF-engine/services/processes/autostart"
+	"github.com/zhsyourai/URCF-engine/services/processes/watchdog"
+	"gopkg.in/alecthomas/kingpin.v2"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func Prepare(app *kingpin.Application) map[string]func() error {
-	serve      := app.Command("serve", "Create URCF daemon.")
+	serve := app.Command("serve", "Create URCF daemon.")
 	configFile := serve.Flag("config-file", "Config file location").String()
 	startAsDaemon := serve.Flag("daemon", "Config file location").Default("false").Bool()
 	return map[string]func() error{
@@ -89,7 +89,6 @@ func run(isDaemon bool) error {
 	}
 	return nil
 }
-
 
 func start() (err error) {
 	confServ := configuration.GetInstance()
@@ -178,4 +177,3 @@ func sendSignal(pid int, signal os.Signal) error {
 	defer p.Release()
 	return p.Signal(signal)
 }
-

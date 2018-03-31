@@ -8,8 +8,8 @@ import (
 	"reflect"
 
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
 	"path"
 )
@@ -60,7 +60,7 @@ func (r *configurationRepository) InsertConfig(config models.Config) error {
 	}
 	err = r.db.Put([]byte(config.Key), buf.Bytes(), &opt.WriteOptions{
 		NoWriteMerge: true,
-		Sync: true,
+		Sync:         true,
 	})
 	if err != nil {
 		return err

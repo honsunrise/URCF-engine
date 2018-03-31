@@ -1,12 +1,12 @@
 package commands
 
 import (
-	"gopkg.in/alecthomas/kingpin.v2"
-	"github.com/zhsyourai/URCF-engine/commands/version"
 	"fmt"
-	"github.com/zhsyourai/URCF-engine/commands/serve"
-	"github.com/zhsyourai/URCF-engine/commands/kill"
 	"github.com/zhsyourai/URCF-engine/commands/account"
+	"github.com/zhsyourai/URCF-engine/commands/kill"
+	"github.com/zhsyourai/URCF-engine/commands/serve"
+	"github.com/zhsyourai/URCF-engine/commands/version"
+	"gopkg.in/alecthomas/kingpin.v2"
 	"os"
 )
 
@@ -14,7 +14,7 @@ var app = kingpin.New("urcf", "Universal Remote Config Framework Engine")
 
 var registry = make(map[string]func() error)
 
-func register(processors map[string]func() error)  {
+func register(processors map[string]func() error) {
 	for command, processor := range processors {
 		if registry[command] != nil {
 			panic(fmt.Errorf("command %q is already registered", command))

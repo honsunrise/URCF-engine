@@ -10,9 +10,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/repositories/autostart"
-	"github.com/zhsyourai/URCF-engine/services/processes/types"
-	"github.com/zhsyourai/URCF-engine/services/processes"
 	"github.com/zhsyourai/URCF-engine/services"
+	"github.com/zhsyourai/URCF-engine/services/processes"
+	"github.com/zhsyourai/URCF-engine/services/processes/types"
 )
 
 type Service interface {

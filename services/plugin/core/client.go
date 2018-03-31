@@ -1,22 +1,22 @@
 package core
 
 import (
-	"time"
-	"sync"
-	"net"
-	"context"
-	"github.com/zhsyourai/URCF-engine/services/processes/types"
-	"github.com/zhsyourai/URCF-engine/services/processes"
-	"github.com/zhsyourai/URCF-engine/models"
-	"io"
 	"bufio"
-	"strings"
+	"context"
+	"crypto/tls"
+	"errors"
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"errors"
-	"strconv"
-	"crypto/tls"
+	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/services/processes"
+	"github.com/zhsyourai/URCF-engine/services/processes/types"
 	"github.com/zhsyourai/URCF-engine/utils"
+	"io"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 )
 
 var CoreProtocolVersion, _ = utils.NewSemVerFromString("1.0.0-rc1")
@@ -33,8 +33,12 @@ var protocolStrings = []utils.IntName{
 	{1, "GRPCProtocol"},
 }
 
-func (i Protocol) String() string   { return utils.StringName(uint32(i), protocolStrings, "plugin.", false) }
-func (i Protocol) GoString() string { return utils.StringName(uint32(i), protocolStrings, "plugin.", true) }
+func (i Protocol) String() string {
+	return utils.StringName(uint32(i), protocolStrings, "plugin.", false)
+}
+func (i Protocol) GoString() string {
+	return utils.StringName(uint32(i), protocolStrings, "plugin.", true)
+}
 
 type Protocols []Protocol
 
@@ -60,15 +64,15 @@ func (ps Protocols) Exist(item Protocol) bool {
 }
 
 const (
-	ENV_PLUGIN_LISTENER_ADDRESS   = "ENV_PLUGIN_LISTENER_ADDRESS"
-	ENV_ALLOW_PLUGIN_RPC_PROTOCOL = "ENV_ALLOW_PLUGIN_RPC_PROTOCOL"
-	ENV_REQUEST_VERSION           = "ENV_REQUEST_VERSION"
+	EnvPluginListenerAddress  = "ENV_PLUGIN_LISTENER_ADDRESS"
+	EnvAllowPluginRpcProtocol = "ENV_ALLOW_PLUGIN_RPC_PROTOCOL"
+	EnvRequestVersion         = "ENV_REQUEST_VERSION"
 
-	MSG_COREVERSION  = "CoreVersion"
-	MSG_VERSION      = "Version"
-	MSG_ADDRESS      = "Address"
-	MSG_RPC_PROTOCOL = "RPCProtocol"
-	MSG_DONE         = "DONE"
+	MsgCoreVersion = "CoreVersion"
+	MsgVersion     = "Version"
+	MsgAddress     = "Address"
+	MsgRpcProtocol = "RPCProtocol"
+	MsgDone        = "DONE"
 )
 
 type ClientConfig struct {
@@ -136,9 +140,9 @@ func NewClient(config *ClientConfig) (*Client, error) {
 
 func (c *Client) Start() error {
 	env := make(map[string]string)
-	env[ENV_PLUGIN_LISTENER_ADDRESS] = c.config.Address.String()
-	env[ENV_ALLOW_PLUGIN_RPC_PROTOCOL] = c.config.AllowedProtocols.String()
-	env[ENV_REQUEST_VERSION] = c.config.Version.String()
+	env[EnvPluginListenerAddress] = c.config.Address.String()
+	env[EnvAllowPluginRpcProtocol] = c.config.AllowedProtocols.String()
+	env[EnvRequestVersion] = c.config.Version.String()
 
 	procServ := processes.GetInstance()
 	process, err := procServ.Prepare(c.config.Name, c.config.WorkDir, c.config.Cmd, c.config.Args, env, models.HookLog)
@@ -196,7 +200,7 @@ func (c *Client) Start() error {
 			parts[1] = strings.TrimSpace(parts[1])
 
 			switch strings.ToLower(parts[0]) {
-			case strings.ToLower(MSG_COREVERSION):
+			case strings.ToLower(MsgCoreVersion):
 				var coreProtocol *utils.SemanticVersion
 				coreProtocol, err = utils.NewSemVerFromString(parts[1])
 				if err != nil {
@@ -209,7 +213,7 @@ func (c *Client) Start() error {
 						"Please report this to the plugin author.", coreProtocol, CoreProtocolVersion)
 					return err
 				}
-			case strings.ToLower(MSG_VERSION):
+			case strings.ToLower(MsgVersion):
 				var protocol *utils.SemanticVersion
 				protocol, err = utils.NewSemVerFromString(parts[1])
 				if err != nil {
@@ -221,13 +225,13 @@ func (c *Client) Start() error {
 						"Plugin version: %s, Request version: %s", protocol, c.config.Version)
 					return err
 				}
-			case strings.ToLower(MSG_ADDRESS):
+			case strings.ToLower(MsgAddress):
 				addr := utils.ParseSchemeAddress(parts[1])
 				if addr == nil {
 					err = fmt.Errorf("Unsupported address format: %s", parts[1])
 					return err
 				}
-			case strings.ToLower(MSG_RPC_PROTOCOL):
+			case strings.ToLower(MsgRpcProtocol):
 				ui64 := uint64(0)
 				ui64, err = strconv.ParseUint(parts[1], 10, 0)
 				if err != nil {
@@ -239,7 +243,7 @@ func (c *Client) Start() error {
 						c.protocol, c.config.AllowedProtocols)
 					return err
 				}
-			case strings.ToLower(MSG_DONE):
+			case strings.ToLower(MsgDone):
 				switch c.protocol {
 				case NoneProtocol:
 				case GRPCProtocol:

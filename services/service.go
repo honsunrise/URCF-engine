@@ -1,9 +1,9 @@
 package services
 
 import (
-	"sync/atomic"
-	"sync"
 	"errors"
+	"sync"
+	"sync/atomic"
 )
 
 type ServiceLifeCycle interface {

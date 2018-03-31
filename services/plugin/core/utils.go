@@ -1,12 +1,12 @@
 package core
 
 import (
-	"net"
-	"io/ioutil"
-	"os"
-	"runtime"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net"
+	"os"
+	"runtime"
 )
 
 func GetRandomListenerAddr() (net.Addr, error) {

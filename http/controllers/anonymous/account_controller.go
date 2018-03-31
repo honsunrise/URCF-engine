@@ -2,10 +2,10 @@ package anonymous
 
 import (
 	"github.com/kataras/iris"
-	"github.com/zhsyourai/URCF-engine/services/account"
-	"github.com/zhsyourai/URCF-engine/http/helper"
-	"github.com/zhsyourai/URCF-engine/http/controllers/shard"
 	log "github.com/sirupsen/logrus"
+	"github.com/zhsyourai/URCF-engine/http/controllers/shard"
+	"github.com/zhsyourai/URCF-engine/http/helper"
+	"github.com/zhsyourai/URCF-engine/services/account"
 )
 
 // AccountController is our /uaa controller.

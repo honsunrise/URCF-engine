@@ -1,14 +1,14 @@
 package configuration
 
 import (
-	"sync"
-	"github.com/zhsyourai/URCF-engine/repositories/configuration"
-	"github.com/zhsyourai/URCF-engine/models"
-	"time"
-	"strings"
-	"sync/atomic"
 	"errors"
+	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/repositories/configuration"
 	"github.com/zhsyourai/URCF-engine/services"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 var startOf2018 = time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -82,12 +82,12 @@ func (s *configurationService) sync() error {
 			tmp, exist := parentNode.child.Load(currentPath)
 			if exist {
 				currentNode = tmp.(*Node)
-				if i == len(allPath) - 1 {
+				if i == len(allPath)-1 {
 					currentNode.Config = conf
 				}
 			} else {
 				var currentConfig models.Config
-				if i == len(allPath) - 1 {
+				if i == len(allPath)-1 {
 					currentConfig = conf
 				} else {
 					currentConfig = models.Config{
@@ -147,7 +147,7 @@ func (s *configurationService) Put(key string, value interface{}) error {
 		tmp, exist := parentNode.child.Load(currentPath)
 		if exist {
 			currentNode = tmp.(*Node)
-			if i == len(allPath) - 1 {
+			if i == len(allPath)-1 {
 				currentNode.Value = value
 				err := s.repo.InsertConfig(currentNode.Config)
 				if err != nil {
@@ -156,7 +156,7 @@ func (s *configurationService) Put(key string, value interface{}) error {
 			}
 		} else {
 			var currentConfig models.Config
-			if i == len(allPath) - 1 {
+			if i == len(allPath)-1 {
 				currentConfig = models.Config{
 					Key:        key,
 					Value:      value,

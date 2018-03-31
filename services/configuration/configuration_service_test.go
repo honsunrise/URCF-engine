@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
-
 )
-
 
 func TestConfigurationService_Put(t *testing.T) {
 	s := GetInstance()

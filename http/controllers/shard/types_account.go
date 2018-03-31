@@ -3,19 +3,19 @@ package shard
 import "time"
 
 type RegisterRequest struct {
-	Id string
+	Id       string
 	Password string
-	Role []string
+	Role     []string
 }
 
 type RegisterResponse struct {
-	Id string
-	Role []string
+	Id         string
+	Role       []string
 	CreateDate time.Time
 }
 
 type ChangePasswordRequest struct {
-	Id string
+	Id          string
 	OldPassword string
 	NewPassword string
 }

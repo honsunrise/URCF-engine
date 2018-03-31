@@ -1,12 +1,12 @@
 package helper
 
 import (
-	jwtMiddleware "github.com/iris-contrib/middleware/jwt"
-	"github.com/dgrijalva/jwt-go"
-	"crypto/rsa"
 	"crypto/rand"
-	"time"
+	"crypto/rsa"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
+	jwtMiddleware "github.com/iris-contrib/middleware/jwt"
+	"time"
 )
 
 type JWT struct {

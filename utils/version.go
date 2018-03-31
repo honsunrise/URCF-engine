@@ -1,16 +1,16 @@
 package utils
 
 import (
-	"strings"
 	"errors"
 	"strconv"
+	"strings"
 )
 
 type DetailCompareResult int32
 
 const (
-	NoDifferent                      = 0
-	MajorLT      DetailCompareResult = 1 << iota
+	NoDifferent                     = 0
+	MajorLT     DetailCompareResult = 1 << iota
 	MajorGT
 	MinorLT
 	MinorGT
