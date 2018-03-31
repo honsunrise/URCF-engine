@@ -30,7 +30,6 @@ type Service interface {
 	Clean(p *types.Process) error
 	Watch(p *types.Process) error
 	IsAlive(p *types.Process) bool
-	WaitExitChan(p *types.Process) chan struct{}
 }
 
 type processesPair struct {
@@ -108,6 +107,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 			WorkDir: workDir,
 			Option:  option,
 		},
+		ExitChan: make(chan struct{}),
 	}
 	rStdIn, lStdIn, err := os.Pipe()
 	if err != nil {
@@ -186,6 +186,19 @@ func (s *processesService) Start(proc *types.Process) (*types.Process, error) {
 		return nil, err
 	}
 
+	go func() {
+		proc.Process.Wait()
+		close(proc.ExitChan)
+
+		proc.StdIn.Close()
+		proc.StdOut.Close()
+		proc.DataOut.Close()
+		proc.StdErr.Close()
+		for _, f := range p.(*processesPair).procAttr.Files {
+			f.Close()
+		}
+	}()
+
 	if proc.Option&models.AutoRestart != 0 {
 		err = s.watchDog.StartWatch(proc)
 		if err != nil {
@@ -250,16 +263,6 @@ func (s *processesService) IsAlive(p *types.Process) bool {
 		return false
 	}
 	return p.Process.Signal(syscall.Signal(0)) == nil
-}
-
-func (s *processesService) WaitExitChan(p *types.Process) chan struct{} {
-	exitCh := make(chan struct{})
-	go func() {
-		p.Process.Wait()
-		// Mark that we exited
-		close(exitCh)
-	}()
-	return exitCh
 }
 
 func (s *processesService) hookLog(name string, r io.Reader) error {

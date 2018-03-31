@@ -187,7 +187,7 @@ func (c *Client) Start() error {
 		select {
 		case <-timeout:
 			return errors.New("timeout while waiting for plugin to start")
-		case <-procServ.WaitExitChan(process):
+		case <-process.ExitChan:
 			return errors.New("plugin exited before we could connect")
 		case lineBytes := <-linesCh:
 			line := strings.TrimSpace(string(lineBytes))

@@ -17,12 +17,13 @@ type Process struct {
 	models.ProcessParam
 	Pid        int
 	PidFile    string
-	StdIn      io.Writer
-	StdOut     io.Reader
-	StdErr     io.Reader
-	DataOut    io.Reader
+	StdIn      io.WriteCloser
+	StdOut     io.ReadCloser
+	StdErr     io.ReadCloser
+	DataOut    io.ReadCloser
 	KeepAlive  bool
 	Statistics ProcessStatistics
 	Status     ProcessStatus
 	Process    *os.Process
+	ExitChan   chan struct{}
 }
