@@ -68,6 +68,7 @@ const (
 	MSG_VERSION      = "Version"
 	MSG_ADDRESS      = "Address"
 	MSG_RPC_PROTOCOL = "RPCProtocol"
+	MSG_DONE         = "DONE"
 )
 
 type ClientConfig struct {
@@ -186,13 +187,13 @@ func (c *Client) Start() error {
 			return errors.New("plugin exited before we could connect")
 		case lineBytes := <-linesCh:
 			line := strings.TrimSpace(string(lineBytes))
-			parts := strings.SplitN(line, ":", 6)
+			parts := strings.SplitN(line, ":", 2)
 			if len(parts) != 2 {
 				err = fmt.Errorf("Unrecognized remote plugin message: %s\n", line)
 				return err
 			}
 			parts[0] = strings.TrimSpace(parts[0])
-			parts[1] = strings.TrimSpace(parts[2])
+			parts[1] = strings.TrimSpace(parts[1])
 
 			switch strings.ToLower(parts[0]) {
 			case strings.ToLower(MSG_COREVERSION):
@@ -202,7 +203,7 @@ func (c *Client) Start() error {
 					return err
 				}
 
-				if CoreProtocolVersion.Compatible(coreProtocol) {
+				if !CoreProtocolVersion.Compatible(coreProtocol) {
 					err = fmt.Errorf("Incompatible core API version with plugin. "+
 						"Plugin version: %s, Core version: %s\n\n"+
 						"Please report this to the plugin author.", coreProtocol, CoreProtocolVersion)
@@ -215,7 +216,7 @@ func (c *Client) Start() error {
 					return err
 				}
 
-				if c.config.Version.Compatible(protocol) {
+				if !c.config.Version.Compatible(protocol) {
 					err = fmt.Errorf("Incompatible API version with plugin. "+
 						"Plugin version: %s, Request version: %s", protocol, c.config.Version)
 					return err
@@ -233,31 +234,31 @@ func (c *Client) Start() error {
 					return err
 				}
 				c.protocol = Protocol(ui64)
-				if (c.config.AllowedProtocols.Exist(c.protocol)) {
+				if !c.config.AllowedProtocols.Exist(c.protocol) {
 					err = fmt.Errorf("Unsupported plugin protocol %q. Supported: %v",
 						c.protocol, c.config.AllowedProtocols)
 					return err
 				}
+			case strings.ToLower(MSG_DONE):
+				switch c.protocol {
+				case NoneProtocol:
+				case GRPCProtocol:
+					c.client, err = NewGRPCClient(c.context, c.config)
+					if err != nil {
+						return err
+					}
+				default:
+					err = fmt.Errorf("Unsupported plugin protocol %q. Supported: %v",
+						c.protocol, c.config.AllowedProtocols)
+					return err
+				}
+
+				err = c.client.Initialization()
+				if err != nil {
+					return nil
+				}
 			}
 		}
-	}
-
-	switch c.protocol {
-	case NoneProtocol:
-	case GRPCProtocol:
-		c.client, err = NewGRPCClient(c.context, c.config)
-		if err != nil {
-			return err
-		}
-	default:
-		err = fmt.Errorf("Unsupported plugin protocol %q. Supported: %v",
-			c.protocol, c.config.AllowedProtocols)
-		return err
-	}
-
-	err = c.client.Initialization()
-	if err != nil {
-		return nil
 	}
 	return nil
 }

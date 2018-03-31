@@ -16,6 +16,7 @@ MSG_COREVERSION = "CoreVersion"
 MSG_VERSION = "Version"
 MSG_ADDRESS = "Address"
 MSG_RPC_PROTOCOL = "RPCProtocol"
+MSG_DONE = "DONE"
 
 GRPCProtocol = 1
 
@@ -69,13 +70,16 @@ class Plugin(object):
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         plugin_interface_pb2_grpc.add_PluginInterfaceServicer_to_server(_PluginServicer(server, self), server)
         health_pb2_grpc.add_HealthServicer_to_server(health, server)
-        server.add_insecure_port(self.listener_addr)
+        print("Address: " + "unix:/" + self.listener_addr.split("///")[1], flush=True)
+        server.add_insecure_port("unix:/" + self.listener_addr.split("///")[1])
         server.start()
-        dataOut = os.fdopen(3)
+        print("Started", flush=True)
+        dataOut = os.fdopen(3, mode="w")
         print("%s: %s" % (MSG_COREVERSION, "1.0.0"), file=dataOut, flush=True)
         print("%s: %s" % (MSG_VERSION, "1.0.0"), file=dataOut, flush=True)
         print("%s: %s" % (MSG_ADDRESS, self.listener_addr), file=dataOut, flush=True)
         print("%s: %s" % (MSG_RPC_PROTOCOL, "1"), file=dataOut, flush=True)
+        print("%s: %s" % (MSG_DONE, ""), file=dataOut, flush=True)
 
     def stop(self, code):
         pass

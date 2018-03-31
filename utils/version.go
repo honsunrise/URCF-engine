@@ -142,10 +142,14 @@ func (semVer *SemanticVersion) String() string {
 	ret += strconv.FormatInt(int64(semVer.Minor), 10)
 	ret += "."
 	ret += strconv.FormatInt(int64(semVer.Patch), 10)
-	ret += "-"
-	ret += strings.Join(semVer.PreRelease, ".")
-	ret += "+"
-	ret += strings.Join(semVer.Build, ".")
+	if len(semVer.PreRelease) > 0 {
+		ret += "-"
+		ret += strings.Join(semVer.PreRelease, ".")
+	}
+	if len(semVer.Build) > 0 {
+		ret += "+"
+		ret += strings.Join(semVer.Build, ".")
+	}
 	return ret
 }
 
