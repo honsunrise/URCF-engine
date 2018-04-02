@@ -23,19 +23,20 @@ type Service interface {
 	Prepare(name string, workDir string, cmd string, args []string, env map[string]string,
 		option models.ProcessOption) (*types.Process, error)
 	FindByName(name string) *types.Process
-	Start(p *types.Process) (*types.Process, error)
+	Start(p *types.Process) error
 	Stop(p *types.Process) error
-	Restart(p *types.Process) (*types.Process, error)
+	Restart(p *types.Process) error
 	Kill(p *types.Process) error
 	Clean(p *types.Process) error
 	Watch(p *types.Process) error
 	IsAlive(p *types.Process) bool
 }
 
-type processesPair struct {
+type processPair struct {
 	proc      *types.Process
 	procAttr  *os.ProcAttr
 	finalArgs []string
+	lock      sync.Mutex
 }
 
 // processesService is a os.processesService wrapper with Statistics and more info that will be used on Master to maintain
@@ -89,11 +90,19 @@ func (s *processesService) runAutoReStart() {
 			log.Warnf("process %s was supposed to be dead, but it is alive.", proc.Name)
 		}
 
-		_, err := s.Restart(proc)
+		err := s.Restart(proc)
 		if err != nil {
 			log.Warnf("Could not restart process %s due to %s.", proc.Name, err)
 		}
 	}
+}
+
+func (s *processesService) loadProcessPair(proc *types.Process) (*processPair, error) {
+	pp, ok := s.procMap.Load(proc.Name)
+	if !ok || pp.(*processPair).proc != proc {
+		return nil, errors.New("process does not exist")
+	}
+	return pp.(*processPair), nil
 }
 
 func (s *processesService) Prepare(name string, workDir string, cmd string, args []string, env map[string]string,
@@ -148,7 +157,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 	for k, v := range env {
 		finalEnv[k] = v
 	}
-	procAtr := &os.ProcAttr{
+	procAttr := &os.ProcAttr{
 		Dir: workDir,
 		Env: buildEnv(finalEnv),
 		Files: []*os.File{
@@ -159,110 +168,154 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 		},
 	}
 
-	s.procMap.Store(name, &processesPair{
+	go func() {
+		<-proc.ExitChan
+		proc.StdIn.Close()
+		proc.StdOut.Close()
+		proc.DataOut.Close()
+		proc.StdErr.Close()
+		for _, f := range procAttr.Files {
+			f.Close()
+		}
+		proc.Status = types.Exited
+	}()
+
+	proc.Status = types.Prepare
+
+	_, loaded := s.procMap.LoadOrStore(name, &processPair{
 		proc:      proc,
-		procAttr:  procAtr,
+		procAttr:  procAttr,
 		finalArgs: append([]string{cmd}, args...),
 	})
+	if loaded {
+		return nil, errors.New("process exist")
+	}
 
 	return
 }
 
 func (s *processesService) FindByName(name string) *types.Process {
 	if p, ok := s.procMap.Load(name); ok {
-		return p.(*processesPair).proc
+		return p.(*processPair).proc
 	}
 	return nil
 }
 
-func (s *processesService) Start(proc *types.Process) (*types.Process, error) {
-	p, ok := s.procMap.Load(proc.Name)
-	if !ok || p.(*processesPair).proc == nil {
-		return nil, errors.New("process does not exist")
-	}
-
-	process, err := os.StartProcess(proc.Cmd, p.(*processesPair).finalArgs, p.(*processesPair).procAttr)
+func (s *processesService) Start(proc *types.Process) error {
+	pp, err := s.loadProcessPair(proc)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	pp.lock.Lock()
+	defer pp.lock.Unlock()
+
+	process, err := os.StartProcess(proc.Cmd, pp.finalArgs, pp.procAttr)
+	if err != nil {
+		return err
 	}
 
 	go func() {
 		proc.Process.Wait()
 		close(proc.ExitChan)
-
-		proc.StdIn.Close()
-		proc.StdOut.Close()
-		proc.DataOut.Close()
-		proc.StdErr.Close()
-		for _, f := range p.(*processesPair).procAttr.Files {
-			f.Close()
-		}
 	}()
 
 	if proc.Option&models.AutoRestart != 0 {
 		err = s.watchDog.StartWatch(proc)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	proc.Process = process
 	proc.Pid = proc.Process.Pid
 	proc.Statistics.InitUpTime()
-	return proc, nil
+	proc.Status = types.Running
+	return nil
 }
 
 func (s *processesService) Stop(proc *types.Process) error {
-	p, ok := s.procMap.Load(proc.Name)
-	if !ok || p.(*processesPair).proc == nil {
-		return errors.New("process does not exist")
+	pp, err := s.loadProcessPair(proc)
+	if err != nil {
+		return err
 	}
+	pp.lock.Lock()
+	defer pp.lock.Unlock()
+
+	if proc.Status != types.Running {
+		return errors.New("process does not run")
+	}
+
+	proc.Status = types.Exiting
+
 	defer proc.Process.Release()
-	err := proc.Process.Signal(syscall.SIGTERM)
+	err = proc.Process.Signal(syscall.SIGTERM)
 	return err
 }
 
-func (s *processesService) Restart(p *types.Process) (*types.Process, error) {
-	if s.IsAlive(p) {
-		err := s.Stop(p)
+func (s *processesService) Restart(proc *types.Process) error {
+	if s.IsAlive(proc) {
+		err := s.Stop(proc)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-	process, err := s.Prepare(p.Name, p.WorkDir, p.Cmd, p.Args, p.Env, p.Option)
+	<-proc.ExitChan
+	process, err := s.Prepare(proc.Name, proc.WorkDir, proc.Cmd, proc.Args, proc.Env, proc.Option)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	return s.Start(process)
 }
 
-func (s *processesService) Kill(p *types.Process) error {
-	if s.FindByName(p.Name) == nil || p.Process == nil {
-		return errors.New("process does not exist")
+func (s *processesService) Kill(proc *types.Process) error {
+	pp, err := s.loadProcessPair(proc)
+	if err != nil {
+		return err
 	}
-	defer p.Process.Release()
-	err := p.Process.Signal(syscall.SIGKILL)
+	pp.lock.Lock()
+	defer pp.lock.Unlock()
+
+	if proc.Status != types.Running {
+		return errors.New("process does not run")
+	}
+
+	proc.Status = types.Exiting
+
+	defer proc.Process.Release()
+	err = proc.Process.Signal(syscall.SIGKILL)
 	return err
 }
 
-func (s *processesService) Clean(p *types.Process) error {
-	p.Process.Release()
-	return os.RemoveAll(p.WorkDir)
-}
-
-func (s *processesService) Watch(p *types.Process) error {
-	return s.watchDog.StartWatch(p)
-}
-
-func (s *processesService) IsAlive(p *types.Process) bool {
-	if s.FindByName(p.Name) == nil || p.Process == nil {
-		return false
+func (s *processesService) Clean(proc *types.Process) error {
+	pp, err := s.loadProcessPair(proc)
+	if err != nil {
+		return err
 	}
-	_, err := os.FindProcess(p.Pid)
+	pp.lock.Lock()
+	defer pp.lock.Unlock()
+
+	if proc.Status == types.Running {
+		s.Stop(proc)
+	}
+
+	proc.Process.Release()
+	return os.RemoveAll(proc.WorkDir)
+}
+
+func (s *processesService) Watch(proc *types.Process) error {
+	return s.watchDog.StartWatch(proc)
+}
+
+func (s *processesService) IsAlive(proc *types.Process) bool {
+	_, err := s.loadProcessPair(proc)
 	if err != nil {
 		return false
 	}
-	return p.Process.Signal(syscall.Signal(0)) == nil
+	_, err = os.FindProcess(proc.Pid)
+	if err != nil {
+		return false
+	}
+	return proc.Process.Signal(syscall.Signal(0)) == nil
 }
 
 func (s *processesService) hookLog(name string, r io.Reader) error {

@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services/processes"
 	"github.com/zhsyourai/URCF-engine/services/processes/types"
@@ -88,6 +87,16 @@ type ClientConfig struct {
 	TLS              *tls.Config
 }
 
+type clientStatus int
+
+const (
+	clientStatusTimeOut   clientStatus = iota
+	clientStatusStopped
+	clientStatusPartInit
+	clientStatusEarlyExit
+	clientStatusDone
+)
+
 type Client struct {
 	client   ClientInterface
 	lock     sync.Mutex
@@ -95,6 +104,7 @@ type Client struct {
 	config   *ClientConfig
 	process  *types.Process
 	protocol Protocol
+	status   clientStatus
 }
 
 func NewClient(config *ClientConfig) (*Client, error) {
@@ -125,7 +135,7 @@ func NewClient(config *ClientConfig) (*Client, error) {
 	}
 
 	if config.Address == nil {
-		addr, err := GetRandomListenerAddr()
+		addr, err := GetRandomListenerAddr(true)
 		if err != nil {
 			return nil, err
 		}
@@ -135,12 +145,23 @@ func NewClient(config *ClientConfig) (*Client, error) {
 	return &Client{
 		config:  config,
 		context: context.Background(),
+		status:  clientStatusStopped,
 	}, nil
 }
 
+func (c *Client) exitCleanUp() {
+	<-c.process.ExitChan
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.status = clientStatusStopped
+}
+
 func (c *Client) Start() error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	env := make(map[string]string)
-	env[EnvPluginListenerAddress] = c.config.Address.String()
+	env[EnvPluginListenerAddress] = utils.CovertToSchemeAddress(c.config.Address)
 	env[EnvAllowPluginRpcProtocol] = c.config.AllowedProtocols.String()
 	env[EnvRequestVersion] = c.config.Version.String()
 
@@ -158,12 +179,12 @@ func (c *Client) Start() error {
 		buf := bufio.NewReader(process.DataOut)
 		for {
 			line, err := buf.ReadBytes('\n')
-			if line != nil {
-				linesCh <- line
-			}
-
 			if err == io.EOF {
 				return
+			}
+
+			if line != nil {
+				linesCh <- line
 			}
 		}
 	}()
@@ -174,20 +195,26 @@ func (c *Client) Start() error {
 			}
 		}()
 	}()
-	process, err = procServ.Start(process)
+	err = procServ.Start(process)
 	if err != nil {
 		return err
 	}
-	// Some channels for the next step
-	timeout := time.After(c.config.StartTimeout)
 
-	// Start looking for the address
-	log.Debug("waiting for RPC address", "path", c.config.Cmd)
+	defer func() {
+		if c.status != clientStatusDone && c.status != clientStatusEarlyExit {
+			c.status = clientStatusStopped
+			procServ.Stop(c.process)
+		}
+	}()
+
+	timeout := time.After(c.config.StartTimeout)
 	for true {
 		select {
 		case <-timeout:
+			c.status = clientStatusTimeOut
 			return errors.New("timeout while waiting for plugin to start")
 		case <-process.ExitChan:
+			c.status = clientStatusEarlyExit
 			return errors.New("plugin exited before we could connect")
 		case lineBytes := <-linesCh:
 			line := strings.TrimSpace(string(lineBytes))
@@ -198,7 +225,7 @@ func (c *Client) Start() error {
 			}
 			parts[0] = strings.TrimSpace(parts[0])
 			parts[1] = strings.TrimSpace(parts[1])
-
+			c.status = clientStatusPartInit
 			switch strings.ToLower(parts[0]) {
 			case strings.ToLower(MsgCoreVersion):
 				var coreProtocol *utils.SemanticVersion
@@ -231,6 +258,7 @@ func (c *Client) Start() error {
 					err = fmt.Errorf("Unsupported address format: %s", parts[1])
 					return err
 				}
+				c.config.Address = addr
 			case strings.ToLower(MsgRpcProtocol):
 				ui64 := uint64(0)
 				ui64, err = strconv.ParseUint(parts[1], 10, 0)
@@ -259,8 +287,12 @@ func (c *Client) Start() error {
 
 				err = c.client.Initialization()
 				if err != nil {
-					return nil
+					return err
 				}
+				c.status = clientStatusDone
+
+				go c.exitCleanUp()
+				return nil
 			}
 		}
 	}
@@ -268,17 +300,29 @@ func (c *Client) Start() error {
 }
 
 func (c *Client) Deploy(name string) (interface{}, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	return c.client.Deploy(name)
 }
 
-func (c *Client) Protocol() Protocol {
-	return c.protocol
+func (c *Client) Protocol() (Protocol, error) {
+	if c.status != clientStatusDone {
+		return NoneProtocol, errors.New("client not run")
+	}
+	return c.protocol, nil
 }
 
 func (c *Client) Stop() error {
-	err := c.client.UnInitialization()
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	procServ := processes.GetInstance()
+	if c.status != clientStatusDone {
+		return errors.New("client not run")
+	}
+	c.client.UnInitialization()
+	err := procServ.Stop(c.process)
 	if err != nil {
-		return nil
+		return err
 	}
 	return nil
 }

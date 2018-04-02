@@ -34,9 +34,7 @@ func ParseSchemeAddress(addr string) net.Addr {
 		return nil
 	}
 	switch strings.ToLower(network) {
-	case "tcp":
-	case "tcp4":
-	case "tcp6":
+	case "tcp", "tcp4", "tcp6":
 		retAddr, err := net.ResolveTCPAddr(network, endpoint)
 		if err != nil {
 			return nil
@@ -51,4 +49,19 @@ func ParseSchemeAddress(addr string) net.Addr {
 	}
 
 	return nil
+}
+
+
+func CovertToSchemeAddress(addr net.Addr) string {
+	if tcpAddr, ok := addr.(*net.TCPAddr); ok {
+		if len(tcpAddr.IP) == net.IPv4len {
+			return "tcp4://" + tcpAddr.String()
+		} else if len(tcpAddr.IP) == net.IPv6len {
+			return "tcp6://" + tcpAddr.String()
+		}
+		return ""
+	} else if unixAddr, ok := addr.(*net.UnixAddr); ok {
+		return "unix://" + unixAddr.String()
+	}
+	return ""
 }

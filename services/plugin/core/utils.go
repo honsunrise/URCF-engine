@@ -9,8 +9,8 @@ import (
 	"runtime"
 )
 
-func GetRandomListenerAddr() (net.Addr, error) {
-	lis, err := Listener()
+func GetRandomListenerAddr(forceTcp bool) (net.Addr, error) {
+	lis, err := Listener(forceTcp)
 	if err != nil {
 		return nil, err
 	}
@@ -19,8 +19,8 @@ func GetRandomListenerAddr() (net.Addr, error) {
 	return lis.Addr(), nil
 }
 
-func Listener() (net.Listener, error) {
-	if runtime.GOOS == "windows" {
+func Listener(forceTcp bool) (net.Listener, error) {
+	if runtime.GOOS == "windows" || forceTcp {
 		return listener_tcp()
 	}
 

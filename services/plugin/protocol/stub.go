@@ -86,7 +86,11 @@ func (p *PluginStub) StartUp(plugin *models.Plugin) (CommandProtocol, error) {
 		return nil, err
 	}
 
-	switch coreClient.Protocol() {
+	protocol, err := coreClient.Protocol()
+	if err != nil {
+		return nil, err
+	}
+	switch protocol {
 	case core.GRPCProtocol:
 		realClient, ok := tmpClient.(grpc.CommandInterfaceClient)
 		if !ok {
@@ -101,6 +105,6 @@ func (p *PluginStub) StartUp(plugin *models.Plugin) (CommandProtocol, error) {
 	}
 }
 
-func (p *PluginStub) Stop(name string) error {
-	return nil
+func (p *PluginStub) Stop() error {
+	return p.coreClient.Stop()
 }

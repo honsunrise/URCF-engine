@@ -10,7 +10,10 @@ import (
 type ProcessStatus int
 
 const (
-	Running ProcessStatus = iota
+	Prepare ProcessStatus = iota
+	Running
+	Exiting
+	Exited
 )
 
 type Process struct {

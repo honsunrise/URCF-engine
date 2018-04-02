@@ -103,7 +103,7 @@ func (watcher *watchDog) StopWatch(proc *types.Process) error {
 	watcher.Lock()
 	defer watcher.Unlock()
 	if dog, ok := watcher.watchProcesses[proc.Name]; ok {
-		log.Infof("Stopping watcher on proc %s", proc.Name)
+		log.Infof("Exiting watcher on proc %s", proc.Name)
 		if dog.Stopping.Load().(bool) {
 			return errors.New("watch is stopping")
 		}

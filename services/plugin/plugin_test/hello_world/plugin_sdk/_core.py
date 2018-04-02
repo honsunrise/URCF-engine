@@ -1,7 +1,10 @@
+from __future__ import print_function
+
 import os
-from concurrent import futures
+import sys
 
 import grpc
+from concurrent import futures
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 from grpc_health.v1.health import HealthServicer
 
@@ -20,6 +23,17 @@ MSG_DONE = "DONE"
 
 GRPCProtocol = 1
 
+if sys.version_info[:2] < (3, 3):
+    old_print = print
+
+    def print(*args, **kwargs):
+        flush = kwargs.pop('flush', False)
+        old_print(*args, **kwargs)
+        if flush:
+            file = kwargs.get('file', sys.stdout)
+            # Why might file=None? IDK, but it works for print(i, file=None)
+            file.flush() if file is not None else sys.stdout.flush()
+
 
 class _CommandServicer(command_pb2_grpc.CommandInterfaceServicer):
     """Implementation of Command service."""
@@ -31,7 +45,10 @@ class _CommandServicer(command_pb2_grpc.CommandInterfaceServicer):
         self.handler.command(request.name)
 
     def GetHelp(self, request, context):
-        self.handler.get_help(request.name)
+        self.handler.get_help(request.subcommand)
+
+    def ListCommand(self, request, context):
+        self.handler.list_command()
 
 
 class _PluginServicer(plugin_interface_pb2_grpc.PluginInterfaceServicer):
@@ -70,11 +87,20 @@ class Plugin(object):
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         plugin_interface_pb2_grpc.add_PluginInterfaceServicer_to_server(_PluginServicer(server, self), server)
         health_pb2_grpc.add_HealthServicer_to_server(health, server)
-        print("Address: " + "unix:/" + self.listener_addr.split("///")[1], flush=True)
-        server.add_insecure_port("unix:/" + self.listener_addr.split("///")[1])
+        print("Address: " + self.listener_addr, flush=True)
+        address = self.listener_addr.split("://")
+        if len(address) != 2:
+            raise RuntimeError('Address format nor correct')
+        if address[0] == "unix":
+            realAddr = "unix:" + address[1]
+        elif address[0] == "tcp" or address[0] == "tcp4" or address[0] == "tcp6":
+            realAddr = address[1]
+        else:
+            raise RuntimeError('Address not support')
+        server.add_insecure_port(realAddr)
         server.start()
         print("Started", flush=True)
-        dataOut = os.fdopen(3, mode="w")
+        dataOut = os.fdopen(3, "w")
         print("%s: %s" % (MSG_COREVERSION, "1.0.0"), file=dataOut, flush=True)
         print("%s: %s" % (MSG_VERSION, "1.0.0"), file=dataOut, flush=True)
         print("%s: %s" % (MSG_ADDRESS, self.listener_addr), file=dataOut, flush=True)
@@ -91,4 +117,7 @@ class Plugin(object):
         raise NotImplementedError('Method not implemented!')
 
     def get_help(self, name):
+        raise NotImplementedError('Method not implemented!')
+
+    def list_command(self):
         raise NotImplementedError('Method not implemented!')
