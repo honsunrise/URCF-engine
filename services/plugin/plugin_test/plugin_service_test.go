@@ -34,9 +34,20 @@ func TestPluginService(t *testing.T) {
 	if len(commands) != 1 {
 		t.Fatal("Command len not correct!")
 	}
-	if commands[0] != "hello" {
+	if commands[0] != "Hello" {
 		t.Fatal("Command hello not supported!")
 	}
-	client.Command("Hello")
-	<-time.After(time.Minute * 1)
+	result, err := client.Command("Hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != "World" {
+		t.Fatal("Command Hello exec not correct")
+	}
+	t.Logf("Exec result %v", result)
+	err = stub.Stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second * 3)
 }

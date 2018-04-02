@@ -8,7 +8,9 @@ from concurrent import futures
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 from grpc_health.v1.health import HealthServicer
 
+from . import command_pb2
 from . import command_pb2_grpc
+from . import plugin_interface_pb2
 from . import plugin_interface_pb2_grpc
 
 ENV_PLUGIN_LISTENER_ADDRESS = "ENV_PLUGIN_LISTENER_ADDRESS"
@@ -26,6 +28,7 @@ GRPCProtocol = 1
 if sys.version_info[:2] < (3, 3):
     old_print = print
 
+
     def print(*args, **kwargs):
         flush = kwargs.pop('flush', False)
         old_print(*args, **kwargs)
@@ -42,13 +45,22 @@ class _CommandServicer(command_pb2_grpc.CommandInterfaceServicer):
         self.handler = handler
 
     def Command(self, request, context):
-        self.handler.command(request.name)
+        result = self.handler.command(request.name)
+        r = command_pb2.CommandResp()
+        r.result = result
+        return r
 
     def GetHelp(self, request, context):
-        self.handler.get_help(request.subcommand)
+        help = self.handler.get_help(request.subcommand)
+        r = command_pb2.CommandHelpResp()
+        r.help = help
+        return r
 
     def ListCommand(self, request, context):
-        self.handler.list_command()
+        commands = self.handler.list_command()
+        r = command_pb2.ListCommandResp()
+        r.commands.extend(commands)
+        return r
 
 
 class _PluginServicer(plugin_interface_pb2_grpc.PluginInterfaceServicer):
@@ -59,14 +71,20 @@ class _PluginServicer(plugin_interface_pb2_grpc.PluginInterfaceServicer):
         self._handler = handler
 
     def Initialization(self, request, context):
-        pass
+        es = plugin_interface_pb2.ErrorStatus()
+        return es
 
     def Deploy(self, request, context):
         if request.name == "command":
             command_pb2_grpc.add_CommandInterfaceServicer_to_server(_CommandServicer(self._handler), self._server)
+            return plugin_interface_pb2.ErrorStatus()
+        es = plugin_interface_pb2.ErrorStatus()
+        es.error = "Plugin not support!"
+        return es
 
     def UnInitialization(self, request, context):
-        pass
+        es = plugin_interface_pb2.ErrorStatus()
+        return es
 
 
 class Plugin(object):

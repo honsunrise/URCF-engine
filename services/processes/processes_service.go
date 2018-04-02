@@ -282,7 +282,7 @@ func (s *processesService) Kill(proc *types.Process) error {
 	proc.Status = types.Exiting
 
 	defer proc.Process.Release()
-	err = proc.Process.Signal(syscall.SIGKILL)
+	err = proc.Process.Kill()
 	return err
 }
 
