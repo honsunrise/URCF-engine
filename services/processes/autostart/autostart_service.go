@@ -96,7 +96,7 @@ func (a *autoStart) StartAll() error {
 				if err != nil {
 					log.Errorf("process %s autostart error: %v", as.Name, err)
 				}
-				a.processes[as.Name], err = a.processesService.Start(a.processes[as.Name])
+				err = a.processesService.Start(a.processes[as.Name])
 				if err != nil {
 					log.Errorf("process %s autostart error: %v", as.Name, err)
 				}
@@ -110,7 +110,7 @@ func (a *autoStart) StartAll() error {
 				if err != nil {
 					log.Warnf("process %s autostart error: %v", as.Name, err)
 				}
-				a.processes[as.Name], err = a.processesService.Start(a.processes[as.Name])
+				err = a.processesService.Start(a.processes[as.Name])
 				if err != nil {
 					log.Errorf("process %s autostart error: %v", as.Name, err)
 				}
