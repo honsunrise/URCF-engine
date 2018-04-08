@@ -15,14 +15,13 @@ import (
 	"github.com/zhsyourai/URCF-engine/http/controllers/auth"
 	"github.com/zhsyourai/URCF-engine/http/helper"
 	"github.com/zhsyourai/URCF-engine/services/account"
+	"github.com/zhsyourai/URCF-engine/config"
 )
 
 var (
-	app             = iris.New()
+	app             = iris.Default()
 	shutdownTimeout = 5 * time.Second
 )
-
-const debug = true
 
 func StartHTTPServer() error {
 	secureConf := secure.New(secure.Options{
@@ -38,22 +37,23 @@ func StartHTTPServer() error {
 		ContentTypeNosniff:      true,                                            // If ContentTypeNosniff is true, adds the X-Content-Type-Options header with the value `nosniff`. Default is false.
 		BrowserXSSFilter:        true,                                            // If BrowserXssFilter is true, adds the X-XSS-Protection header with the value `1; mode=block`. Default is false.
 		ContentSecurityPolicy:   "default-src 'self'",                            // ContentSecurityPolicy allows the Content-Security-Policy header value to be set with a custom value. Default is "".
-		IsDevelopment:           debug,                                           // This will cause the AllowedHosts, SSLRedirect, and STSSeconds/STSIncludeSubdomains options to be ignored during development. When deploying to production, be sure to set this to false.
+		IsDevelopment:           config.PROD,                                           // This will cause the AllowedHosts, SSLRedirect, and STSSeconds/STSIncludeSubdomains options to be ignored during development. When deploying to production, be sure to set this to false.
 		IgnorePrivateIPs:        true,
 	})
 
 	prometheus := prometheusMiddleware.New("serviceName", 300, 1200, 5000)
 	cors := corsMiddleware.New(corsMiddleware.Options{
-		AllowedOrigins:   []string{"*"}, // allows everything, use that to change the hosts.
-		AllowedMethods:   []string{"*"},
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"HEAD", "GET", "POST", "PUT", "PATCH", "DELETE"},
 		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
-		Debug:            debug,
+		Debug:            config.PROD,
 	})
 
-	app.Use(prometheus.ServeHTTP)
-	app.Use(secureConf.Serve)
-	app.Use(cors)
+	app.AllowMethods(iris.MethodOptions)
+	app.UseGlobal(prometheus.ServeHTTP)
+	app.UseGlobal(secureConf.Serve)
+	app.UseGlobal(cors)
 
 	err := configureUAA(app)
 	if err != nil {

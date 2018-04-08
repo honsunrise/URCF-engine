@@ -20,6 +20,11 @@ type ChangePasswordRequest struct {
 	NewPassword string
 }
 
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 type LoginResponse struct {
-	Token string `json:"token"`
+	AccessToken string `json:"access_token"`
 }

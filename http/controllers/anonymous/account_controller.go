@@ -39,12 +39,13 @@ func (c *AccountController) PostRegister() (shard.RegisterResponse, error) {
 
 // PostLogin handles POST:/uaa/login.
 func (c *AccountController) PostLogin() (shard.LoginResponse, error) {
-	var (
-		username = c.Ctx.FormValue("username")
-		password = c.Ctx.FormValue("password")
-	)
+	loginRequest := &shard.LoginRequest{}
 
-	acc, err := c.Service.Verify(username, password)
+	if err := c.Ctx.ReadJSON(loginRequest); err != nil {
+		return shard.LoginResponse{}, err
+	}
+
+	acc, err := c.Service.Verify(loginRequest.Username, loginRequest.Password)
 	if err != nil {
 		return shard.LoginResponse{}, err
 	}
@@ -54,7 +55,7 @@ func (c *AccountController) PostLogin() (shard.LoginResponse, error) {
 		return shard.LoginResponse{}, err
 	}
 	return shard.LoginResponse{
-		Token: token,
+		AccessToken: token,
 	}, nil
 }
 
