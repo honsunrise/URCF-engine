@@ -1,11 +1,13 @@
 package auth
 
 import (
+	log "github.com/sirupsen/logrus"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/kataras/iris"
 	"github.com/zhsyourai/URCF-engine/http/controllers/shard"
 	"github.com/zhsyourai/URCF-engine/http/helper"
 	"github.com/zhsyourai/URCF-engine/services/account"
+	"github.com/gin-gonic/gin"
 )
 
 // AccountController is our /uaa controller.
@@ -31,4 +33,8 @@ func (c *AccountController) PutPassword() error {
 	}
 
 	return nil
+}
+
+func (c *AccountController) AnyLogout(ctx *gin.Context) {
+	log.Info("Logout")
 }

@@ -4,93 +4,76 @@ import (
 	stdContext "context"
 	"time"
 
-	"github.com/didip/tollbooth"
-	corsMiddleware "github.com/iris-contrib/middleware/cors"
-	prometheusMiddleware "github.com/iris-contrib/middleware/prometheus"
-	"github.com/iris-contrib/middleware/secure"
-	"github.com/iris-contrib/middleware/tollboothic"
-	"github.com/kataras/iris"
-	"github.com/kataras/iris/mvc"
 	"github.com/zhsyourai/URCF-engine/http/controllers/anonymous"
-	"github.com/zhsyourai/URCF-engine/http/controllers/auth"
-	"github.com/zhsyourai/URCF-engine/http/helper"
-	"github.com/zhsyourai/URCF-engine/services/account"
 	"github.com/zhsyourai/URCF-engine/config"
+	"github.com/gin-gonic/gin"
+	"github.com/gin-contrib/secure"
+	"github.com/gin-contrib/cors"
+	"net/http"
+	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
 )
 
 var (
-	app             = iris.Default()
+	s               *http.Server
 	shutdownTimeout = 5 * time.Second
 )
 
 func StartHTTPServer() error {
-	secureConf := secure.New(secure.Options{
-		SSLRedirect:             true,                                            // If SSLRedirect is set to true, then only allow HTTPS requests. Default is false.
-		SSLTemporaryRedirect:    false,                                           // If SSLTemporaryRedirect is true, the a 302 will be used while redirecting. Default is false (301).
-		SSLProxyHeaders:         map[string]string{"X-Forwarded-Proto": "https"}, // SSLProxyHeaders is set of header keys with associated values that would indicate a valid HTTPS request. Useful when using Nginx: `map[string]string{"X-Forwarded-Proto": "https"}`. Default is blank map.
-		STSSeconds:              315360000,                                       // STSSeconds is the max-age of the Strict-Transport-Security header. Default is 0, which would NOT include the header.
-		STSIncludeSubdomains:    true,                                            // If STSIncludeSubdomains is set to true, the `includeSubdomains` will be appended to the Strict-Transport-Security header. Default is false.
-		STSPreload:              true,                                            // If STSPreload is set to true, the `preload` flag will be appended to the Strict-Transport-Security header. Default is false.
-		ForceSTSHeader:          false,                                           // STS header is only included when the connection is HTTPS. If you want to force it to always be added, set to true. `IsDevelopment` still overrides this. Default is false.
-		FrameDeny:               true,                                            // If FrameDeny is set to true, adds the X-Frame-Options header with the value of `DENY`. Default is false.
-		CustomFrameOptionsValue: "SAMEORIGIN",                                    // CustomFrameOptionsValue allows the X-Frame-Options header value to be set with a custom value. This overrides the FrameDeny option.
-		ContentTypeNosniff:      true,                                            // If ContentTypeNosniff is true, adds the X-Content-Type-Options header with the value `nosniff`. Default is false.
-		BrowserXSSFilter:        true,                                            // If BrowserXssFilter is true, adds the X-XSS-Protection header with the value `1; mode=block`. Default is false.
-		ContentSecurityPolicy:   "default-src 'self'",                            // ContentSecurityPolicy allows the Content-Security-Policy header value to be set with a custom value. Default is "".
-		IsDevelopment:           config.PROD,                                           // This will cause the AllowedHosts, SSLRedirect, and STSSeconds/STSIncludeSubdomains options to be ignored during development. When deploying to production, be sure to set this to false.
-		IgnorePrivateIPs:        true,
+	router := gin.Default()
+	secureConf := secure.New(secure.Config{
+		AllowedHosts:          []string{"example.com", "ssl.example.com"},
+		SSLRedirect:           true,
+		SSLHost:               "ssl.example.com",
+		STSSeconds:            315360000,
+		STSIncludeSubdomains:  true,
+		FrameDeny:             true,
+		ContentTypeNosniff:    true,
+		BrowserXssFilter:      true,
+		ContentSecurityPolicy: "default-src 'self'",
+		IENoOpen:              true,
+		ReferrerPolicy:        "strict-origin-when-cross-origin",
+		SSLProxyHeaders:       map[string]string{"X-Forwarded-Proto": "https"},
+		IsDevelopment:         config.PROD,
 	})
 
-	prometheus := prometheusMiddleware.New("serviceName", 300, 1200, 5000)
-	cors := corsMiddleware.New(corsMiddleware.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"HEAD", "GET", "POST", "PUT", "PATCH", "DELETE"},
-		AllowedHeaders:   []string{"*"},
-		AllowCredentials: true,
-		Debug:            config.PROD,
+	_, err := gin_jwt.NewGinJwtHelper(gin_jwt.Config{
+		Realm: "urcf",
+		KeyFunc: func() interface{} {
+			return []byte("hahahah")
+		},
 	})
 
-	app.AllowMethods(iris.MethodOptions)
-	app.UseGlobal(prometheus.ServeHTTP)
-	app.UseGlobal(secureConf.Serve)
-	app.UseGlobal(cors)
-
-	err := configureUAA(app)
 	if err != nil {
 		return err
 	}
 
-	return app.Run(iris.Addr(":8080"), iris.WithoutVersionChecker,
-		iris.WithoutInterruptHandler, iris.WithConfiguration(iris.YAML("./http/configs/iris.yml")))
-}
+	router.Use(secureConf)
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowCredentials = true
+	corsConfig.AllowAllOrigins = true
+	router.Use(cors.New(corsConfig))
+	// router.Use(jwtHandler.Middleware)
 
-func configureUAA(app *iris.Application) error {
-	jwtHelper, err := helper.NewJWT()
-	if err != nil {
-		return err
+	v1 := router.Group("/v1")
+	{
+		anonymous.NewAccountController().Handler(v1.Group("/uaa"))
 	}
-	limiter := tollbooth.NewLimiter(1000, nil)
 
-	mvcApp := mvc.New(app.Party("/uaa", tollboothic.LimitHandler(limiter)))
-	mvcApp.Register(
-		account.GetInstance(),
-		jwtHelper,
-	)
-	mvcApp.Handle(new(anonymous.AccountController))
+	s = &http.Server{
+		Addr:           ":8080",
+		Handler:        router,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
 
-	mvcApp = mvc.New(app.Party("/uaa", tollboothic.LimitHandler(limiter), jwtHelper.Serve))
-	mvcApp.Register(
-		account.GetInstance(),
-		jwtHelper,
-	)
-	mvcApp.Handle(new(auth.AccountController))
-	return nil
+	return s.ListenAndServe()
 }
 
 func StopHTTPServer() (err error) {
 	ctx, cancel := stdContext.WithTimeout(stdContext.Background(), shutdownTimeout)
 	defer cancel()
 	// close all hosts
-	err = app.Shutdown(ctx)
+	err = s.Shutdown(ctx)
 	return
 }

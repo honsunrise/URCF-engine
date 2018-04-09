@@ -1,65 +1,89 @@
 package anonymous
 
 import (
-	"github.com/kataras/iris"
-	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/http/controllers/shard"
-	"github.com/zhsyourai/URCF-engine/http/helper"
 	"github.com/zhsyourai/URCF-engine/services/account"
+	"net/http"
+	"github.com/gin-gonic/gin"
+	"time"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
+	"crypto/rsa"
+	"crypto/rand"
 )
+
+func NewAccountController() *AccountController {
+	return &AccountController{
+		service: account.GetInstance(),
+	}
+}
 
 // AccountController is our /uaa controller.
 type AccountController struct {
-	Ctx        iris.Context
-	Service    account.Service
-	JwtHandler *helper.JWT
+	service account.Service
+	key     *rsa.PrivateKey
 }
 
-// PostRegister handles POST:/uaa/register.
-func (c *AccountController) PostRegister() (shard.RegisterResponse, error) {
-	registerRequest := &shard.RegisterRequest{}
-
-	if err := c.Ctx.ReadJSON(registerRequest); err != nil {
-		return shard.RegisterResponse{}, err
-	}
-
-	user, err := c.Service.Register(registerRequest.Id, registerRequest.Password, registerRequest.Role)
+func (c *AccountController) Handler(root *gin.RouterGroup) {
+	var err error
+	c.key, err = rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
-		return shard.RegisterResponse{}, err
+		panic(err)
+	}
+	root.GET("/register", c.RegisterHandler)
+	root.POST("/login", c.LoginHandler)
+	root.POST("/refresh_token", c.RefreshTokenHandler)
+}
+
+func (c *AccountController) RegisterHandler(ctx *gin.Context) {
+
+	registerRequest := &shard.RegisterRequest{}
+	ctx.Bind(registerRequest)
+
+	user, err := c.service.Register(registerRequest.Username, registerRequest.Password, registerRequest.Roles)
+	if err != nil {
+		ctx.AbortWithError(http.StatusBadRequest, err)
 	}
 
 	registerResponse := shard.RegisterResponse{
-		Id:         user.ID,
+		Username:   user.ID,
 		Role:       user.Role,
 		CreateDate: user.CreateDate,
 	}
 
-	return registerResponse, nil
+	ctx.JSON(http.StatusOK, registerResponse)
 }
 
-// PostLogin handles POST:/uaa/login.
-func (c *AccountController) PostLogin() (shard.LoginResponse, error) {
+func (c *AccountController) LoginHandler(ctx *gin.Context) {
 	loginRequest := &shard.LoginRequest{}
+	ctx.Bind(loginRequest)
 
-	if err := c.Ctx.ReadJSON(loginRequest); err != nil {
-		return shard.LoginResponse{}, err
-	}
-
-	acc, err := c.Service.Verify(loginRequest.Username, loginRequest.Password)
+	_, err := c.service.Verify(loginRequest.Username, loginRequest.Password)
 	if err != nil {
-		return shard.LoginResponse{}, err
+		ctx.AbortWithError(http.StatusUnauthorized, err)
 	}
 
-	token, err := c.JwtHandler.New(acc.ID)
-	if err != nil {
-		return shard.LoginResponse{}, err
-	}
-	return shard.LoginResponse{
-		AccessToken: token,
-	}, nil
+	now := time.Now()
+	expire := now.Add(time.Hour * 24)
+
+	// Create the token
+	token := jwt.NewWithClaims(jwt.GetSigningMethod("RS512"), jwt.StandardClaims{
+		ExpiresAt: expire.Unix(),
+		Id:        uuid.Must(uuid.NewRandom()).String(),
+		IssuedAt:  now.Unix(),
+		Issuer:    "urcf-engine",
+		NotBefore: now.Unix(),
+	})
+
+	tokenString, err := token.SignedString(c.key)
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"access_token":  tokenString,
+		"refresh_token": tokenString,
+		"expire":        expire.Format(time.RFC3339),
+	})
 }
 
-// AnyLogout handles any method on path /uaa/logout.
-func (c *AccountController) AnyLogout() {
-	log.Info("Logout")
+func (c *AccountController) RefreshTokenHandler(ctx *gin.Context) {
+
 }
