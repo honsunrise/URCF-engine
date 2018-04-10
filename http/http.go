@@ -4,13 +4,13 @@ import (
 	stdContext "context"
 	"time"
 
-	"github.com/zhsyourai/URCF-engine/http/controllers/anonymous"
 	"github.com/zhsyourai/URCF-engine/config"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-contrib/secure"
 	"github.com/gin-contrib/cors"
 	"net/http"
 	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
+	"github.com/zhsyourai/URCF-engine/http/controllers"
 )
 
 var (
@@ -36,8 +36,21 @@ func StartHTTPServer() error {
 		IsDevelopment:         config.PROD,
 	})
 
-	_, err := gin_jwt.NewGinJwtHelper(gin_jwt.Config{
+	jwtMiddleware, err := gin_jwt.NewGinJwtMiddleware(gin_jwt.MiddlewareConfig{
 		Realm: "urcf",
+		SigningAlgorithm: "HS512",
+		KeyFunc: func() interface{} {
+			return []byte("hahahah")
+		},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	jwtGenerator, err := gin_jwt.NewGinJwtGenerator(gin_jwt.GeneratorConfig{
+		Issuer: "urcf",
+		SigningAlgorithm: "HS512",
 		KeyFunc: func() interface{} {
 			return []byte("hahahah")
 		},
@@ -52,11 +65,15 @@ func StartHTTPServer() error {
 	corsConfig.AllowCredentials = true
 	corsConfig.AllowAllOrigins = true
 	router.Use(cors.New(corsConfig))
-	// router.Use(jwtHandler.Middleware)
+	// router.Use(jwtHandler.Handler)
 
 	v1 := router.Group("/v1")
 	{
-		anonymous.NewAccountController().Handler(v1.Group("/uaa"))
+		controllers.NewAccountController(jwtMiddleware, jwtGenerator).Handler(v1.Group("/uaa"))
+		controllers.NewConfigurationController().Handler(v1.Group("/configuration"))
+		controllers.NewLogController().Handler(v1.Group("/log"))
+		controllers.NewNetFilterController().Handler(v1.Group("/netfilter"))
+		controllers.NewProcessesController().Handler(v1.Group("/process"))
 	}
 
 	s = &http.Server{

@@ -20,9 +20,9 @@ type RegisterResponse struct {
 }
 
 type ChangePasswordRequest struct {
-	Id          string
-	OldPassword string
-	NewPassword string
+	Username    string `form:"username" json:"username" binding:"required"`
+	OldPassword string `form:"old_password" json:"old_password" binding:"required"`
+	NewPassword string `form:"new_password" json:"new_password" binding:"required"`
 }
 
 type LoginRequest struct {
