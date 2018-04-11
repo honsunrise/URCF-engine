@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
 	"github.com/zhsyourai/URCF-engine/http/controllers"
+	"crypto/rsa"
+	"crypto/rand"
 )
 
 var (
@@ -36,11 +38,17 @@ func StartHTTPServer() error {
 		IsDevelopment:         config.PROD,
 	})
 
+	const SigningAlgorithm = "RS512"
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		panic(err)
+	}
+
 	jwtMiddleware, err := gin_jwt.NewGinJwtMiddleware(gin_jwt.MiddlewareConfig{
 		Realm: "urcf",
-		SigningAlgorithm: "HS512",
+		SigningAlgorithm: SigningAlgorithm,
 		KeyFunc: func() interface{} {
-			return []byte("hahahah")
+			return key.PublicKey
 		},
 	})
 
@@ -50,9 +58,9 @@ func StartHTTPServer() error {
 
 	jwtGenerator, err := gin_jwt.NewGinJwtGenerator(gin_jwt.GeneratorConfig{
 		Issuer: "urcf",
-		SigningAlgorithm: "HS512",
+		SigningAlgorithm: SigningAlgorithm,
 		KeyFunc: func() interface{} {
-			return []byte("hahahah")
+			return key
 		},
 	})
 

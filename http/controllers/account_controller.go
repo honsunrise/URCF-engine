@@ -7,8 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"time"
 	"github.com/dgrijalva/jwt-go"
-	"crypto/rsa"
-	"crypto/rand"
 	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
 )
 
@@ -23,17 +21,11 @@ func NewAccountController(middleware *gin_jwt.JwtMiddleware, generator *gin_jwt.
 // AccountController is our /uaa controller.
 type AccountController struct {
 	service    account.Service
-	key        *rsa.PrivateKey
 	middleware *gin_jwt.JwtMiddleware
 	generator  *gin_jwt.JwtGenerator
 }
 
 func (c *AccountController) Handler(root *gin.RouterGroup) {
-	var err error
-	c.key, err = rsa.GenerateKey(rand.Reader, 1024)
-	if err != nil {
-		panic(err)
-	}
 	root.GET("/register", c.RegisterHandler)
 	root.POST("/login", c.LoginHandler)
 	root.POST("/logout", c.middleware.Handler, c.LogoutHandler)
