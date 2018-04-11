@@ -3,4 +3,4 @@
 
 package config
 
-var PROD = true
+var PROD = false

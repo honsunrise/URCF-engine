@@ -37,5 +37,5 @@ var (
 	ErrInvalidSigningAlgorithm = errors.New("invalid signing algorithm")
 
 	// ErrInvalidKey indicates the the given public key is invalid
-	ErrInvalidKey = errors.New("public key invalid")
+	ErrInvalidKey = errors.New("key invalid")
 )

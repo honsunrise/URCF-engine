@@ -6,16 +6,12 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-
-	"bufio"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services"
 	logservice "github.com/zhsyourai/URCF-engine/services/log"
 	"github.com/zhsyourai/URCF-engine/services/processes/types"
 	"github.com/zhsyourai/URCF-engine/services/processes/watchdog"
-	"io"
-	"unicode"
 )
 
 type Service interface {
@@ -139,11 +135,11 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 	}
 	proc.DataOut = lDataOut
 	if option&models.HookLog != 0 {
-		err = s.hookLog(name, lStdErr)
+		err = logservice.GetInstance().WarpReader(name, lStdErr)
 		if err != nil {
 			return
 		}
-		err = s.hookLog(name, lStdOut)
+		err = logservice.GetInstance().WarpReader(name, lStdOut)
 		if err != nil {
 			return
 		}
@@ -316,47 +312,4 @@ func (s *processesService) IsAlive(proc *types.Process) bool {
 		return false
 	}
 	return proc.Process.Signal(syscall.Signal(0)) == nil
-}
-
-func (s *processesService) hookLog(name string, r io.Reader) error {
-	logServ := logservice.GetInstance()
-	logger, err := logServ.GetLogger(name)
-	if err != nil {
-		return err
-	}
-	go func() {
-		bufR := bufio.NewReader(r)
-		for {
-			line, err := bufR.ReadString('\n')
-			if line != "" {
-				line = strings.TrimRightFunc(line, unicode.IsSpace)
-				logger.Debug(line)
-				//entry, err := parseJSON(line)
-				//if err != nil {
-				//	logger.Debug(line)
-				//} else {
-				//	out := flattenKVPairs(entry.KVPairs)
-				//
-				//	logger = logger.WithField("timestamp", entry.Timestamp.Format(hclog.TimeFormat))
-				//	switch hclog.LevelFromString(entry.Level) {
-				//	case log.DebugLevel:
-				//		logger.Debug(entry.Message, out...)
-				//	case log.InfoLevel:
-				//		logger.Info(entry.Message, out...)
-				//	case log.WarnLevel:
-				//		logger.Warn(entry.Message, out...)
-				//	case log.ErrorLevel:
-				//		logger.Error(entry.Message, out...)
-				//	case log.FatalLevel:
-				//		logger.Error(entry.Message, out...)
-				//	}
-				//}
-			}
-
-			if err == io.EOF {
-				break
-			}
-		}
-	}()
-	return nil
 }

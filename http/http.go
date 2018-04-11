@@ -48,7 +48,7 @@ func StartHTTPServer() error {
 		Realm: "urcf",
 		SigningAlgorithm: SigningAlgorithm,
 		KeyFunc: func() interface{} {
-			return key.PublicKey
+			return &key.PublicKey
 		},
 	})
 
@@ -79,7 +79,7 @@ func StartHTTPServer() error {
 	{
 		controllers.NewAccountController(jwtMiddleware, jwtGenerator).Handler(v1.Group("/uaa"))
 		controllers.NewConfigurationController().Handler(v1.Group("/configuration"))
-		controllers.NewLogController().Handler(v1.Group("/log"))
+		controllers.NewLogController(jwtMiddleware).Handler(v1.Group("/log"))
 		controllers.NewNetFilterController().Handler(v1.Group("/netfilter"))
 		controllers.NewProcessesController().Handler(v1.Group("/process"))
 	}
