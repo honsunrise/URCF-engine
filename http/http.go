@@ -72,6 +72,8 @@ func StartHTTPServer() error {
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowCredentials = true
 	corsConfig.AllowAllOrigins = true
+	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "HEAD", "DELETE"}
+	corsConfig.AllowHeaders = []string{"Authorization", "Origin", "Content-Length", "Content-Type"}
 	router.Use(cors.New(corsConfig))
 	// router.Use(jwtHandler.Handler)
 
