@@ -21,6 +21,7 @@ type Repository interface {
 	InsertLog(log models.Log) (uint64, error)
 	FindLogByID(id uint64) (models.Log, error)
 	FindAll() ([]models.Log, error)
+	Count() (uint64, error)
 	DeleteLogByID(id uint64) (models.Log, error)
 	DeleteAll() error
 }
@@ -80,6 +81,11 @@ type logRepository struct {
 	db    *leveldb.DB
 	index uint64
 	l     sync.RWMutex
+}
+
+func (r *logRepository) Count() (uint64, error) {
+	//TODO: Not to implement
+	return 100, nil
 }
 
 func (r *logRepository) InsertLog(log models.Log) (uint64, error) {

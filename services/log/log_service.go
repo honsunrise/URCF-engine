@@ -19,8 +19,8 @@ import (
 type Service interface {
 	services.ServiceLifeCycle
 	GetLogger(name string) (*logrus.Entry, error)
-    WarpReader(name string, r io.Reader) error
-    ListAll() ([]models.Log, error)
+	WarpReader(name string, r io.Reader) error
+	ListAll(page uint64, size uint64, sort string, order string) (uint64, []models.Log, error)
 	Clean(ids ...uint64) error
 }
 
@@ -44,9 +44,9 @@ type logService struct {
 type logWriter struct{ *logService }
 
 type logEntry struct {
-	Message   string        `json:"message"`
-	Level     string        `json:"level"`
-	Timestamp time.Time     `json:"timestamp"`
+	Message   string    `json:"message"`
+	Level     string    `json:"level"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 func (l *logWriter) Write(p []byte) (int, error) {
@@ -104,8 +104,17 @@ func (s *logService) GetLogger(name string) (*logrus.Entry, error) {
 	return logger.WithField("name", name), nil
 }
 
-func (s *logService) ListAll() (logs []models.Log, err error) {
-	return s.repo.FindAll()
+func (s *logService) ListAll(page uint64, size uint64, sort string, order string) (total uint64, logs []models.Log,
+	err error) {
+	total, err = s.repo.Count()
+	if err != nil {
+		return 0, []models.Log{}, nil
+	}
+	logs, err = s.repo.FindAll()
+	if err != nil {
+		return 0, []models.Log{}, nil
+	}
+	return
 }
 
 func (s *logService) Clean(ids ...uint64) error {

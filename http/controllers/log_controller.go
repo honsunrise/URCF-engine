@@ -6,6 +6,7 @@ import (
 	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
 	"net/http"
 	"strconv"
+	"github.com/zhsyourai/URCF-engine/http/controllers/shard"
 )
 
 func NewLogController(middleware *gin_jwt.JwtMiddleware) *LogController {
@@ -27,28 +28,22 @@ func (c *LogController) Handler(root *gin.RouterGroup) {
 }
 
 func (c *LogController) ListLogHandler(ctx *gin.Context) {
-	//token, err := c.middleware.ExtractToken(ctx)
-	//if err != nil {
-	//	ctx.AbortWithError(http.StatusUnauthorized, err)
-	//	return
-	//}
-	//claims := token.Claims.(jwt.MapClaims)
-	//roles := claims["roles"].([]string)
-	//for _, e := range roles {
-	//	if e == "admin" {
-	//
-	//	}
-	//}
+	var paging shard.Paging
+	if ctx.BindQuery(&paging) != nil {
+		return
+	}
 
-	logs, err := c.service.ListAll()
+	total, logs, err := c.service.ListAll(paging.Page, paging.Size, paging.Sort, paging.Order)
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, logs)
+	ctx.JSON(http.StatusOK, &shard.LogWithCount{
+		TotalCount: total,
+		Items:      logs,
+	})
 }
-
 
 func (c *LogController) CleanLogHandler(ctx *gin.Context) {
 	idStr := ctx.Param("id")

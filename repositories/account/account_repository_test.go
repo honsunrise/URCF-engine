@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 var testID = "__test" + fmt.Sprint(rand.Int())
@@ -105,7 +106,7 @@ func TestInsertAndDelete(t *testing.T) {
 		t.Errorf("%s(%s)", "Delete error", "ID not equ")
 	}
 	account, err = repo.FindAccountByID(testID)
-	if err != nil && err.Error() != "leveldb: not found" {
+	if err != nil && err == leveldb.ErrNotFound {
 		t.Errorf("%s(%s)", "Find error", fmt.Sprint(err))
 	}
 	t.Logf("%s", "Delete success")
