@@ -20,6 +20,8 @@ type Service interface {
 	services.ServiceLifeCycle
 	GetLogger(name string) (*logrus.Entry, error)
     WarpReader(name string, r io.Reader) error
+    ListAll() ([]models.Log, error)
+	Clean(ids ...uint64) error
 }
 
 var instance *logService
@@ -102,6 +104,23 @@ func (s *logService) GetLogger(name string) (*logrus.Entry, error) {
 	return logger.WithField("name", name), nil
 }
 
+func (s *logService) ListAll() (logs []models.Log, err error) {
+	return s.repo.FindAll()
+}
+
+func (s *logService) Clean(ids ...uint64) error {
+	if len(ids) == 0 {
+		return s.repo.DeleteAll()
+	} else {
+		for _, id := range ids {
+			_, err := s.repo.DeleteLogByID(id)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
 
 func parseJSON(input string) (*logEntry, map[string]interface{}, error) {
 	var raw map[string]interface{}
