@@ -89,6 +89,7 @@ func (r *accountRepository) FindAll() (accounts []models.Account, err error) {
 		return
 	}
 
+	accounts = make([]models.Account, 0, 10)
 	iter := trans.NewIterator(nil, nil)
 	for iter.Next() {
 		var account models.Account

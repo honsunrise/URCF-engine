@@ -83,6 +83,7 @@ func (r *autostartRepository) FindAll() (autoStarts []models.AutoStart, err erro
 		return
 	}
 
+	autoStarts = make([]models.AutoStart, 0, 10)
 	iter := trans.NewIterator(nil, nil)
 	for iter.Next() {
 		var autoStart models.AutoStart

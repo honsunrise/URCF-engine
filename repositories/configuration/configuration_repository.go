@@ -81,12 +81,13 @@ func (r *configurationRepository) FindConfigByKey(key string) (account models.Co
 	return
 }
 
-func (r *configurationRepository) FindAll() (accounts []models.Config, err error) {
+func (r *configurationRepository) FindAll() (configs []models.Config, err error) {
 	trans, err := r.db.OpenTransaction()
 	if err != nil {
 		return
 	}
 
+	configs = make([]models.Config, 0, 50)
 	iter := trans.NewIterator(nil, nil)
 	for iter.Next() {
 		var account models.Config
@@ -96,7 +97,7 @@ func (r *configurationRepository) FindAll() (accounts []models.Config, err error
 			trans.Discard()
 			return
 		}
-		accounts = append(accounts, account)
+		configs = append(configs, account)
 	}
 	iter.Release()
 	err = iter.Error()
