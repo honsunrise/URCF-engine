@@ -33,7 +33,6 @@ func (c *AccountController) Handler(root *gin.RouterGroup) {
 }
 
 func (c *AccountController) RegisterHandler(ctx *gin.Context) {
-
 	registerRequest := &shard.RegisterRequest{}
 	ctx.Bind(registerRequest)
 
