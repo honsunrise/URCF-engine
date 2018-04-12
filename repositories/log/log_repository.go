@@ -27,6 +27,23 @@ type Repository interface {
 
 var _INDEX_NAME = []byte("~~index~~")
 
+var _WRITE_OPTIONS = &opt.WriteOptions{
+	NoWriteMerge: true,
+	Sync:         true,
+}
+
+var _READ_OPTIONS = &opt.ReadOptions{
+	DontFillCache: true,
+	Strict:        opt.DefaultStrict,
+}
+
+func isReservedKey(key []byte) bool {
+	if bytes.Compare(key, _INDEX_NAME) == 0 {
+		return true
+	}
+	return false
+}
+
 // NewLogRepository returns a new account memory-based repository,
 // the one and only repository type in our example.
 func NewLogRepository() Repository {
@@ -41,7 +58,7 @@ func NewLogRepository() Repository {
 		panic(err)
 	}
 	var index = uint64(0)
-	indexBytes, err := trans.Get(_INDEX_NAME, nil)
+	indexBytes, err := trans.Get(_INDEX_NAME, _READ_OPTIONS)
 	if err != nil {
 		if err.Error() != "leveldb: not found" {
 			panic(err)
@@ -100,18 +117,12 @@ func (r *logRepository) InsertLog(log models.Log) (uint64, error) {
 
 	binary.LittleEndian.PutUint64(idBytes, log.ID)
 
-	err = trans.Put(idBytes, buf.Bytes(), &opt.WriteOptions{
-		NoWriteMerge: true,
-		Sync:         true,
-	})
+	err = trans.Put(idBytes, buf.Bytes(), _WRITE_OPTIONS)
 	if err != nil {
 		return 0, err
 	}
 
-	err = trans.Put(_INDEX_NAME, idBytes, &opt.WriteOptions{
-		NoWriteMerge: true,
-		Sync:         true,
-	})
+	err = trans.Put(_INDEX_NAME, idBytes, _WRITE_OPTIONS)
 	if err != nil {
 		return 0, err
 	}
@@ -134,7 +145,7 @@ func (r *logRepository) FindLogByID(id uint64) (log models.Log, err error) {
 
 	idBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(idBytes, id)
-	value, err := trans.Get(idBytes, nil)
+	value, err := trans.Get(idBytes, _READ_OPTIONS)
 	if err != nil {
 		return
 	}
@@ -160,8 +171,12 @@ func (r *logRepository) FindAll() (logs []models.Log, err error) {
 		return
 	}
 
-	iter := trans.NewIterator(nil, nil)
+	logs = make([]models.Log, 0, 100)
+	iter := trans.NewIterator(nil, _READ_OPTIONS)
 	for iter.Next() {
+		if isReservedKey(iter.Key()) {
+			continue
+		}
 		var log models.Log
 		dec := gob.NewDecoder(bytes.NewBuffer(iter.Value()))
 		err = dec.Decode(&log)
@@ -194,7 +209,7 @@ func (r *logRepository) DeleteLogByID(id uint64) (log models.Log, err error) {
 	}
 	idBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(idBytes, id)
-	value, err := trans.Get(idBytes, nil)
+	value, err := trans.Get(idBytes, _READ_OPTIONS)
 	if err != nil {
 		return
 	}
@@ -204,7 +219,7 @@ func (r *logRepository) DeleteLogByID(id uint64) (log models.Log, err error) {
 		trans.Discard()
 		return
 	}
-	err = trans.Delete(idBytes, nil)
+	err = trans.Delete(idBytes, _WRITE_OPTIONS)
 	if err != nil {
 		trans.Discard()
 		return
@@ -225,10 +240,14 @@ func (r *logRepository) DeleteAll() (err error) {
 		return
 	}
 
-	var needDelete [][]byte
-	iter := trans.NewIterator(nil, nil)
+	iter := trans.NewIterator(nil, _READ_OPTIONS)
 	for iter.Next() {
-		needDelete = append(needDelete, iter.Key())
+		err = trans.Delete(iter.Key(), _WRITE_OPTIONS)
+		if err != nil {
+			iter.Release()
+			trans.Discard()
+			return
+		}
 	}
 	iter.Release()
 	err = iter.Error()
@@ -237,25 +256,7 @@ func (r *logRepository) DeleteAll() (err error) {
 		return
 	}
 
-	for _, e := range needDelete {
-		err = trans.Delete(e, nil)
-		if err != nil {
-			trans.Discard()
-			return
-		}
-	}
-
-	idBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(idBytes, 0)
-
-	err = trans.Put(_INDEX_NAME, idBytes, &opt.WriteOptions{
-		NoWriteMerge: true,
-		Sync:         true,
-	})
-	if err != nil {
-		trans.Discard()
-		return
-	}
+	r.index = 0
 
 	err = trans.Commit()
 	if err != nil {
