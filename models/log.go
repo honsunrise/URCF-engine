@@ -57,9 +57,9 @@ const (
 )
 
 type Log struct {
-	ID         uint64
-	CreateDate time.Time
-	Message    string
-	Name       string
-	Level      Level
+	ID         uint64    `json:"id"`
+	CreateDate time.Time `json:"create_date"`
+	Message    string    `json:"message"`
+	Name       string    `json:"name"`
+	Level      Level     `json:"level"`
 }
