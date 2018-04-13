@@ -12,6 +12,11 @@ import (
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
 	"path"
+	"os"
+)
+
+var (
+	ErrAccountExist = errors.New("account exist")
 )
 
 const (
@@ -19,14 +24,16 @@ const (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			username TEXT NOT NULL,
 			password BLOB NOT NULL,
-			enable BOOLEAN NOT NULL,
 			roles TEXT NOT NULL,
+			enable BOOLEAN NOT NULL,
 			create_time DATETIME NOT NULL,
 			update_time DATETIME NOT NULL
 		);`
 
 	_INSERT_USER_SQL = `INSERT INTO accounts(username, password, roles, enable, create_time, update_time)
 			VALUES(?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+
+	_EXIST_BY_USERNAME_SQL = `SELECT EXISTS(SELECT id FROM accounts WHERE username = ?);`
 
 	_SELECT_ALL_SQL = `SELECT * FROM accounts;`
 
@@ -53,7 +60,11 @@ type Repository interface {
 // the one and only repository type in our example.
 func NewAccountRepository() Repository {
 	confServ := global_configuration.GetGlobalConfig()
-	dbFile := path.Join(confServ.Get().Sys.WorkPath, "database", "Account.db")
+	dbPath := path.Join(confServ.Get().Sys.WorkPath, "database")
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		os.MkdirAll(dbPath, 0770)
+	}
+	dbFile := path.Join(dbPath, "Account.db")
 
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
@@ -88,14 +99,25 @@ func (r *accountRepository) InsertAccount(account models.Account) (err error) {
 	success := false
 	defer func() {
 		if !success {
-			err = tx.Rollback()
-		} else {
-			if err = tx.Commit(); err != nil {
-				err = tx.Rollback()
-				return
+			if e := tx.Rollback(); e != nil {
+				err = e
 			}
+		} else {
+			err = tx.Commit()
 		}
 	}()
+
+	var exists bool
+
+	err = tx.QueryRow(_EXIST_BY_USERNAME_SQL, account.Username).Scan(&exists)
+	if err != nil {
+		return
+	}
+
+	if exists {
+		err = ErrAccountExist
+		return
+	}
 
 	_, err = tx.Exec(_INSERT_USER_SQL, &account.Username, &account.Password, &account.Roles, &account.Enabled)
 	if err != nil {
@@ -113,12 +135,11 @@ func (r *accountRepository) FindAccountByUsername(username string) (account mode
 	success := false
 	defer func() {
 		if !success {
-			err = tx.Rollback()
-		} else {
-			if err = tx.Commit(); err != nil {
-				err = tx.Rollback()
-				return
+			if e := tx.Rollback(); e != nil {
+				err = e
 			}
+		} else {
+			err = tx.Commit()
 		}
 	}()
 
@@ -141,12 +162,11 @@ func (r *accountRepository) FindAll() (accounts []models.Account, err error) {
 	success := false
 	defer func() {
 		if !success {
-			err = tx.Rollback()
-		} else {
-			if err = tx.Commit(); err != nil {
-				err = tx.Rollback()
-				return
+			if e := tx.Rollback(); e != nil {
+				err = e
 			}
+		} else {
+			err = tx.Commit()
 		}
 	}()
 
@@ -177,12 +197,11 @@ func (r *accountRepository) DeleteAccountByUsername(username string) (account mo
 	success := false
 	defer func() {
 		if !success {
-			err = tx.Rollback()
-		} else {
-			if err = tx.Commit(); err != nil {
-				err = tx.Rollback()
-				return
+			if e := tx.Rollback(); e != nil {
+				err = e
 			}
+		} else {
+			err = tx.Commit()
 		}
 	}()
 	err = tx.QueryRow(_SELECT_BY_USERNAME_SQL, username).Scan(
@@ -209,12 +228,11 @@ func (r *accountRepository) UpdateAccountByUsername(username string,
 	success := false
 	defer func() {
 		if !success {
-			err = tx.Rollback()
-		} else {
-			if err = tx.Commit(); err != nil {
-				err = tx.Rollback()
-				return
+			if e := tx.Rollback(); e != nil {
+				err = e
 			}
+		} else {
+			err = tx.Commit()
 		}
 	}()
 	err = tx.QueryRow(_SELECT_BY_USERNAME_SQL, username).Scan(

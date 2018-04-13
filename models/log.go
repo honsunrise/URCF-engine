@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"database/sql/driver"
+	"go/types"
+	"errors"
 )
 
 type Level uint32
@@ -47,6 +50,24 @@ func ParseLevel(lvl string) (Level, error) {
 	return l, fmt.Errorf("not a valid Level: %q", lvl)
 }
 
+func (level Level) Value() (driver.Value, error) {
+	return level.String(), nil
+}
+
+func (level *Level) Scan(value interface{}) (err error) {
+	switch value.(type) {
+	case string:
+		*level, err = ParseLevel(value.(string))
+	case []byte:
+		*level, err = ParseLevel(string(value.([]byte)))
+	case types.Nil:
+		*level = DebugLevel
+	default:
+		return errors.New("failed to scan Level")
+	}
+	return nil
+}
+
 const (
 	PanicLevel Level = iota
 	FatalLevel
@@ -57,9 +78,9 @@ const (
 )
 
 type Log struct {
-	ID         uint64    `json:"id"`
-	CreateDate time.Time `json:"create_date"`
+	ID         int64     `json:"id"`
 	Message    string    `json:"message"`
 	Name       string    `json:"name"`
 	Level      Level     `json:"level"`
+	CreateDate time.Time `json:"create_date"`
 }
