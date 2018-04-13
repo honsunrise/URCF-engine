@@ -2,8 +2,6 @@ package account
 
 import (
 	"sync"
-	"time"
-
 	"github.com/kataras/iris/core/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/models"
@@ -19,11 +17,11 @@ var PasswordModifyErr = errors.New("password modify error")
 type Service interface {
 	services.ServiceLifeCycle
 	GetAll() ([]models.Account, error)
-	GetByID(id string) (models.Account, error)
-	DeleteByID(id string) (models.Account, error)
-	Register(id string, password string, role []string) (models.Account, error)
-	Verify(id string, password string) (models.Account, error)
-	ChangePassword(id string, oldPassword string, newPassword string) error
+	GetByUsername(username string) (models.Account, error)
+	DeleteByUsername(username string) (models.Account, error)
+	Register(username string, password string, role []string) (models.Account, error)
+	Verify(username string, password string) (models.Account, error)
+	ChangePassword(username string, oldPassword string, newPassword string) error
 }
 
 var instance *accountService
@@ -56,17 +54,14 @@ func (s *accountService) UnInitialize(arguments ...interface{}) error {
 }
 
 func (s *accountService) Register(username string, password string, role []string) (account models.Account, err error) {
-	now := time.Now()
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return
 	}
 	account = models.Account{
-		ID:         username,
+		Username:   username,
 		Password:   hashedPassword,
-		Role:       role,
-		CreateDate: now,
-		UpdateDate: now,
+		Roles:      role,
 		Enabled:    true,
 	}
 	err = s.repo.InsertAccount(account)
@@ -85,8 +80,8 @@ func (s *accountService) GetAll() ([]models.Account, error) {
 	return accs, nil
 }
 
-func (s *accountService) GetByID(id string) (models.Account, error) {
-	acc, err := s.repo.FindAccountByID(id)
+func (s *accountService) GetByUsername(username string) (models.Account, error) {
+	acc, err := s.repo.FindAccountByUsername(username)
 	if err != nil {
 		log.Error(err)
 		return models.Account{}, UserNotFoundErr
@@ -94,8 +89,8 @@ func (s *accountService) GetByID(id string) (models.Account, error) {
 	return acc, nil
 }
 
-func (s *accountService) DeleteByID(id string) (models.Account, error) {
-	acc, err := s.repo.DeleteAccountByID(id)
+func (s *accountService) DeleteByUsername(username string) (models.Account, error) {
+	acc, err := s.repo.DeleteAccountByUsername(username)
 	if err != nil {
 		log.Error(err)
 		return models.Account{}, UserNotFoundErr
@@ -103,8 +98,8 @@ func (s *accountService) DeleteByID(id string) (models.Account, error) {
 	return acc, nil
 }
 
-func (s *accountService) Verify(id string, password string) (models.Account, error) {
-	acc, err := s.repo.FindAccountByID(id)
+func (s *accountService) Verify(username string, password string) (models.Account, error) {
+	acc, err := s.repo.FindAccountByUsername(username)
 	if err != nil {
 		log.Error(err)
 		return models.Account{}, UserNotFoundErr
@@ -117,8 +112,8 @@ func (s *accountService) Verify(id string, password string) (models.Account, err
 	return acc, nil
 }
 
-func (s *accountService) ChangePassword(id string, oldPassword string, newPassword string) error {
-	acc, err := s.repo.FindAccountByID(id)
+func (s *accountService) ChangePassword(username string, oldPassword string, newPassword string) error {
+	acc, err := s.repo.FindAccountByUsername(username)
 	if err != nil {
 		log.Error(err)
 		return UserNotFoundErr
@@ -133,7 +128,7 @@ func (s *accountService) ChangePassword(id string, oldPassword string, newPasswo
 		log.Error(err)
 		return PasswordModifyErr
 	}
-	err = s.repo.UpdateAccountByID(id, map[string]interface{}{
+	_, err = s.repo.UpdateAccountByUsername(username, map[string]interface{}{
 		"Password": hashedPassword,
 	})
 	if err != nil {

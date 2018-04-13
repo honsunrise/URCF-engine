@@ -22,9 +22,9 @@ func NewAccountRPC(address string) (*AccountRPC, error) {
 	}, nil
 }
 
-func (t *AccountRPC) Register(id string, password string, role []string) (reply models.Account, err error) {
+func (t *AccountRPC) Register(username string, password string, role []string) (reply models.Account, err error) {
 	param := &shared.RegisterParam{
-		Id:       id,
+		Username: username,
 		Password: password,
 		Role:     role,
 	}
@@ -40,10 +40,10 @@ func (t *AccountRPC) GetAll(_, reply *[]models.Account) (err error) {
 	return
 }
 
-func (t *AccountRPC) GetByID(id string, reply *models.Account) (err error) {
+func (t *AccountRPC) GetByUsername(username string, reply *models.Account) (err error) {
 	return
 }
 
-func (t *AccountRPC) DeleteByID(id string, reply *models.Account) (err error) {
+func (t *AccountRPC) DeleteByUsername(username string, reply *models.Account) (err error) {
 	return
 }

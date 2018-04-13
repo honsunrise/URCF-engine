@@ -43,8 +43,8 @@ func (c *AccountController) RegisterHandler(ctx *gin.Context) {
 	}
 
 	registerResponse := shard.RegisterResponse{
-		Username:   user.ID,
-		Role:       user.Role,
+		Username:   user.Username,
+		Role:       user.Roles,
 		CreateDate: user.CreateDate,
 	}
 
@@ -62,8 +62,9 @@ func (c *AccountController) LoginHandler(ctx *gin.Context) {
 	}
 
 	token, err := c.generator.GenerateJwt(time.Hour, time.Hour*3, jwt.MapClaims{
-		"uid":   user.ID,
-		"roles": user.Role,
+		"uid":      user.ID,
+		"username": user.Username,
+		"roles":    user.Roles,
 	})
 
 	if err != nil {

@@ -22,12 +22,12 @@ func RegisterAccountRPC() error {
 }
 
 func (t *AccountRPC) Register(args *shared.RegisterParam, reply *models.Account) (err error) {
-	*reply, err = t.service.Register(args.Id, args.Password, args.Role)
+	*reply, err = t.service.Register(args.Username, args.Password, args.Role)
 	return
 }
 
 func (t *AccountRPC) Verify(args *shared.VerifyParam, reply *models.Account) (err error) {
-	*reply, err = t.service.Verify(args.Id, args.Password)
+	*reply, err = t.service.Verify(args.Username, args.Password)
 	return
 }
 
@@ -36,12 +36,12 @@ func (t *AccountRPC) GetAll(_, reply *[]models.Account) (err error) {
 	return
 }
 
-func (t *AccountRPC) GetByID(id string, reply *models.Account) (err error) {
-	*reply, err = t.service.GetByID(id)
+func (t *AccountRPC) GetByID(username string, reply *models.Account) (err error) {
+	*reply, err = t.service.GetByUsername(username)
 	return
 }
 
-func (t *AccountRPC) DeleteByID(id string, reply *models.Account) (err error) {
-	*reply, err = t.service.DeleteByID(id)
+func (t *AccountRPC) DeleteByID(username string, reply *models.Account) (err error) {
+	*reply, err = t.service.DeleteByUsername(username)
 	return
 }

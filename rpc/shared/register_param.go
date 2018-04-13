@@ -1,12 +1,12 @@
 package shared
 
 type RegisterParam struct {
-	Id       string
+	Username string
 	Password string
 	Role     []string
 }
 
 type VerifyParam struct {
-	Id       string
+	Username string
 	Password string
 }
