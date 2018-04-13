@@ -28,20 +28,20 @@ const (
 			enable BOOLEAN NOT NULL,
 			create_time DATETIME NOT NULL,
 			update_time DATETIME NOT NULL
-		);`
+		)`
 
 	_INSERT_USER_SQL = `INSERT INTO accounts(username, password, roles, enable, create_time, update_time)
-			VALUES(?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+			VALUES(?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
 
-	_EXIST_BY_USERNAME_SQL = `SELECT EXISTS(SELECT id FROM accounts WHERE username = ?);`
+	_EXIST_BY_USERNAME_SQL = `SELECT EXISTS(SELECT id FROM accounts WHERE username = ?)`
 
-	_SELECT_ALL_SQL = `SELECT * FROM accounts;`
+	_SELECT_ALL_SQL = `SELECT * FROM accounts`
 
-	_SELECT_BY_USERNAME_SQL = `SELECT * FROM accounts WHERE username = ?;`
+	_SELECT_BY_USERNAME_SQL = `SELECT * FROM accounts WHERE username = ?`
 
-	_DELETE_BY_USERNAME_SQL = `DELETE FROM accounts WHERE username = ?;`
+	_DELETE_BY_USERNAME_SQL = `DELETE FROM accounts WHERE username = ?`
 
-	_UPDATE_BY_USERNAME_SQL = `UPDATE accounts SET username = ?, password = ?, roles = ?, enable = ?, update_time = CURRENT_TIMESTAMP WHERE username = ?;`
+	_UPDATE_BY_USERNAME_SQL = `UPDATE accounts SET username = ?, password = ?, roles = ?, enable = ?, update_time = CURRENT_TIMESTAMP WHERE username = ?`
 )
 
 // Repository handles the basic operations of a account entity/model.

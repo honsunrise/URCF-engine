@@ -1,8 +1,8 @@
 package shard
 
 type Paging struct {
-	Page  uint64 `json:"page"`
-	Size  uint64 `json:"size"`
-	Sort  string `json:"sort"`
-	Order string `json:"order"`
+	Page  uint32 `json:"page" form:"page" query:"page"`
+	Size  uint32 `json:"size" form:"size" query:"size"`
+	Sort  string `json:"sort" form:"sort" query:"sort"`
+	Order string `json:"order" form:"order" query:"order"`
 }

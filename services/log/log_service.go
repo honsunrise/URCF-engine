@@ -14,14 +14,15 @@ import (
 	"sync"
 	"time"
 	"unicode"
+	"github.com/zhsyourai/URCF-engine/repositories"
 )
 
 type Service interface {
 	services.ServiceLifeCycle
 	GetLogger(name string) (*logrus.Entry, error)
 	WarpReader(name string, r io.Reader) error
-	ListAll(page uint64, size uint64, sort string, order string) (uint64, []models.Log, error)
-	Clean(ids ...uint64) error
+	ListAll(page uint32, size uint32, sort string, order string) (int64, []models.Log, error)
+	Clean(ids ...int64) error
 }
 
 var instance *logService
@@ -66,7 +67,7 @@ func (l *logWriter) Write(p []byte) (int, error) {
 	_, err = l.repo.InsertLog(models.Log{
 		Name:       entry["name"].(string),
 		Message:    entry["msg"].(string),
-		CreateDate: parseTime,
+		CreateTime: parseTime,
 		Level:      level,
 	})
 	if err != nil {
@@ -104,20 +105,37 @@ func (s *logService) GetLogger(name string) (*logrus.Entry, error) {
 	return logger.WithField("name", name), nil
 }
 
-func (s *logService) ListAll(page uint64, size uint64, sort string, order string) (total uint64, logs []models.Log,
+func (s *logService) ListAll(page uint32, size uint32, sort string, order string) (total int64, logs []models.Log,
 	err error) {
-	total, err = s.repo.Count()
+	total, err = s.repo.CountAll()
 	if err != nil {
-		return 0, []models.Log{}, nil
+		return 0, []models.Log{}, err
 	}
-	logs, err = s.repo.FindAll()
-	if err != nil {
-		return 0, []models.Log{}, nil
+	if sort == "" {
+		logs, err = s.repo.FindAll(page, size, nil)
+		if err != nil {
+			return 0, []models.Log{}, err
+		}
+	} else {
+		o, err := repositories.ParseOrder(order)
+		if err != nil {
+			return 0, []models.Log{}, err
+		}
+		logs, err = s.repo.FindAll(page, size, []repositories.Sort{
+			{
+				Name: sort,
+				Order: o,
+			},
+		})
+		if err != nil {
+			return 0, []models.Log{}, err
+		}
 	}
+
 	return
 }
 
-func (s *logService) Clean(ids ...uint64) error {
+func (s *logService) Clean(ids ...int64) error {
 	if len(ids) == 0 {
 		return s.repo.DeleteAll()
 	} else {

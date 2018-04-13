@@ -47,7 +47,7 @@ func (c *LogController) ListLogHandler(ctx *gin.Context) {
 
 func (c *LogController) CleanLogHandler(ctx *gin.Context) {
 	idStr := ctx.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 0)
+	id, err := strconv.ParseInt(idStr, 10, 0)
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
 		return

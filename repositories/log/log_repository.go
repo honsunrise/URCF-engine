@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"log"
 	"os"
+	"github.com/zhsyourai/URCF-engine/repositories"
 )
 
 const (
@@ -18,24 +19,24 @@ const (
 			message TEXT NOT NULL,
 			level TEXT NOT NULL,
 			create_time DATETIME NOT NULL
-		);`
+		)`
 
 	_INSERT_SQL = `INSERT INTO logs(name, message, level, create_time)
-			VALUES(?, ?, ?, CURRENT_TIMESTAMP);`
+			VALUES(?, ?, ?, CURRENT_TIMESTAMP)`
 
-	_SELECT_BY_ID_SQL = `SELECT * FROM logs WHERE id = ?;`
+	_SELECT_BY_ID_SQL = `SELECT * FROM logs WHERE id = ?`
 
-	_SELECT_BY_NAME_SQL = `SELECT * FROM logs WHERE name = ?;`
+	_SELECT_BY_NAME_SQL = `SELECT * FROM logs WHERE name = ?`
 
-	_SELECT_ALL_SQL = `SELECT * FROM logs;`
+	_SELECT_ALL_SQL = `SELECT * FROM logs`
 
-	_COUNT_ALL_SQL = `SELECT COUNT(*) as count FROM logs;`
+	_COUNT_ALL_SQL = `SELECT COUNT(*) as count FROM logs`
 
-	_COUNT_BY_NAME_SQL = `SELECT COUNT(*) as count FROM logs WHERE name = ?;`
+	_COUNT_BY_NAME_SQL = `SELECT COUNT(*) as count FROM logs WHERE name = ?`
 
-	_DELETE_BY_NAME_SQL = `DELETE FROM logs WHERE name = ?;`
+	_DELETE_BY_NAME_SQL = `DELETE FROM logs WHERE name = ?`
 
-	_DELETE_BY_ID_SQL = `DELETE FROM logs WHERE id = ?;`
+	_DELETE_BY_ID_SQL = `DELETE FROM logs WHERE id = ?`
 
 	_DELETE_ALL_SQL = `DELETE FROM logs`
 )
@@ -47,8 +48,8 @@ type Repository interface {
 	io.Closer
 	InsertLog(log models.Log) (int64, error)
 	FindLogByID(id int64) (models.Log, error)
-	FindLogByName(name string) ([]models.Log, error)
-	FindAll() ([]models.Log, error)
+	FindLogByName(name string, page uint32, size uint32, sorts []repositories.Sort) ([]models.Log, error)
+	FindAll(page uint32, size uint32, sorts []repositories.Sort) ([]models.Log, error)
 	CountAll() (int64, error)
 	CountByName(name string) (int64, error)
 	DeleteLogByID(id int64) (models.Log, error)
@@ -75,12 +76,21 @@ func NewLogRepository() Repository {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &logRepository{db: db}
+	return &logRepository{OrderPaging: &repositories.OrderPaging{
+		MaxSize: 100,
+		CanOrderFields: map[string]repositories.Order{
+			"name": repositories.ASC | repositories.DESC,
+			"message": repositories.ASC | repositories.DESC,
+			"level": repositories.ASC | repositories.DESC,
+			"create_time": repositories.ASC | repositories.DESC,
+		},
+	}, db: db}
 }
 
 // logRepository is a "Repository"
 // which manages the accounts using the memory data source (map).
 type logRepository struct {
+	*repositories.OrderPaging
 	db *sql.DB
 }
 
@@ -126,7 +136,7 @@ func (r *logRepository) FindLogByID(id int64) (log models.Log, err error) {
 	}()
 
 	err = tx.QueryRow(_SELECT_BY_ID_SQL, id).Scan(
-		&log.ID, &log.Name, &log.Message, &log.Level, &log.CreateDate)
+		&log.ID, &log.Name, &log.Message, &log.Level, &log.CreateTime)
 	if err != nil {
 		return
 	}
@@ -134,7 +144,8 @@ func (r *logRepository) FindLogByID(id int64) (log models.Log, err error) {
 	return
 }
 
-func (r *logRepository) FindLogByName(name string) (logs []models.Log, err error) {
+func (r *logRepository) FindLogByName(name string, page uint32, size uint32,
+	sorts []repositories.Sort) (logs []models.Log, err error) {
 	logs = make([]models.Log, 0, 50)
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -151,7 +162,11 @@ func (r *logRepository) FindLogByName(name string) (logs []models.Log, err error
 		}
 	}()
 
-	rows, err := tx.Query(_SELECT_BY_NAME_SQL, name)
+	paSoStr, err := r.BuildPagingOrder(page, size, sorts)
+	if err != nil {
+		return
+	}
+	rows, err := tx.Query(_SELECT_BY_NAME_SQL + paSoStr, name)
 	if err != nil {
 		return
 	}
@@ -159,7 +174,7 @@ func (r *logRepository) FindLogByName(name string) (logs []models.Log, err error
 
 	for rows.Next() {
 		var result models.Log
-		err = rows.Scan(&result.ID, &result.Name, &result.Message, &result.Level, &result.CreateDate)
+		err = rows.Scan(&result.ID, &result.Name, &result.Message, &result.Level, &result.CreateTime)
 		if err != nil {
 			return
 		}
@@ -169,7 +184,7 @@ func (r *logRepository) FindLogByName(name string) (logs []models.Log, err error
 	return
 }
 
-func (r *logRepository) FindAll() (logs []models.Log, err error) {
+func (r *logRepository) FindAll(page uint32, size uint32, sorts []repositories.Sort) (logs []models.Log, err error) {
 	logs = make([]models.Log, 0, 100)
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -186,7 +201,11 @@ func (r *logRepository) FindAll() (logs []models.Log, err error) {
 		}
 	}()
 
-	rows, err := tx.Query(_SELECT_ALL_SQL)
+	paSoStr, err := r.BuildPagingOrder(page, size, sorts)
+	if err != nil {
+		return
+	}
+	rows, err := tx.Query(_SELECT_ALL_SQL + paSoStr)
 	if err != nil {
 		return
 	}
@@ -194,7 +213,7 @@ func (r *logRepository) FindAll() (logs []models.Log, err error) {
 
 	for rows.Next() {
 		var result models.Log
-		err = rows.Scan(&result.ID, &result.Name, &result.Message, &result.Level, &result.CreateDate)
+		err = rows.Scan(&result.ID, &result.Name, &result.Message, &result.Level, &result.CreateTime)
 		if err != nil {
 			return
 		}
@@ -292,7 +311,7 @@ func (r *logRepository) DeleteLogByID(id int64) (log models.Log, err error) {
 		}
 	}()
 	err = tx.QueryRow(_SELECT_BY_ID_SQL, id).Scan(
-		&log.ID, &log.Name, &log.Message, &log.Level, &log.CreateDate)
+		&log.ID, &log.Name, &log.Message, &log.Level, &log.CreateTime)
 	if err != nil {
 		return
 	}

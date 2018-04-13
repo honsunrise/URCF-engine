@@ -82,5 +82,5 @@ type Log struct {
 	Message    string    `json:"message"`
 	Name       string    `json:"name"`
 	Level      Level     `json:"level"`
-	CreateDate time.Time `json:"create_date"`
+	CreateTime time.Time `json:"create_time"`
 }

@@ -14,7 +14,7 @@ func TestInsertAndFind(t *testing.T) {
 	id, err := repo.InsertLog(models.Log{
 		Message:    "I am a log's message in TestInsertAndFind.",
 		Level:      models.DebugLevel,
-		CreateDate: time.Now(),
+		CreateTime: time.Now(),
 		Name:       "log_test",
 	})
 	if err != nil {
@@ -31,7 +31,7 @@ func TestInsertAndDelete(t *testing.T) {
 	id, err := repo.InsertLog(models.Log{
 		Message:    "I am a log's message in TestInsertAndDelete.",
 		Level:      models.DebugLevel,
-		CreateDate: time.Now(),
+		CreateTime: time.Now(),
 		Name:       "log_test",
 	})
 	if err != nil {
@@ -64,7 +64,7 @@ func TestDeleteAll(t *testing.T) {
 	_, err := repo.InsertLog(models.Log{
 		Message:    "I am a log's message in TestDeleteAll.",
 		Level:      models.DebugLevel,
-		CreateDate: time.Now(),
+		CreateTime: time.Now(),
 		Name:       "log_test",
 	})
 	if err != nil {
