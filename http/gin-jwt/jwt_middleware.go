@@ -1,12 +1,12 @@
 package gin_jwt
 
 import (
-	"github.com/gin-gonic/gin"
-	"strings"
-	"github.com/dgrijalva/jwt-go"
-	"crypto/rsa"
 	"crypto/ecdsa"
+	"crypto/rsa"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gin-gonic/gin"
 	"net/http"
+	"strings"
 )
 
 const DEFAULT_CONTEXT_KEY = "_JWT_TOKEN_"
@@ -85,7 +85,7 @@ func NewGinJwtMiddleware(config MiddlewareConfig) (*JwtMiddleware, error) {
 
 	return &JwtMiddleware{
 		config: config,
-		key: realKey,
+		key:    realKey,
 	}, nil
 }
 
@@ -110,7 +110,7 @@ func (m *JwtMiddleware) Handler(ctx *gin.Context) {
 }
 
 func (m *JwtMiddleware) ExtractToken(ctx *gin.Context) (*jwt.Token, error) {
-	if token, ok := ctx.Get(m.config.ContextKey);ok {
+	if token, ok := ctx.Get(m.config.ContextKey); ok {
 		return token.(*jwt.Token), nil
 	} else {
 		return nil, ErrContextNotHaveToken
@@ -141,7 +141,7 @@ func (m *JwtMiddleware) extractToken(ctx *gin.Context) (*jwt.Token, error) {
 	}
 
 	tmpParts := strings.SplitN(originToken, " ", 2)
-	if !(len(tmpParts) == 2 && tmpParts[0] == parts [2]) {
+	if !(len(tmpParts) == 2 && tmpParts[0] == parts[2]) {
 		return nil, ErrInvalidAuthHeader
 	}
 

@@ -51,7 +51,6 @@ func ParseSchemeAddress(addr string) net.Addr {
 	return nil
 }
 
-
 func CovertToSchemeAddress(addr net.Addr) string {
 	if tcpAddr, ok := addr.(*net.TCPAddr); ok {
 		if len(tcpAddr.IP) == net.IPv4len {

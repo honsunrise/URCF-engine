@@ -1,18 +1,18 @@
 package log
 
 import (
-	"github.com/sirupsen/logrus"
-	"github.com/zhsyourai/URCF-engine/services"
-	"sync"
-	"github.com/zhsyourai/URCF-engine/config"
-	"github.com/zhsyourai/URCF-engine/repositories/log"
-	"github.com/zhsyourai/URCF-engine/models"
-	"time"
-	"os"
-	"encoding/json"
-	"io"
 	"bufio"
+	"encoding/json"
+	"github.com/sirupsen/logrus"
+	"github.com/zhsyourai/URCF-engine/config"
+	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/repositories/log"
+	"github.com/zhsyourai/URCF-engine/services"
+	"io"
+	"os"
 	"strings"
+	"sync"
+	"time"
 	"unicode"
 )
 

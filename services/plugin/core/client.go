@@ -90,7 +90,7 @@ type ClientConfig struct {
 type clientStatus int
 
 const (
-	clientStatusTimeOut   clientStatus = iota
+	clientStatusTimeOut clientStatus = iota
 	clientStatusStopped
 	clientStatusPartInit
 	clientStatusEarlyExit

@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"github.com/zhsyourai/URCF-engine/services/netfilter"
 	"github.com/gin-gonic/gin"
+	"github.com/zhsyourai/URCF-engine/services/netfilter"
 )
 
 func NewNetFilterController() *NetFilterController {

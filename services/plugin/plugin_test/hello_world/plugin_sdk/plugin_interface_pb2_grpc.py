@@ -5,76 +5,76 @@ from . import plugin_interface_pb2 as plugin__interface__pb2
 
 
 class PluginInterfaceStub(object):
-  # missing associated documentation comment in .proto file
-  pass
+    # missing associated documentation comment in .proto file
+    pass
 
-  def __init__(self, channel):
-    """Constructor.
+    def __init__(self, channel):
+        """Constructor.
 
-    Args:
-      channel: A grpc.Channel.
-    """
-    self.Initialization = channel.unary_unary(
-        '/proto.PluginInterface/Initialization',
-        request_serializer=plugin__interface__pb2.Empty.SerializeToString,
-        response_deserializer=plugin__interface__pb2.ErrorStatus.FromString,
+        Args:
+          channel: A grpc.Channel.
+        """
+        self.Initialization = channel.unary_unary(
+            '/proto.PluginInterface/Initialization',
+            request_serializer=plugin__interface__pb2.Empty.SerializeToString,
+            response_deserializer=plugin__interface__pb2.ErrorStatus.FromString,
         )
-    self.Deploy = channel.unary_unary(
-        '/proto.PluginInterface/Deploy',
-        request_serializer=plugin__interface__pb2.DeployRequest.SerializeToString,
-        response_deserializer=plugin__interface__pb2.ErrorStatus.FromString,
+        self.Deploy = channel.unary_unary(
+            '/proto.PluginInterface/Deploy',
+            request_serializer=plugin__interface__pb2.DeployRequest.SerializeToString,
+            response_deserializer=plugin__interface__pb2.ErrorStatus.FromString,
         )
-    self.UnInitialization = channel.unary_unary(
-        '/proto.PluginInterface/UnInitialization',
-        request_serializer=plugin__interface__pb2.Empty.SerializeToString,
-        response_deserializer=plugin__interface__pb2.ErrorStatus.FromString,
+        self.UnInitialization = channel.unary_unary(
+            '/proto.PluginInterface/UnInitialization',
+            request_serializer=plugin__interface__pb2.Empty.SerializeToString,
+            response_deserializer=plugin__interface__pb2.ErrorStatus.FromString,
         )
 
 
 class PluginInterfaceServicer(object):
-  # missing associated documentation comment in .proto file
-  pass
-
-  def Initialization(self, request, context):
     # missing associated documentation comment in .proto file
     pass
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
 
-  def Deploy(self, request, context):
-    # missing associated documentation comment in .proto file
-    pass
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
+    def Initialization(self, request, context):
+        # missing associated documentation comment in .proto file
+        pass
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
-  def UnInitialization(self, request, context):
-    # missing associated documentation comment in .proto file
-    pass
-    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-    context.set_details('Method not implemented!')
-    raise NotImplementedError('Method not implemented!')
+    def Deploy(self, request, context):
+        # missing associated documentation comment in .proto file
+        pass
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UnInitialization(self, request, context):
+        # missing associated documentation comment in .proto file
+        pass
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
 
 def add_PluginInterfaceServicer_to_server(servicer, server):
-  rpc_method_handlers = {
-      'Initialization': grpc.unary_unary_rpc_method_handler(
-          servicer.Initialization,
-          request_deserializer=plugin__interface__pb2.Empty.FromString,
-          response_serializer=plugin__interface__pb2.ErrorStatus.SerializeToString,
-      ),
-      'Deploy': grpc.unary_unary_rpc_method_handler(
-          servicer.Deploy,
-          request_deserializer=plugin__interface__pb2.DeployRequest.FromString,
-          response_serializer=plugin__interface__pb2.ErrorStatus.SerializeToString,
-      ),
-      'UnInitialization': grpc.unary_unary_rpc_method_handler(
-          servicer.UnInitialization,
-          request_deserializer=plugin__interface__pb2.Empty.FromString,
-          response_serializer=plugin__interface__pb2.ErrorStatus.SerializeToString,
-      ),
-  }
-  generic_handler = grpc.method_handlers_generic_handler(
-      'proto.PluginInterface', rpc_method_handlers)
-  server.add_generic_rpc_handlers((generic_handler,))
+    rpc_method_handlers = {
+        'Initialization': grpc.unary_unary_rpc_method_handler(
+            servicer.Initialization,
+            request_deserializer=plugin__interface__pb2.Empty.FromString,
+            response_serializer=plugin__interface__pb2.ErrorStatus.SerializeToString,
+        ),
+        'Deploy': grpc.unary_unary_rpc_method_handler(
+            servicer.Deploy,
+            request_deserializer=plugin__interface__pb2.DeployRequest.FromString,
+            response_serializer=plugin__interface__pb2.ErrorStatus.SerializeToString,
+        ),
+        'UnInitialization': grpc.unary_unary_rpc_method_handler(
+            servicer.UnInitialization,
+            request_deserializer=plugin__interface__pb2.Empty.FromString,
+            response_serializer=plugin__interface__pb2.ErrorStatus.SerializeToString,
+        ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+        'proto.PluginInterface', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))

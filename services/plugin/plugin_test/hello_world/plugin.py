@@ -17,6 +17,7 @@ class HelloWorld(plugin_sdk.Plugin):
     def list_command(self):
         return ["Hello"]
 
+
 def serve():
     # We need to build a health service to work with go-plugin
     hello = HelloWorld()

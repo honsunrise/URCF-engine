@@ -5,13 +5,13 @@ import (
 	"log"
 	"reflect"
 
+	"database/sql"
 	"errors"
 	"fmt"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
 	"path"
-	_ "github.com/mattn/go-sqlite3"
-	"database/sql"
 )
 
 const (

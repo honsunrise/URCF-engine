@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/zhsyourai/URCF-engine/models"
 )
 
 var testID = "__test" + fmt.Sprint(rand.Int())

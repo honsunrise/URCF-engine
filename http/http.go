@@ -4,15 +4,15 @@ import (
 	stdContext "context"
 	"time"
 
-	"github.com/zhsyourai/URCF-engine/config"
-	"github.com/gin-gonic/gin"
-	"github.com/gin-contrib/secure"
-	"github.com/gin-contrib/cors"
-	"net/http"
-	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
-	"github.com/zhsyourai/URCF-engine/http/controllers"
-	"crypto/rsa"
 	"crypto/rand"
+	"crypto/rsa"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/secure"
+	"github.com/gin-gonic/gin"
+	"github.com/zhsyourai/URCF-engine/config"
+	"github.com/zhsyourai/URCF-engine/http/controllers"
+	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
+	"net/http"
 )
 
 var (
@@ -45,7 +45,7 @@ func StartHTTPServer() error {
 	}
 
 	jwtMiddleware, err := gin_jwt.NewGinJwtMiddleware(gin_jwt.MiddlewareConfig{
-		Realm: "urcf",
+		Realm:            "urcf",
 		SigningAlgorithm: SigningAlgorithm,
 		KeyFunc: func() interface{} {
 			return &key.PublicKey
@@ -57,7 +57,7 @@ func StartHTTPServer() error {
 	}
 
 	jwtGenerator, err := gin_jwt.NewGinJwtGenerator(gin_jwt.GeneratorConfig{
-		Issuer: "urcf",
+		Issuer:           "urcf",
 		SigningAlgorithm: SigningAlgorithm,
 		KeyFunc: func() interface{} {
 			return key

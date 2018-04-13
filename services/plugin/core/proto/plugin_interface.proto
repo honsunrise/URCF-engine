@@ -11,7 +11,8 @@ message DeployRequest {
     string name = 1;
 }
 
-message Empty {}
+message Empty {
+}
 
 service PluginInterface {
     rpc Initialization (Empty) returns (ErrorStatus);

@@ -1,11 +1,11 @@
 package models
 
 import (
-	"time"
 	"database/sql/driver"
 	"errors"
-	"strings"
 	"go/types"
+	"strings"
+	"time"
 )
 
 type Roles []string

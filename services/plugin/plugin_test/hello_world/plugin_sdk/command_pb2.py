@@ -2,230 +2,223 @@
 # source: command.proto
 
 import sys
-_b=sys.version_info[0]<3 and (lambda x:x) or (lambda x:x.encode('latin1'))
+
+_b = sys.version_info[0] < 3 and (lambda x: x) or (lambda x: x.encode('latin1'))
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
-from google.protobuf import descriptor_pb2
+
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
 
-
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
-
 DESCRIPTOR = _descriptor.FileDescriptor(
-  name='command.proto',
-  package='grpc',
-  syntax='proto3',
-  serialized_pb=_b('\n\rcommand.proto\x12\x04grpc\x1a\x1bgoogle/protobuf/empty.proto\".\n\x0e\x43ommandRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0e\n\x06params\x18\x02 \x03(\t\">\n\x0b\x43ommandResp\x12\x0e\n\x06result\x18\x01 \x01(\t\x12\x0f\n\x05\x65rror\x18\x02 \x01(\tH\x00\x42\x0e\n\x0coptional_err\"(\n\x12\x43ommandHelpRequest\x12\x12\n\nsubcommand\x18\x01 \x01(\t\"@\n\x0f\x43ommandHelpResp\x12\x0c\n\x04help\x18\x01 \x01(\t\x12\x0f\n\x05\x65rror\x18\x02 \x01(\tH\x00\x42\x0e\n\x0coptional_err\"D\n\x0fListCommandResp\x12\x10\n\x08\x63ommands\x18\x01 \x03(\t\x12\x0f\n\x05\x65rror\x18\x02 \x01(\tH\x00\x42\x0e\n\x0coptional_err2\xc0\x01\n\x10\x43ommandInterface\x12\x32\n\x07\x43ommand\x12\x14.grpc.CommandRequest\x1a\x11.grpc.CommandResp\x12:\n\x07GetHelp\x12\x18.grpc.CommandHelpRequest\x1a\x15.grpc.CommandHelpResp\x12<\n\x0bListCommand\x12\x16.google.protobuf.Empty\x1a\x15.grpc.ListCommandRespb\x06proto3')
-  ,
-  dependencies=[google_dot_protobuf_dot_empty__pb2.DESCRIPTOR,])
-
-
-
+    name='command.proto',
+    package='grpc',
+    syntax='proto3',
+    serialized_pb=_b(
+        '\n\rcommand.proto\x12\x04grpc\x1a\x1bgoogle/protobuf/empty.proto\".\n\x0e\x43ommandRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0e\n\x06params\x18\x02 \x03(\t\">\n\x0b\x43ommandResp\x12\x0e\n\x06result\x18\x01 \x01(\t\x12\x0f\n\x05\x65rror\x18\x02 \x01(\tH\x00\x42\x0e\n\x0coptional_err\"(\n\x12\x43ommandHelpRequest\x12\x12\n\nsubcommand\x18\x01 \x01(\t\"@\n\x0f\x43ommandHelpResp\x12\x0c\n\x04help\x18\x01 \x01(\t\x12\x0f\n\x05\x65rror\x18\x02 \x01(\tH\x00\x42\x0e\n\x0coptional_err\"D\n\x0fListCommandResp\x12\x10\n\x08\x63ommands\x18\x01 \x03(\t\x12\x0f\n\x05\x65rror\x18\x02 \x01(\tH\x00\x42\x0e\n\x0coptional_err2\xc0\x01\n\x10\x43ommandInterface\x12\x32\n\x07\x43ommand\x12\x14.grpc.CommandRequest\x1a\x11.grpc.CommandResp\x12:\n\x07GetHelp\x12\x18.grpc.CommandHelpRequest\x1a\x15.grpc.CommandHelpResp\x12<\n\x0bListCommand\x12\x16.google.protobuf.Empty\x1a\x15.grpc.ListCommandRespb\x06proto3')
+    ,
+    dependencies=[google_dot_protobuf_dot_empty__pb2.DESCRIPTOR, ])
 
 _COMMANDREQUEST = _descriptor.Descriptor(
-  name='CommandRequest',
-  full_name='grpc.CommandRequest',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='name', full_name='grpc.CommandRequest.name', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='params', full_name='grpc.CommandRequest.params', index=1,
-      number=2, type=9, cpp_type=9, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=52,
-  serialized_end=98,
+    name='CommandRequest',
+    full_name='grpc.CommandRequest',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='name', full_name='grpc.CommandRequest.name', index=0,
+            number=1, type=9, cpp_type=9, label=1,
+            has_default_value=False, default_value=_b("").decode('utf-8'),
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            options=None, file=DESCRIPTOR),
+        _descriptor.FieldDescriptor(
+            name='params', full_name='grpc.CommandRequest.params', index=1,
+            number=2, type=9, cpp_type=9, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            options=None, file=DESCRIPTOR),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=52,
+    serialized_end=98,
 )
-
 
 _COMMANDRESP = _descriptor.Descriptor(
-  name='CommandResp',
-  full_name='grpc.CommandResp',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='result', full_name='grpc.CommandResp.result', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='error', full_name='grpc.CommandResp.error', index=1,
-      number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-    _descriptor.OneofDescriptor(
-      name='optional_err', full_name='grpc.CommandResp.optional_err',
-      index=0, containing_type=None, fields=[]),
-  ],
-  serialized_start=100,
-  serialized_end=162,
+    name='CommandResp',
+    full_name='grpc.CommandResp',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='result', full_name='grpc.CommandResp.result', index=0,
+            number=1, type=9, cpp_type=9, label=1,
+            has_default_value=False, default_value=_b("").decode('utf-8'),
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            options=None, file=DESCRIPTOR),
+        _descriptor.FieldDescriptor(
+            name='error', full_name='grpc.CommandResp.error', index=1,
+            number=2, type=9, cpp_type=9, label=1,
+            has_default_value=False, default_value=_b("").decode('utf-8'),
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            options=None, file=DESCRIPTOR),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+        _descriptor.OneofDescriptor(
+            name='optional_err', full_name='grpc.CommandResp.optional_err',
+            index=0, containing_type=None, fields=[]),
+    ],
+    serialized_start=100,
+    serialized_end=162,
 )
-
 
 _COMMANDHELPREQUEST = _descriptor.Descriptor(
-  name='CommandHelpRequest',
-  full_name='grpc.CommandHelpRequest',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='subcommand', full_name='grpc.CommandHelpRequest.subcommand', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=164,
-  serialized_end=204,
+    name='CommandHelpRequest',
+    full_name='grpc.CommandHelpRequest',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='subcommand', full_name='grpc.CommandHelpRequest.subcommand', index=0,
+            number=1, type=9, cpp_type=9, label=1,
+            has_default_value=False, default_value=_b("").decode('utf-8'),
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            options=None, file=DESCRIPTOR),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=164,
+    serialized_end=204,
 )
-
 
 _COMMANDHELPRESP = _descriptor.Descriptor(
-  name='CommandHelpResp',
-  full_name='grpc.CommandHelpResp',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='help', full_name='grpc.CommandHelpResp.help', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='error', full_name='grpc.CommandHelpResp.error', index=1,
-      number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-    _descriptor.OneofDescriptor(
-      name='optional_err', full_name='grpc.CommandHelpResp.optional_err',
-      index=0, containing_type=None, fields=[]),
-  ],
-  serialized_start=206,
-  serialized_end=270,
+    name='CommandHelpResp',
+    full_name='grpc.CommandHelpResp',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='help', full_name='grpc.CommandHelpResp.help', index=0,
+            number=1, type=9, cpp_type=9, label=1,
+            has_default_value=False, default_value=_b("").decode('utf-8'),
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            options=None, file=DESCRIPTOR),
+        _descriptor.FieldDescriptor(
+            name='error', full_name='grpc.CommandHelpResp.error', index=1,
+            number=2, type=9, cpp_type=9, label=1,
+            has_default_value=False, default_value=_b("").decode('utf-8'),
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            options=None, file=DESCRIPTOR),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+        _descriptor.OneofDescriptor(
+            name='optional_err', full_name='grpc.CommandHelpResp.optional_err',
+            index=0, containing_type=None, fields=[]),
+    ],
+    serialized_start=206,
+    serialized_end=270,
 )
 
-
 _LISTCOMMANDRESP = _descriptor.Descriptor(
-  name='ListCommandResp',
-  full_name='grpc.ListCommandResp',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='commands', full_name='grpc.ListCommandResp.commands', index=0,
-      number=1, type=9, cpp_type=9, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='error', full_name='grpc.ListCommandResp.error', index=1,
-      number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-    _descriptor.OneofDescriptor(
-      name='optional_err', full_name='grpc.ListCommandResp.optional_err',
-      index=0, containing_type=None, fields=[]),
-  ],
-  serialized_start=272,
-  serialized_end=340,
+    name='ListCommandResp',
+    full_name='grpc.ListCommandResp',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='commands', full_name='grpc.ListCommandResp.commands', index=0,
+            number=1, type=9, cpp_type=9, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            options=None, file=DESCRIPTOR),
+        _descriptor.FieldDescriptor(
+            name='error', full_name='grpc.ListCommandResp.error', index=1,
+            number=2, type=9, cpp_type=9, label=1,
+            has_default_value=False, default_value=_b("").decode('utf-8'),
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            options=None, file=DESCRIPTOR),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+        _descriptor.OneofDescriptor(
+            name='optional_err', full_name='grpc.ListCommandResp.optional_err',
+            index=0, containing_type=None, fields=[]),
+    ],
+    serialized_start=272,
+    serialized_end=340,
 )
 
 _COMMANDRESP.oneofs_by_name['optional_err'].fields.append(
-  _COMMANDRESP.fields_by_name['error'])
+    _COMMANDRESP.fields_by_name['error'])
 _COMMANDRESP.fields_by_name['error'].containing_oneof = _COMMANDRESP.oneofs_by_name['optional_err']
 _COMMANDHELPRESP.oneofs_by_name['optional_err'].fields.append(
-  _COMMANDHELPRESP.fields_by_name['error'])
+    _COMMANDHELPRESP.fields_by_name['error'])
 _COMMANDHELPRESP.fields_by_name['error'].containing_oneof = _COMMANDHELPRESP.oneofs_by_name['optional_err']
 _LISTCOMMANDRESP.oneofs_by_name['optional_err'].fields.append(
-  _LISTCOMMANDRESP.fields_by_name['error'])
+    _LISTCOMMANDRESP.fields_by_name['error'])
 _LISTCOMMANDRESP.fields_by_name['error'].containing_oneof = _LISTCOMMANDRESP.oneofs_by_name['optional_err']
 DESCRIPTOR.message_types_by_name['CommandRequest'] = _COMMANDREQUEST
 DESCRIPTOR.message_types_by_name['CommandResp'] = _COMMANDRESP
@@ -235,79 +228,77 @@ DESCRIPTOR.message_types_by_name['ListCommandResp'] = _LISTCOMMANDRESP
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 CommandRequest = _reflection.GeneratedProtocolMessageType('CommandRequest', (_message.Message,), dict(
-  DESCRIPTOR = _COMMANDREQUEST,
-  __module__ = 'command_pb2'
-  # @@protoc_insertion_point(class_scope:grpc.CommandRequest)
-  ))
+    DESCRIPTOR=_COMMANDREQUEST,
+    __module__='command_pb2'
+    # @@protoc_insertion_point(class_scope:grpc.CommandRequest)
+))
 _sym_db.RegisterMessage(CommandRequest)
 
 CommandResp = _reflection.GeneratedProtocolMessageType('CommandResp', (_message.Message,), dict(
-  DESCRIPTOR = _COMMANDRESP,
-  __module__ = 'command_pb2'
-  # @@protoc_insertion_point(class_scope:grpc.CommandResp)
-  ))
+    DESCRIPTOR=_COMMANDRESP,
+    __module__='command_pb2'
+    # @@protoc_insertion_point(class_scope:grpc.CommandResp)
+))
 _sym_db.RegisterMessage(CommandResp)
 
 CommandHelpRequest = _reflection.GeneratedProtocolMessageType('CommandHelpRequest', (_message.Message,), dict(
-  DESCRIPTOR = _COMMANDHELPREQUEST,
-  __module__ = 'command_pb2'
-  # @@protoc_insertion_point(class_scope:grpc.CommandHelpRequest)
-  ))
+    DESCRIPTOR=_COMMANDHELPREQUEST,
+    __module__='command_pb2'
+    # @@protoc_insertion_point(class_scope:grpc.CommandHelpRequest)
+))
 _sym_db.RegisterMessage(CommandHelpRequest)
 
 CommandHelpResp = _reflection.GeneratedProtocolMessageType('CommandHelpResp', (_message.Message,), dict(
-  DESCRIPTOR = _COMMANDHELPRESP,
-  __module__ = 'command_pb2'
-  # @@protoc_insertion_point(class_scope:grpc.CommandHelpResp)
-  ))
+    DESCRIPTOR=_COMMANDHELPRESP,
+    __module__='command_pb2'
+    # @@protoc_insertion_point(class_scope:grpc.CommandHelpResp)
+))
 _sym_db.RegisterMessage(CommandHelpResp)
 
 ListCommandResp = _reflection.GeneratedProtocolMessageType('ListCommandResp', (_message.Message,), dict(
-  DESCRIPTOR = _LISTCOMMANDRESP,
-  __module__ = 'command_pb2'
-  # @@protoc_insertion_point(class_scope:grpc.ListCommandResp)
-  ))
+    DESCRIPTOR=_LISTCOMMANDRESP,
+    __module__='command_pb2'
+    # @@protoc_insertion_point(class_scope:grpc.ListCommandResp)
+))
 _sym_db.RegisterMessage(ListCommandResp)
 
-
-
 _COMMANDINTERFACE = _descriptor.ServiceDescriptor(
-  name='CommandInterface',
-  full_name='grpc.CommandInterface',
-  file=DESCRIPTOR,
-  index=0,
-  options=None,
-  serialized_start=343,
-  serialized_end=535,
-  methods=[
-  _descriptor.MethodDescriptor(
-    name='Command',
-    full_name='grpc.CommandInterface.Command',
+    name='CommandInterface',
+    full_name='grpc.CommandInterface',
+    file=DESCRIPTOR,
     index=0,
-    containing_service=None,
-    input_type=_COMMANDREQUEST,
-    output_type=_COMMANDRESP,
     options=None,
-  ),
-  _descriptor.MethodDescriptor(
-    name='GetHelp',
-    full_name='grpc.CommandInterface.GetHelp',
-    index=1,
-    containing_service=None,
-    input_type=_COMMANDHELPREQUEST,
-    output_type=_COMMANDHELPRESP,
-    options=None,
-  ),
-  _descriptor.MethodDescriptor(
-    name='ListCommand',
-    full_name='grpc.CommandInterface.ListCommand',
-    index=2,
-    containing_service=None,
-    input_type=google_dot_protobuf_dot_empty__pb2._EMPTY,
-    output_type=_LISTCOMMANDRESP,
-    options=None,
-  ),
-])
+    serialized_start=343,
+    serialized_end=535,
+    methods=[
+        _descriptor.MethodDescriptor(
+            name='Command',
+            full_name='grpc.CommandInterface.Command',
+            index=0,
+            containing_service=None,
+            input_type=_COMMANDREQUEST,
+            output_type=_COMMANDRESP,
+            options=None,
+        ),
+        _descriptor.MethodDescriptor(
+            name='GetHelp',
+            full_name='grpc.CommandInterface.GetHelp',
+            index=1,
+            containing_service=None,
+            input_type=_COMMANDHELPREQUEST,
+            output_type=_COMMANDHELPRESP,
+            options=None,
+        ),
+        _descriptor.MethodDescriptor(
+            name='ListCommand',
+            full_name='grpc.CommandInterface.ListCommand',
+            index=2,
+            containing_service=None,
+            input_type=google_dot_protobuf_dot_empty__pb2._EMPTY,
+            output_type=_LISTCOMMANDRESP,
+            options=None,
+        ),
+    ])
 _sym_db.RegisterServiceDescriptor(_COMMANDINTERFACE)
 
 DESCRIPTOR.services_by_name['CommandInterface'] = _COMMANDINTERFACE

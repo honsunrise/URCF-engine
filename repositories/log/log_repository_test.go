@@ -12,10 +12,10 @@ var repo = NewLogRepository()
 
 func TestInsertAndFind(t *testing.T) {
 	id, err := repo.InsertLog(models.Log{
-		Message: "I am a log's message in TestInsertAndFind.",
-		Level: models.DebugLevel,
+		Message:    "I am a log's message in TestInsertAndFind.",
+		Level:      models.DebugLevel,
 		CreateDate: time.Now(),
-		Name: "log_test",
+		Name:       "log_test",
 	})
 	if err != nil {
 		t.Fatalf("%s(%s)", "Insert error", fmt.Sprint(err))
@@ -29,10 +29,10 @@ func TestInsertAndFind(t *testing.T) {
 
 func TestInsertAndDelete(t *testing.T) {
 	id, err := repo.InsertLog(models.Log{
-		Message: "I am a log's message in TestInsertAndDelete.",
-		Level: models.DebugLevel,
+		Message:    "I am a log's message in TestInsertAndDelete.",
+		Level:      models.DebugLevel,
 		CreateDate: time.Now(),
-		Name: "log_test",
+		Name:       "log_test",
 	})
 	if err != nil {
 		t.Fatalf("%s(%s)", "Insert error", fmt.Sprint(err))
@@ -62,10 +62,10 @@ func TestFindAll(t *testing.T) {
 
 func TestDeleteAll(t *testing.T) {
 	_, err := repo.InsertLog(models.Log{
-		Message: "I am a log's message in TestDeleteAll.",
-		Level: models.DebugLevel,
+		Message:    "I am a log's message in TestDeleteAll.",
+		Level:      models.DebugLevel,
 		CreateDate: time.Now(),
-		Name: "log_test",
+		Name:       "log_test",
 	})
 	if err != nil {
 		t.Fatalf("%s(%s)", "Insert error", fmt.Sprint(err))

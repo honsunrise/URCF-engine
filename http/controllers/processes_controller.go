@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"github.com/zhsyourai/URCF-engine/services/processes"
 	"github.com/gin-gonic/gin"
+	"github.com/zhsyourai/URCF-engine/services/processes"
 )
 
 func NewProcessesController() *ProcessesController {
@@ -18,4 +18,3 @@ type ProcessesController struct {
 
 func (c *ProcessesController) Handler(root *gin.RouterGroup) {
 }
-

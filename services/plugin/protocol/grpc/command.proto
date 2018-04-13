@@ -36,5 +36,5 @@ message ListCommandResp {
 service CommandInterface {
     rpc Command (CommandRequest) returns (CommandResp);
     rpc GetHelp (CommandHelpRequest) returns (CommandHelpResp);
-    rpc ListCommand(google.protobuf.Empty) returns (ListCommandResp);
+    rpc ListCommand (google.protobuf.Empty) returns (ListCommandResp);
 }

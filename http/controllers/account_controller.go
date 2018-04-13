@@ -1,13 +1,13 @@
 package controllers
 
 import (
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gin-gonic/gin"
 	"github.com/zhsyourai/URCF-engine/http/controllers/shard"
+	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
 	"github.com/zhsyourai/URCF-engine/services/account"
 	"net/http"
-	"github.com/gin-gonic/gin"
 	"time"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
 )
 
 func NewAccountController(middleware *gin_jwt.JwtMiddleware, generator *gin_jwt.JwtGenerator) *AccountController {

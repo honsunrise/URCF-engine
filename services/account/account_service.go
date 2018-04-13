@@ -1,13 +1,13 @@
 package account
 
 import (
-	"sync"
 	"github.com/kataras/iris/core/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/repositories/account"
 	"github.com/zhsyourai/URCF-engine/services"
 	"golang.org/x/crypto/bcrypt"
+	"sync"
 )
 
 var UserNotFoundErr = errors.New("user not found")
@@ -59,10 +59,10 @@ func (s *accountService) Register(username string, password string, role []strin
 		return
 	}
 	account = models.Account{
-		Username:   username,
-		Password:   hashedPassword,
-		Roles:      role,
-		Enabled:    true,
+		Username: username,
+		Password: hashedPassword,
+		Roles:    role,
+		Enabled:  true,
 	}
 	err = s.repo.InsertAccount(account)
 	if err != nil {

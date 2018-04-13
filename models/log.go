@@ -1,9 +1,9 @@
 package models
 
 import (
-	"time"
-	"strings"
 	"fmt"
+	"strings"
+	"time"
 )
 
 type Level uint32

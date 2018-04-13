@@ -2,14 +2,14 @@ package log
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
-	"io"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
+	"io"
 	"path"
-	"encoding/binary"
 	"sync"
 )
 

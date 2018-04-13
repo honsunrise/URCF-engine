@@ -1,11 +1,11 @@
 package gin_jwt
 
 import (
-	"time"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/google/uuid"
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
+	"time"
 )
 
 type GeneratorConfig struct {
@@ -62,7 +62,7 @@ func NewGinJwtGenerator(config GeneratorConfig) (*JwtGenerator, error) {
 
 	return &JwtGenerator{
 		config: config,
-		key: realKey,
+		key:    realKey,
 	}, nil
 }
 
