@@ -9,43 +9,43 @@ import (
 	"github.com/zhsyourai/URCF-engine/models"
 )
 
-var testID = "__test" + fmt.Sprint(rand.Int())
+var testUsername = "__test" + fmt.Sprint(rand.Int())
 var repo = NewAccountRepository()
 
 func TestInsertAndFind(t *testing.T) {
 	err := repo.InsertAccount(models.Account{
-		ID:      testID,
+		Username:      testUsername,
 		Enabled: true,
 		// Ignore other field, just for test
 	})
 	err = repo.InsertAccount(models.Account{
-		ID:      testID,
+		Username:      testUsername,
 		Enabled: true,
 		// Ignore other field, just for test
 	})
 	if err != nil {
 		t.Errorf("%s(%s)", "Insert error", fmt.Sprint(err))
 	}
-	account, err := repo.FindAccountByID(testID)
+	account, err := repo.FindAccountByUsername(testUsername)
 	if err != nil {
 		t.Errorf("%s(%s)", "Find error", fmt.Sprint(err))
 	}
-	if account.ID != testID {
-		t.Errorf("%s(%s)", "Find error", "ID not equ")
+	if account.Username != testUsername {
+		t.Errorf("%s(%s)", "Find error", "Username not equ")
 	}
 	t.Logf("%s(%s)", "Find success", fmt.Sprint(account))
 }
 
 func TestInsertAndUpdate(t *testing.T) {
 	err := repo.InsertAccount(models.Account{
-		ID:      testID,
+		Username:      testUsername,
 		Enabled: true,
 		// Ignore other field, just for test
 	})
 	if err != nil {
 		t.Errorf("%s(%s)", "Insert error", fmt.Sprint(err))
 	}
-	account, err := repo.FindAccountByID(testID)
+	account, err := repo.FindAccountByUsername(testUsername)
 	if err != nil {
 		t.Errorf("%s(%s)", "Find error", fmt.Sprint(err))
 	}
@@ -53,24 +53,24 @@ func TestInsertAndUpdate(t *testing.T) {
 	if err != nil {
 		t.Errorf("%s(%s)", "Insert error", fmt.Sprint(err))
 	}
-	if account.ID != testID {
-		t.Errorf("%s(%s)", "Find error", "ID not equ")
+	if account.Username != testUsername {
+		t.Errorf("%s(%s)", "Find error", "Username not equ")
 	}
-	err = repo.UpdateAccountByID(testID, map[string]interface{}{
+	_, err = repo.UpdateAccountByUsername(testUsername, map[string]interface{}{
 		"Enabled": false,
 	})
 	if err != nil {
 		t.Errorf("%s(%s)", "Update error", fmt.Sprint(err))
 	}
-	account, err = repo.FindAccountByID(testID)
+	account, err = repo.FindAccountByUsername(testUsername)
 	if err != nil {
 		t.Errorf("%s(%s)", "Find error", fmt.Sprint(err))
 	}
 	if err != nil {
 		t.Errorf("%s(%s)", "Insert error", fmt.Sprint(err))
 	}
-	if account.ID != testID {
-		t.Errorf("%s(%s)", "Find error", "ID not equ")
+	if account.Username != testUsername {
+		t.Errorf("%s(%s)", "Find error", "Username not equ")
 	}
 	if account.Enabled {
 		t.Errorf("%s(%s)", "Find error", "Enabled should be false")
@@ -80,14 +80,14 @@ func TestInsertAndUpdate(t *testing.T) {
 
 func TestInsertAndDelete(t *testing.T) {
 	err := repo.InsertAccount(models.Account{
-		ID:      testID,
+		Username:      testUsername,
 		Enabled: true,
 		// Ignore other field, just for test
 	})
 	if err != nil {
 		t.Errorf("%s(%s)", "Insert error", fmt.Sprint(err))
 	}
-	account, err := repo.FindAccountByID(testID)
+	account, err := repo.FindAccountByUsername(testUsername)
 	if err != nil {
 		t.Errorf("%s(%s)", "Find error", fmt.Sprint(err))
 	}
@@ -95,17 +95,17 @@ func TestInsertAndDelete(t *testing.T) {
 	if err != nil {
 		t.Errorf("%s(%s)", "Insert error", fmt.Sprint(err))
 	}
-	if account.ID != testID {
-		t.Errorf("%s(%s)", "Find error", "ID not equ")
+	if account.Username != testUsername {
+		t.Errorf("%s(%s)", "Find error", "Username not equ")
 	}
-	account, err = repo.DeleteAccountByID(testID)
+	account, err = repo.DeleteAccountByUsername(testUsername)
 	if err != nil {
 		t.Errorf("%s(%s)", "Delete error", fmt.Sprint(err))
 	}
-	if account.ID != testID {
-		t.Errorf("%s(%s)", "Delete error", "ID not equ")
+	if account.Username != testUsername {
+		t.Errorf("%s(%s)", "Delete error", "Username not equ")
 	}
-	account, err = repo.FindAccountByID(testID)
+	account, err = repo.FindAccountByUsername(testUsername)
 	if err != nil && err == leveldb.ErrNotFound {
 		t.Errorf("%s(%s)", "Find error", fmt.Sprint(err))
 	}
