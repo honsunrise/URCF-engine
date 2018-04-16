@@ -7,6 +7,5 @@ type Config struct {
 	Value      interface{}
 	CreateDate time.Time
 	UpdateDate time.Time
-	Scope      string
 	Expires    time.Duration
 }

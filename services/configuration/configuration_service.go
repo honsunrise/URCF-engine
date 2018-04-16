@@ -95,7 +95,6 @@ func (s *configurationService) sync() error {
 						Value:      nil,
 						CreateDate: startOf2018,
 						UpdateDate: startOf2018,
-						Scope:      "",
 						Expires:    time.Duration(-1),
 					}
 				}
@@ -163,7 +162,6 @@ func (s *configurationService) Put(key string, value interface{}) error {
 					CreateDate: now,
 					UpdateDate: now,
 					Expires:    time.Duration(-1),
-					Scope:      "",
 				}
 				err := s.repo.InsertConfig(currentConfig)
 				if err != nil {
@@ -176,7 +174,6 @@ func (s *configurationService) Put(key string, value interface{}) error {
 					Value:      nil,
 					CreateDate: startOf2018,
 					UpdateDate: startOf2018,
-					Scope:      "",
 					Expires:    time.Duration(-1),
 				}
 			}
@@ -233,7 +230,6 @@ func GetInstance() Service {
 					Value:      nil,
 					CreateDate: startOf2018,
 					UpdateDate: startOf2018,
-					Scope:      "",
 					Expires:    time.Duration(-1),
 				},
 			},
