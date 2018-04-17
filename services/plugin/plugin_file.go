@@ -61,26 +61,6 @@ func Open(name string) (*File, error) {
 	return ret, nil
 }
 
-func (f *File) CheckArchitecture() error {
-	return nil
-}
-
-func (f *File) CheckOS() error {
-	return nil
-}
-
-func (f *File) CheckSum() error {
-	return nil
-}
-
-func (f *File) CheckSysDeps() error {
-	return nil
-}
-
-func (f *File) CheckDeps() error {
-	return nil
-}
-
 func (f *File) ReleaseToDirectory(dir string) error {
 	// Open a zip archive for reading.
 	for _, f := range f.readCloser.File {

@@ -9,7 +9,7 @@ import (
 type CommandPlugin struct {
 }
 
-func (cp *CommandPlugin) Client(ctx context.Context, conn interface{}) (interface{}, error) {
+func (cp *CommandPlugin) Instance(ctx context.Context, conn interface{}) (interface{}, error) {
 	realConn, ok := conn.(*grpc1.ClientConn)
 	if !ok {
 		return nil, errors.New("conn must be grpc.ClientConn")

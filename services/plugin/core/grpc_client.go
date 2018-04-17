@@ -114,7 +114,7 @@ func (c *GRPCClient) Deploy(name string) (interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown plugin type: %s", name)
 	}
-	return p.Client(c.context, c.conn)
+	return p.Instance(c.context, c.conn)
 }
 
 func (c *GRPCClient) Ping(name string) error {

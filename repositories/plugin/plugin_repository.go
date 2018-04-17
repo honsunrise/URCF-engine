@@ -19,7 +19,7 @@ import (
 // a connected to an sql database.
 type Repository interface {
 	io.Closer
-	InsertPlugin(plugin models.Plugin) (models.Plugin, error)
+	InsertPlugin(plugin *models.Plugin) (error)
 	FindPluginByID(id string) (models.Plugin, error)
 	DeletePluginByID(id string) (models.Plugin, error)
 	UpdatePluginByID(id string, plugin map[string]interface{}) error
@@ -50,7 +50,7 @@ func (r *pluginRepository) Close() error {
 	return nil
 }
 
-func (r *pluginRepository) InsertPlugin(inputPlugin models.Plugin) (plugin models.Plugin, err error) {
+func (r *pluginRepository) InsertPlugin(inputPlugin *models.Plugin) (err error) {
 	id := uuid.Must(uuid.NewRandom()).String()
 	plugin = inputPlugin
 	plugin.ID = id

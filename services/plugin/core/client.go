@@ -75,7 +75,7 @@ const (
 )
 
 type ClientConfig struct {
-	Plugins          map[string]PluginInterface
+	Plugins          map[string]ClientInstanceInterface
 	Version          *utils.SemanticVersion
 	Name             string
 	Cmd              string

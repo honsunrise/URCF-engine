@@ -158,7 +158,7 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for PluginInterface service
+// Instance API for PluginInterface service
 
 type PluginInterfaceClient interface {
 	Initialization(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ErrorStatus, error)

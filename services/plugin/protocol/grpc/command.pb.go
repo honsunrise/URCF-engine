@@ -375,7 +375,7 @@ var _ grpc1.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc1.SupportPackageIsVersion4
 
-// Client API for CommandInterface service
+// Instance API for CommandInterface service
 
 type CommandInterfaceClient interface {
 	Command(ctx context.Context, in *CommandRequest, opts ...grpc1.CallOption) (*CommandResp, error)

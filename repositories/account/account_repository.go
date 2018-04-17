@@ -49,7 +49,7 @@ const (
 // a connected to an sql database.
 type Repository interface {
 	io.Closer
-	InsertAccount(models.Account) error
+	InsertAccount(account *models.Account) error
 	FindAccountByUsername(username string) (models.Account, error)
 	FindAll() ([]models.Account, error)
 	DeleteAccountByUsername(username string) (models.Account, error)
@@ -91,7 +91,7 @@ func (r *accountRepository) Close() error {
 	return nil
 }
 
-func (r *accountRepository) InsertAccount(account models.Account) (err error) {
+func (r *accountRepository) InsertAccount(account *models.Account) (err error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return

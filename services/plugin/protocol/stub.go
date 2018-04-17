@@ -62,7 +62,7 @@ func (wg *warpGrpcCommandProtocolClient) ListCommand() ([]string, error) {
 
 func (p *PluginStub) StartUp(plugin *models.Plugin) (CommandProtocol, error) {
 	coreClient, err := core.NewClient(&core.ClientConfig{
-		Plugins: map[string]core.PluginInterface{
+		Plugins: map[string]core.ClientInstanceInterface{
 			"command": &grpc.CommandPlugin{},
 		},
 		Version: &plugin.Version,
@@ -94,7 +94,7 @@ func (p *PluginStub) StartUp(plugin *models.Plugin) (CommandProtocol, error) {
 	case core.GRPCProtocol:
 		realClient, ok := tmpClient.(grpc.CommandInterfaceClient)
 		if !ok {
-			return nil, errors.New("Client must be grpc.CommandInterfaceClient")
+			return nil, errors.New("Instance must be grpc.CommandInterfaceClient")
 		}
 		return &warpGrpcCommandProtocolClient{
 			context: context.Background(),

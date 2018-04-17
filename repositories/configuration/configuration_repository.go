@@ -45,7 +45,7 @@ const (
 // a connected to an sql database.
 type Repository interface {
 	io.Closer
-	InsertConfig(config models.Config) error
+	InsertConfig(config *models.Config) error
 	FindConfigByKey(key string) (models.Config, error)
 	FindAll() ([]models.Config, error)
 	CountAll() (int64, error)
@@ -82,7 +82,7 @@ type configurationRepository struct {
 	db *sql.DB
 }
 
-func (r *configurationRepository) InsertConfig(config models.Config) (err error) {
+func (r *configurationRepository) InsertConfig(config *models.Config) (err error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return

@@ -46,7 +46,7 @@ const (
 // a connected to an sql database.
 type Repository interface {
 	io.Closer
-	InsertLog(log models.Log) (int64, error)
+	InsertLog(log *models.Log) error
 	FindLogByID(id int64) (models.Log, error)
 	FindLogByName(name string, page uint32, size uint32, sorts []repositories.Sort) ([]models.Log, error)
 	FindAll(page uint32, size uint32, sorts []repositories.Sort) ([]models.Log, error)
@@ -94,7 +94,7 @@ type logRepository struct {
 	db *sql.DB
 }
 
-func (r *logRepository) InsertLog(log models.Log) (id int64, err error) {
+func (r *logRepository) InsertLog(log *models.Log) (err error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return
@@ -114,7 +114,7 @@ func (r *logRepository) InsertLog(log models.Log) (id int64, err error) {
 	if err != nil {
 		return
 	}
-	id, err = result.LastInsertId()
+	log.ID, err = result.LastInsertId()
 	success = true
 	return
 }

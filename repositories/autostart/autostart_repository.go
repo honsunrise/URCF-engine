@@ -18,7 +18,7 @@ import (
 // a connected to an sql database.
 type Repository interface {
 	io.Closer
-	InsertAutoStart(models.AutoStart) error
+	InsertAutoStart(autoStart *models.AutoStart) error
 	FindAutoStartByID(id string) (models.AutoStart, error)
 	FindAll() ([]models.AutoStart, error)
 	DeleteAutoStartByID(id string) (models.AutoStart, error)
@@ -50,7 +50,7 @@ func (r *autostartRepository) Close() error {
 	return nil
 }
 
-func (r *autostartRepository) InsertAutoStart(autoStart models.AutoStart) error {
+func (r *autostartRepository) InsertAutoStart(autoStart *models.AutoStart) error {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(autoStart)

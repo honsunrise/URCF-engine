@@ -14,6 +14,6 @@ type ClientInterface interface {
 	Ping(name string) error
 }
 
-type PluginInterface interface {
-	Client(ctx context.Context, conn interface{}) (interface{}, error)
+type ClientInstanceInterface interface {
+	Instance(ctx context.Context, conn interface{}) (interface{}, error)
 }
