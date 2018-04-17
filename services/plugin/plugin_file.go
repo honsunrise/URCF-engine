@@ -39,7 +39,6 @@ func Open(name string) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
 
 	for _, f := range ret.readCloser.File {
 		if f.Name == "manifest.yml" {

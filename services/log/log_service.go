@@ -64,7 +64,7 @@ func (l *logWriter) Write(p []byte) (int, error) {
 	if err != nil {
 		return 0, nil
 	}
-	_, err = l.repo.InsertLog(models.Log{
+	err = l.repo.InsertLog(&models.Log{
 		Name:       entry["name"].(string),
 		Message:    entry["msg"].(string),
 		CreateTime: parseTime,

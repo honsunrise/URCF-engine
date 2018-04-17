@@ -11,18 +11,12 @@ import (
 func TestPluginService(t *testing.T) {
 	stub := protocol.NewPluginStub()
 	client, err := stub.StartUp(&models.Plugin{
-		ID:          "test_hello_world",
-		Title:       "Hello World!",
-		Enabled:     true,
-		InstallDate: time.Now(),
-		Path:        "./plugin_sdk",
-		WorkDir:     "./hello_world",
-		EnterPoint: []string{
-			"/usr/bin/python3",
-			"plugin.py",
-		},
+		Name:        "test_hello_world",
+		Enable:      true,
+		InstallTime: time.Now(),
+		EnterPoint: "/usr/bin/python3 plugin.py",
 		Version: *utils.SemanticVersionMust(utils.NewSemVerFromString("1.0.0")),
-	})
+	}, "./hello_world")
 	if err != nil {
 		t.Fatal(err)
 	}

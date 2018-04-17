@@ -7,6 +7,7 @@ import (
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services/plugin/core"
 	"github.com/zhsyourai/URCF-engine/services/plugin/protocol/grpc"
+	"strings"
 )
 
 type PluginStub struct {
@@ -60,16 +61,17 @@ func (wg *warpGrpcCommandProtocolClient) ListCommand() ([]string, error) {
 	return lcResp.GetCommands(), nil
 }
 
-func (p *PluginStub) StartUp(plugin *models.Plugin) (CommandProtocol, error) {
+func (p *PluginStub) StartUp(plugin *models.Plugin, workDir string) (CommandProtocol, error) {
+	enterPoint := strings.Split(plugin.EnterPoint, " ")
 	coreClient, err := core.NewClient(&core.ClientConfig{
 		Plugins: map[string]core.ClientInstanceInterface{
 			"command": &grpc.CommandPlugin{},
 		},
 		Version: &plugin.Version,
-		Name:    plugin.ID,
-		Cmd:     plugin.EnterPoint[0],
-		Args:    plugin.EnterPoint[1:],
-		WorkDir: plugin.WorkDir,
+		Name:    plugin.Name,
+		Cmd:     enterPoint[0],
+		Args:    enterPoint[1:],
+		WorkDir: workDir,
 	})
 	if err != nil {
 		return nil, err

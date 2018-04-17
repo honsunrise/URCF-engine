@@ -9,6 +9,7 @@ import (
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
 	"path"
 	"github.com/zhsyourai/URCF-engine/services/plugin/protocol"
+	"github.com/zhsyourai/URCF-engine/repositories"
 )
 
 type InstallFlag int32
@@ -26,7 +27,7 @@ const (
 
 type Service interface {
 	services.ServiceLifeCycle
-	GetAll() ([]models.Plugin, error)
+	ListAll(page uint32, size uint32, sort string, order string) (int64, []models.Plugin, error)
 	GetByName(name string) (models.Plugin, error)
 	Uninstall(name string, flag UnInstallFlag) error
 	Install(path string, flag InstallFlag) (models.Plugin, error)
@@ -62,35 +63,41 @@ func (s *pluginService) UnInitialize(arguments ...interface{}) error {
 	})
 }
 
-func (s *pluginService) GetAll() ([]models.Plugin, error) {
-	return nil, nil
+func (s *pluginService) ListAll(page uint32, size uint32, sort string, order string) (total int64, plugins []models.Plugin,
+	err error) {
+	total, err = s.repo.CountAll()
+	if err != nil {
+		return 0, []models.Plugin{}, err
+	}
+	if sort == "" {
+		plugins, err = s.repo.FindAll(page, size, nil)
+		if err != nil {
+			return 0, []models.Plugin{}, err
+		}
+	} else {
+		o, err := repositories.ParseOrder(order)
+		if err != nil {
+			return 0, []models.Plugin{}, err
+		}
+		plugins, err = s.repo.FindAll(page, size, []repositories.Sort{
+			{
+				Name:  sort,
+				Order: o,
+			},
+		})
+		if err != nil {
+			return 0, []models.Plugin{}, err
+		}
+	}
+
+	return
 }
 
 func (s *pluginService) GetByName(name string) (models.Plugin, error) {
-	return models.Plugin{}, nil
+	return s.GetByName(name)
 }
 
 func (s *pluginService) Uninstall(name string, flag UnInstallFlag) error {
-	return nil
-}
-
-func (f *pluginService) checkArchitecture() error {
-	return nil
-}
-
-func (f *pluginService) checkOS() error {
-	return nil
-}
-
-func (f *pluginService) checkSum() error {
-	return nil
-}
-
-func (f *pluginService) checkSysDeps() error {
-	return nil
-}
-
-func (f *pluginService) checkDeps() error {
 	return nil
 }
 
@@ -126,7 +133,7 @@ func (s *pluginService) Install(filePath string, flag InstallFlag) (plugin model
 	}
 
 	confServ := global_configuration.GetGlobalConfig()
-	releasePath := path.Join(confServ.Get().Sys.PluginPath, pluginFile.PluginManifest.Name +
+	releasePath := path.Join(confServ.Get().Sys.PluginPath, pluginFile.PluginManifest.Name+
 		pluginFile.PluginManifest.Version.String())
 
 	pluginFile.ReleaseToDirectory(releasePath)
@@ -143,5 +150,25 @@ func (s *pluginService) Install(filePath string, flag InstallFlag) (plugin model
 }
 
 func (s *pluginService) GetInterface(name string) protocol.CommandProtocol {
+	return nil
+}
+
+func (f *pluginService) checkArchitecture() error {
+	return nil
+}
+
+func (f *pluginService) checkOS() error {
+	return nil
+}
+
+func (f *pluginService) checkSum() error {
+	return nil
+}
+
+func (f *pluginService) checkSysDeps() error {
+	return nil
+}
+
+func (f *pluginService) checkDeps() error {
 	return nil
 }

@@ -8,21 +8,21 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var testID = "__test" + fmt.Sprint(rand.Int())
+var testUsername = "__test" + fmt.Sprint(rand.Int())
 var testPassword = "password" + fmt.Sprint(rand.Int())
 
 func TestAccountService_Register(t *testing.T) {
 	s := GetInstance()
-	_, err := s.Register(testID, testPassword, []string{"admin"})
+	_, err := s.Register(testUsername, testPassword, []string{"admin"})
 	if err != nil {
 		t.Errorf("%s(%s)", "Register error", fmt.Sprint(err))
 	}
 
-	a, err := s.GetByID(testID)
+	a, err := s.GetByUsername(testUsername)
 	if err != nil {
 		t.Errorf("%s(%s)", "Register error", fmt.Sprint(err))
 	}
-	if a.ID != testID {
+	if a.Username != testUsername {
 		t.Errorf("%s(%s)", "Register error", "Account id not equ")
 	}
 
@@ -34,15 +34,15 @@ func TestAccountService_Register(t *testing.T) {
 
 func TestAccountService_GetAll(t *testing.T) {
 	s := GetInstance()
-	_, err := s.Register(testID+"1", testPassword, []string{"admin"})
+	_, err := s.Register(testUsername+"1", testPassword, []string{"admin"})
 	if err != nil {
 		t.Errorf("%s(%s)", "Register error", fmt.Sprint(err))
 	}
-	_, err = s.Register(testID+"2", testPassword, []string{"admin"})
+	_, err = s.Register(testUsername+"2", testPassword, []string{"admin"})
 	if err != nil {
 		t.Errorf("%s(%s)", "Register error", fmt.Sprint(err))
 	}
-	_, err = s.Register(testID+"3", testPassword, []string{"admin"})
+	_, err = s.Register(testUsername+"3", testPassword, []string{"admin"})
 	if err != nil {
 		t.Errorf("%s(%s)", "Register error", fmt.Sprint(err))
 	}

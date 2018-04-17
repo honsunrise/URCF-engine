@@ -170,7 +170,7 @@ func (a *autoStart) Add(process types.Process, startDelay int32, stopDelay int32
 	}
 	a.Lock()
 	defer a.Unlock()
-	err = a.repo.InsertAutoStart(*as)
+	err = a.repo.InsertAutoStart(as)
 	if err != nil {
 		return
 	}

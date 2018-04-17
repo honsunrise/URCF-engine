@@ -148,7 +148,7 @@ func (s *configurationService) Put(key string, value interface{}) error {
 			currentNode = tmp.(*Node)
 			if i == len(allPath)-1 {
 				currentNode.Value = value
-				err := s.repo.InsertConfig(currentNode.Config)
+				err := s.repo.InsertConfig(&currentNode.Config)
 				if err != nil {
 					return err
 				}
@@ -163,7 +163,7 @@ func (s *configurationService) Put(key string, value interface{}) error {
 					UpdateDate: now,
 					Expires:    time.Duration(-1),
 				}
-				err := s.repo.InsertConfig(currentConfig)
+				err := s.repo.InsertConfig(&currentConfig)
 				if err != nil {
 					return err
 				}

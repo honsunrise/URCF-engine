@@ -58,13 +58,12 @@ func (s *accountService) Register(username string, password string, role []strin
 	if err != nil {
 		return
 	}
-	account = models.Account{
-		Username: username,
-		Password: hashedPassword,
-		Roles:    role,
-		Enabled:  true,
-	}
-	err = s.repo.InsertAccount(account)
+	account.Username = username
+	account.Password = hashedPassword
+	account.Roles = role
+	account.Enabled = true
+
+	err = s.repo.InsertAccount(&account)
 	if err != nil {
 		return
 	}
