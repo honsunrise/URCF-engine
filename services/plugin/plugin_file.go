@@ -2,13 +2,12 @@ package plugin
 
 import (
 	"archive/zip"
-	"encoding/binary"
 	"fmt"
 	"io"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"path"
 	"os"
-
-	log "github.com/sirupsen/logrus"
-	"github.com/zhsyourai/URCF-engine/utils"
 )
 
 type PositionError struct {
@@ -26,116 +25,93 @@ func (e *PositionError) Error() string {
 	return msg
 }
 
-// Version is found in Header.Ident[EI_VERSION] and Header.Version.
-type Version uint32
-
-// Machine is found in Header.Machine.
-type Machine uint16
-
-const (
-	M_NONE    Machine = 0 /* Unknown machine. */
-	M_X86     Machine = 1 /* x86. */
-	M_X86_64  Machine = 2 /* x86-64. */
-	M_ARM     Machine = 3 /* ARM. */
-	M_AARCH64 Machine = 4 /* ARM 64-bit Architecture (AArch64) */
-	M_MIPS    Machine = 5 /* MIPS. */
-	M_IA_64   Machine = 6 /* Intel IA-64 Processor. */
-)
-
-var machineStrings = []utils.IntName{
-	{0, "M_NONE"},
-	{1, "M_X86"},
-	{2, "M_X86_64"},
-	{3, "M_ARM"},
-	{4, "M_AARCH64"},
-	{5, "M_MIPS"},
-	{6, "M_IA_64"},
-}
-
-func (i Machine) String() string   { return utils.StringName(uint32(i), machineStrings, "upp.", false) }
-func (i Machine) GoString() string { return utils.StringName(uint32(i), machineStrings, "upp.", true) }
-
-type Flags uint32
-
-var flagsStrings = []utils.IntName{
-	{0, "F_NONE"},
-}
-
-func (i Flags) String() string   { return utils.StringName(uint32(i), flagsStrings, "upp.", false) }
-func (i Flags) GoString() string { return utils.StringName(uint32(i), flagsStrings, "upp.", true) }
-
 type File struct {
 	io.Closer
-	Version Version
-	Machine Machine
-	Flags   Flags
+	readCloser     *zip.ReadCloser
+	PluginManifest PluginManifest
 }
 
-func (*File) Open(name string) {
+func Open(name string) (*File, error) {
+	ret := new(File)
+	var err error
 	// Open a zip archive for reading.
-	r, err := zip.OpenReader(name)
+	ret.readCloser, err = zip.OpenReader(name)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	defer r.Close()
 
-	// Iterate through the files in the archive,
-	// printing some of their contents.
-	for _, f := range r.File {
-		fmt.Printf("Contents of %s:\n", f.Name)
-		rc, err := f.Open()
-		if err != nil {
-			log.Fatal(err)
+	for _, f := range ret.readCloser.File {
+		if f.Name == "manifest.yml" {
+			rc, err := f.Open()
+			if err != nil {
+				return nil, err
+			}
+			buf, err := ioutil.ReadAll(rc)
+			if err != nil {
+				return nil, err
+			}
+			err = yaml.Unmarshal(buf, &ret.PluginManifest)
+			if err != nil {
+				return nil, err
+			}
+			break
 		}
-		_, err = io.CopyN(os.Stdout, rc, 68)
-		if err != nil {
-			log.Fatal(err)
-		}
-		rc.Close()
-		fmt.Println()
 	}
+	return ret, nil
 }
 
-func NewFile(r io.ReaderAt) (*File, error) {
-	sr := io.NewSectionReader(r, 0, 1<<63-1)
-	// Read and decode ELF identifier
-	var mag [4]uint8
-	if _, err := sr.ReadAt(mag[0:], 0); err != nil {
-		return nil, err
-	}
-	if mag[0] != '.' || mag[1] != 'U' || mag[2] != 'P' || mag[3] != 'P' {
-		return nil, &PositionError{0, "bad magic number", mag[0:4]}
-	}
-
-	f := new(File)
-
-	// Read ELF file header
-	var shoff int64
-	var shentsize, shnum int
-
-	hdr := new(FileHead)
-	sr.Seek(0, io.SeekStart)
-	if err := binary.Read(sr, binary.BigEndian, hdr); err != nil {
-		return nil, err
-	}
-	f.Version = Version(hdr.Version)
-	f.Machine = Machine(hdr.Machine)
-	f.Flags = Flags(hdr.Flags)
-	shoff = int64(hdr.Shoff)
-	shentsize = int(hdr.Shentsize)
-	shnum = int(hdr.Shnum)
-
-	if shnum < 0 {
-		return nil, &PositionError{0, "invalid UPP shnum", shnum}
-	}
-
-	if shoff < 0 {
-		return nil, &PositionError{0, "invalid UPP shoff", shoff}
-	}
-
-	if shentsize < 0 {
-		return nil, &PositionError{0, "invalid UPP shoff", shentsize}
-	}
-
-	return f, nil
+func (f *File) CheckArchitecture() error {
+	return nil
 }
+
+func (f *File) CheckOS() error {
+	return nil
+}
+
+func (f *File) CheckSum() error {
+	return nil
+}
+
+func (f *File) CheckSysDeps() error {
+	return nil
+}
+
+func (f *File) CheckDeps() error {
+	return nil
+}
+
+func (f *File) ReleaseToDirectory(dir string) error {
+	// Open a zip archive for reading.
+	for _, f := range f.readCloser.File {
+		if f.Name == "manifest.yml" {
+			rc, err := f.Open()
+			if err != nil {
+				return err
+			}
+			releasePath := path.Join(dir, f.Name)
+			file, err := os.Create(releasePath)
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(file, rc)
+			if err != nil {
+				return err
+			}
+			err = file.Sync()
+			if err != nil {
+				return err
+			}
+			err = file.Close()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (f *File) Close() error {
+	return f.readCloser.Close()
+}
+

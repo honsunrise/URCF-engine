@@ -1,11 +1,20 @@
 name: "HelloWord"
 desc: "Test hello world plugin"
 architecture: "x86"
+os: "Linux"
 homepage: "http://example.com"
 maintainer: "Hobson"
-checksums: ""
-version: 1.0
+version: 0.0.1-alpha
+checksum: "0000000000000000000000"
 conffiles:
-  - No
+  - "/etc/hello-word"
 sys-deps:
-  - wget
+  - wget: 0.0.1
+deps:
+  - hello-girl: 0.0.1
+licenses:
+  - hello-girl: "/usr/share/hello-word"
+pre-install:
+  - "preinstall"
+post-install:
+  - "postinstall"
