@@ -5,13 +5,14 @@ import (
 )
 
 type AutoStart struct {
-	ID         string
-	CreateDate time.Time
+	ID         int64
 	Priority   int32
 	StartDelay int32
 	StopDelay  int32
-	Enable     bool
 	Parallel   bool
+	Enable     bool
+	CreateTime time.Time
+	UpdateTime time.Time
 	ProcessParam
 }
 

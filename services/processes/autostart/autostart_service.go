@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/kataras/iris/core/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/models"
@@ -20,10 +19,10 @@ type Service interface {
 	StartAll() error
 	EnableAll() error
 	DisableAll() error
-	Add(process types.Process, startDelay int32, stopDelay int32, priority int32, parallel bool) (string, error)
-	Remove(id string) error
-	Disable(id string) error
-	Enable(id string) error
+	Add(process types.Process, startDelay int32, stopDelay int32, priority int32, parallel bool) (int64, error)
+	Remove(id int64) error
+	Disable(id int64) error
+	Enable(id int64) error
 }
 
 type autoStart struct {
@@ -32,7 +31,7 @@ type autoStart struct {
 	init             bool
 	processes        map[string]*types.Process
 	repo             autostart.Repository
-	cache            map[string]*models.AutoStart
+	cache            map[int64]*models.AutoStart
 	sortCacheKey     []string
 	processesService processes.Service
 }
@@ -55,7 +54,7 @@ var once sync.Once
 func GetInstance() Service {
 	once.Do(func() {
 		instance = &autoStart{
-			cache:            make(map[string]*models.AutoStart),
+			cache:            make(map[int64]*models.AutoStart),
 			sortCacheKey:     make([]string, 0),
 			processes:        make(map[string]*types.Process),
 			repo:             autostart.NewAutostartRepository(),
@@ -77,7 +76,7 @@ func initCache(a *autoStart) error {
 		}
 		sort.Sort(sort.Reverse(models.ByPriority(all)))
 		for _, as := range all {
-			a.cache[as.Name] = &as
+			a.cache[as.ID] = &as
 		}
 	}
 	return nil
@@ -152,15 +151,12 @@ func (a *autoStart) DisableAll() error {
 	return err
 }
 
-func (a *autoStart) Add(process types.Process, startDelay int32, stopDelay int32, priority int32, parallel bool) (id string, err error) {
+func (a *autoStart) Add(process types.Process, startDelay int32, stopDelay int32, priority int32, parallel bool) (id int64, err error) {
 	err = initCache(a)
 	if err != nil {
 		return
 	}
-	id = uuid.New().String()
 	as := &models.AutoStart{
-		ID:           id,
-		CreateDate:   time.Now(),
 		Priority:     priority,
 		StartDelay:   startDelay,
 		StopDelay:    stopDelay,
@@ -174,11 +170,11 @@ func (a *autoStart) Add(process types.Process, startDelay int32, stopDelay int32
 	if err != nil {
 		return
 	}
-	a.cache[id] = as
+	id = as.ID
 	return
 }
 
-func (a *autoStart) Remove(id string) error {
+func (a *autoStart) Remove(id int64) error {
 	err := initCache(a)
 	if err != nil {
 		return err
@@ -195,7 +191,7 @@ func (a *autoStart) Remove(id string) error {
 	return err
 }
 
-func (a *autoStart) Disable(id string) error {
+func (a *autoStart) Disable(id int64) error {
 	err := initCache(a)
 	if err != nil {
 		return err
@@ -213,7 +209,7 @@ func (a *autoStart) Disable(id string) error {
 	return err
 }
 
-func (a *autoStart) Enable(id string) error {
+func (a *autoStart) Enable(id int64) error {
 	err := initCache(a)
 	if err != nil {
 		return err

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"database/sql/driver"
 )
 
 type DetailCompareResult int32
@@ -37,6 +38,25 @@ type SemanticVersion struct {
 	PreRelease []string
 	Build      []string
 	valid      bool
+}
+
+func (ver SemanticVersion) Value() (driver.Value, error) {
+	return ver.String(), nil
+}
+
+func (ver *SemanticVersion) Scan(value interface{}) (err error) {
+	var tmp *SemanticVersion
+	switch value.(type) {
+	case string:
+		tmp, err = NewSemVerFromString(value.(string))
+		*ver = *tmp
+	case []byte:
+		tmp, err = NewSemVerFromString(string(value.([]byte)))
+		*ver = *tmp
+	default:
+		return errors.New("failed to scan SemanticVersion")
+	}
+	return nil
 }
 
 func SemanticVersionMust(semVer *SemanticVersion, err error) *SemanticVersion {
