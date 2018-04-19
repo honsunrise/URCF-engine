@@ -27,20 +27,21 @@ func (e *PositionError) Error() string {
 
 type File struct {
 	io.Closer
-	readCloser     *zip.ReadCloser
+	close          func() error
+	reader         *zip.Reader
 	PluginManifest PluginManifest
 }
 
-func Open(name string) (*File, error) {
+func OpenReader(readCloser io.ReaderAt, size int64) (*File, error) {
 	ret := new(File)
 	var err error
 	// Open a zip archive for reading.
-	ret.readCloser, err = zip.OpenReader(name)
+	ret.reader, err = zip.NewReader(readCloser, size)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, f := range ret.readCloser.File {
+	for _, f := range ret.reader.File {
 		if f.Name == "manifest.yml" {
 			rc, err := f.Open()
 			if err != nil {
@@ -62,7 +63,7 @@ func Open(name string) (*File, error) {
 
 func (f *File) ReleaseToDirectory(dir string) error {
 	// Open a zip archive for reading.
-	for _, f := range f.readCloser.File {
+	for _, f := range f.reader.File {
 		if f.Name == "manifest.yml" {
 			rc, err := f.Open()
 			if err != nil {
@@ -91,5 +92,5 @@ func (f *File) ReleaseToDirectory(dir string) error {
 }
 
 func (f *File) Close() error {
-	return f.readCloser.Close()
+	return f.close()
 }

@@ -1,12 +1,12 @@
 package models
 
 import (
+	"database/sql/driver"
+	"errors"
 	"fmt"
+	"go/types"
 	"strings"
 	"time"
-	"database/sql/driver"
-	"go/types"
-	"errors"
 )
 
 type Level uint32

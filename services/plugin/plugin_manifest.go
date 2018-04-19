@@ -34,14 +34,14 @@ type PluginManifest struct {
 	Desc         string
 	Architecture Architecture
 	OS
-	Homepage     string
-	Maintainer   string
-	Version      utils.SemanticVersion
-	Checksum     string
-	Conffiles    []string
-	Deps         []Pkg
-	SysDeps      []Pkg    `yaml:"sys-deps"`
-	Licenses     []License
-	PreInstall   []string `yaml:"pre-install"`
-	PostInstall  []string `yaml:"post-install"`
+	Homepage    string
+	Maintainer  string
+	Version     utils.SemanticVersion
+	Checksum    string
+	Conffiles   []string
+	Deps        []Pkg
+	SysDeps     []Pkg `yaml:"sys-deps"`
+	Licenses    []License
+	PreInstall  []string `yaml:"pre-install"`
+	PostInstall []string `yaml:"post-install"`
 }
