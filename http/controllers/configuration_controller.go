@@ -24,8 +24,8 @@ type ConfigurationController struct {
 }
 
 func (c *ConfigurationController) Handler(root *gin.RouterGroup) {
-	root.GET("/list", c.GetConfigurationHandler)
-	root.GET("/", c.ListConfigurationHandler)
+	root.GET("/list", c.ListConfigurationHandler)
+	root.GET("/", c.GetConfigurationHandler)
 	root.PUT("/", c.UpdateConfigurationHandler)
 	root.DELETE("/", c.DeleteConfigurationHandler)
 }
