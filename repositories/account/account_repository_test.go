@@ -9,19 +9,18 @@ import (
 	"github.com/zhsyourai/URCF-engine/models"
 )
 
-
 var repo = NewAccountRepository()
 
 func TestDoubleInsertAndFind(t *testing.T) {
 	testUsername := "__test" + fmt.Sprint(rand.Int())
-	err := repo.InsertAccount(models.Account{
-		Username:      testUsername,
-		Enabled: true,
+	err := repo.InsertAccount(&models.Account{
+		Username: testUsername,
+		Enabled:  true,
 		// Ignore other field, just for test
 	})
-	err = repo.InsertAccount(models.Account{
-		Username:      testUsername,
-		Enabled: true,
+	err = repo.InsertAccount(&models.Account{
+		Username: testUsername,
+		Enabled:  true,
 		// Ignore other field, just for test
 	})
 	if err == nil && err != ErrAccountExist {
@@ -39,9 +38,9 @@ func TestDoubleInsertAndFind(t *testing.T) {
 
 func TestInsertAndUpdate(t *testing.T) {
 	testUsername := "__test" + fmt.Sprint(rand.Int())
-	err := repo.InsertAccount(models.Account{
-		Username:      testUsername,
-		Enabled: true,
+	err := repo.InsertAccount(&models.Account{
+		Username: testUsername,
+		Enabled:  true,
 		// Ignore other field, just for test
 	})
 	if err != nil {
@@ -82,9 +81,9 @@ func TestInsertAndUpdate(t *testing.T) {
 
 func TestInsertAndDelete(t *testing.T) {
 	testUsername := "__test" + fmt.Sprint(rand.Int())
-	err := repo.InsertAccount(models.Account{
-		Username:      testUsername,
-		Enabled: true,
+	err := repo.InsertAccount(&models.Account{
+		Username: testUsername,
+		Enabled:  true,
 		// Ignore other field, just for test
 	})
 	if err != nil {

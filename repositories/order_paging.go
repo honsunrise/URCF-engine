@@ -1,24 +1,24 @@
 package repositories
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"strings"
 )
 
 var (
-	ErrOrderNotSupport = errors.New("order not support")
-	ErrPagingSize = errors.New("paging size is too large")
+	ErrOrderNotSupport     = errors.New("order not support")
+	ErrPagingSize          = errors.New("paging size is too large")
 	ErrNoFieldCanBeOrdered = errors.New("no field can be ordered")
-	ErrFieldCannotOrder = errors.New("field can't be ordered")
-	ErrFieldCannotASC = errors.New("field can't be ordered")
-	ErrFieldCannotDESC = errors.New("field can't be ordered")
+	ErrFieldCannotOrder    = errors.New("field can't be ordered")
+	ErrFieldCannotASC      = errors.New("field can't be ordered")
+	ErrFieldCannotDESC     = errors.New("field can't be ordered")
 )
 
 type Order uint8
 
 const (
-	ASC  Order = 1 << iota
+	ASC Order = 1 << iota
 	DESC
 )
 
@@ -55,7 +55,7 @@ type OrderPaging struct {
 }
 
 func (o OrderPaging) BuildPagingOrder(page uint32, size uint32, sorts []Sort) (string, error) {
-	if (size > o.MaxSize) {
+	if size > o.MaxSize {
 		return "", ErrPagingSize
 	}
 	if len(sorts) == 0 {
@@ -67,13 +67,13 @@ func (o OrderPaging) BuildPagingOrder(page uint32, size uint32, sorts []Sort) (s
 		var orderStr string
 		for i, sort := range sorts {
 			if setOrder, ok := o.CanOrderFields[sort.Name]; ok {
-				if setOrder & sort.Order != 0 {
+				if setOrder&sort.Order != 0 {
 					orderStr += fmt.Sprintf("%s %s", sort.Name, sort.Order)
 					if i != len(sorts)-1 {
 						orderStr += ","
 					}
 				} else {
-					if setOrder & ASC != 0 {
+					if setOrder&ASC != 0 {
 						return "", ErrFieldCannotDESC
 					} else {
 						return "", ErrFieldCannotASC

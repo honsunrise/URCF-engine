@@ -1,10 +1,10 @@
 package utils
 
 import (
+	"database/sql/driver"
 	"errors"
 	"strconv"
 	"strings"
-	"database/sql/driver"
 )
 
 type DetailCompareResult int32

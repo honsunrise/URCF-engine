@@ -5,14 +5,14 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/zhsyourai/URCF-engine/models"
-	"github.com/zhsyourai/URCF-engine/services/global_configuration"
-	"path"
-	"os"
 	"database/sql"
-	"github.com/zhsyourai/URCF-engine/repositories"
-	"fmt"
 	"errors"
+	"fmt"
+	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/repositories"
+	"github.com/zhsyourai/URCF-engine/services/global_configuration"
+	"os"
+	"path"
 )
 
 const (
@@ -44,7 +44,7 @@ const (
 // a connected to an sql database.
 type Repository interface {
 	io.Closer
-	InsertPlugin(plugin *models.Plugin) (error)
+	InsertPlugin(plugin *models.Plugin) error
 	FindPluginByName(name string) (models.Plugin, error)
 	FindAll(page uint32, size uint32, sorts []repositories.Sort) ([]models.Plugin, error)
 	CountAll() (int64, error)
@@ -200,7 +200,6 @@ func (r *pluginRepository) CountAll() (count int64, err error) {
 	success = true
 	return
 }
-
 
 func (r *pluginRepository) DeletePluginByName(name string) (plugin models.Plugin, err error) {
 	tx, err := r.db.Begin()

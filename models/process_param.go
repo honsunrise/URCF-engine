@@ -2,10 +2,10 @@ package models
 
 import (
 	"database/sql/driver"
-	"strings"
-	"go/types"
 	"errors"
 	"fmt"
+	"go/types"
+	"strings"
 )
 
 type ProcessOption int
@@ -20,10 +20,10 @@ func (option ProcessOption) String() (ret string) {
 	if option == None {
 		return "none"
 	} else {
-		if option & AutoRestart == AutoRestart {
+		if option&AutoRestart == AutoRestart {
 			ret += ",autoRestart"
 		}
-		if option & HookLog == HookLog {
+		if option&HookLog == HookLog {
 			ret += ",hookLog"
 		}
 		return strings.TrimPrefix(ret, ",")

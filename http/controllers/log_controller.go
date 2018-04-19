@@ -24,7 +24,7 @@ type LogController struct {
 
 func (c *LogController) Handler(root *gin.RouterGroup) {
 	root.GET("/list", c.ListLogHandler)
-	root.DELETE("/clean/*id", c.CleanLogHandler)
+	root.DELETE("/*id", c.CleanLogHandler)
 }
 
 func (c *LogController) ListLogHandler(ctx *gin.Context) {
@@ -39,7 +39,7 @@ func (c *LogController) ListLogHandler(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, &shard.LogWithCount{
+	ctx.JSON(http.StatusOK, &shard.LogsWithCount{
 		TotalCount: total,
 		Items:      logs,
 	})

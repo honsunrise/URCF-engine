@@ -3,8 +3,10 @@ package configuration
 import (
 	"errors"
 	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/repositories"
 	"github.com/zhsyourai/URCF-engine/repositories/configuration"
 	"github.com/zhsyourai/URCF-engine/services"
+	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -32,6 +34,15 @@ func (n *Node) GetAll() (nodes []*Node, err error) {
 	return
 }
 
+func (n *Node) HasChild() (ret bool) {
+	ret = false
+	n.child.Range(func(key, value interface{}) bool {
+		ret = true
+		return false
+	})
+	return ret
+}
+
 func (n *Node) Put(key string, value interface{}) error {
 	return n.service.Put(n.parent.Key+"."+key, value)
 }
@@ -44,6 +55,7 @@ type Service interface {
 	services.ServiceLifeCycle
 	Get(key string) (*Node, error)
 	GetRoot() (*Node, error)
+	ListAll(page uint32, size uint32, sort string, order string) (int64, []models.Config, error)
 	Put(key string, value interface{}) error
 	Delete(key string) (*Node, error)
 }
@@ -68,7 +80,7 @@ func (s *configurationService) UnInitialize(arguments ...interface{}) error {
 }
 
 func (s *configurationService) sync() error {
-	configs, err := s.repo.FindAll()
+	configs, err := s.repo.FindAll(0, math.MaxUint32, nil)
 	if err != nil {
 		return err
 	}
@@ -93,8 +105,8 @@ func (s *configurationService) sync() error {
 					currentConfig = models.Config{
 						Key:        currentPath,
 						Value:      nil,
-						CreateDate: startOf2018,
-						UpdateDate: startOf2018,
+						CreateTime: startOf2018,
+						UpdateTime: startOf2018,
 						Expires:    time.Duration(-1),
 					}
 				}
@@ -115,6 +127,36 @@ func (s *configurationService) sync() error {
 
 func (s *configurationService) GetRoot() (*Node, error) {
 	return s.rootNode, nil
+}
+
+func (s *configurationService) ListAll(page uint32, size uint32, sort string,
+	order string) (total int64, configurations []models.Config, err error) {
+	total, err = s.repo.CountAll()
+	if err != nil {
+		return 0, []models.Config{}, err
+	}
+	if sort == "" {
+		configurations, err = s.repo.FindAll(page, size, nil)
+		if err != nil {
+			return 0, []models.Config{}, err
+		}
+	} else {
+		o, err := repositories.ParseOrder(order)
+		if err != nil {
+			return 0, []models.Config{}, err
+		}
+		configurations, err = s.repo.FindAll(page, size, []repositories.Sort{
+			{
+				Name:  sort,
+				Order: o,
+			},
+		})
+		if err != nil {
+			return 0, []models.Config{}, err
+		}
+	}
+
+	return
 }
 
 func (s *configurationService) Get(key string) (*Node, error) {
@@ -159,8 +201,8 @@ func (s *configurationService) Put(key string, value interface{}) error {
 				currentConfig = models.Config{
 					Key:        key,
 					Value:      value,
-					CreateDate: now,
-					UpdateDate: now,
+					CreateTime: now,
+					UpdateTime: now,
 					Expires:    time.Duration(-1),
 				}
 				err := s.repo.InsertConfig(&currentConfig)
@@ -172,8 +214,8 @@ func (s *configurationService) Put(key string, value interface{}) error {
 				currentConfig = models.Config{
 					Key:        currentPath,
 					Value:      nil,
-					CreateDate: startOf2018,
-					UpdateDate: startOf2018,
+					CreateTime: startOf2018,
+					UpdateTime: startOf2018,
 					Expires:    time.Duration(-1),
 				}
 			}
@@ -228,8 +270,8 @@ func GetInstance() Service {
 				Config: models.Config{
 					Key:        "_urcf_root_",
 					Value:      nil,
-					CreateDate: startOf2018,
-					UpdateDate: startOf2018,
+					CreateTime: startOf2018,
+					UpdateTime: startOf2018,
 					Expires:    time.Duration(-1),
 				},
 			},

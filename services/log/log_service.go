@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/config"
 	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/repositories"
 	"github.com/zhsyourai/URCF-engine/repositories/log"
 	"github.com/zhsyourai/URCF-engine/services"
 	"io"
@@ -14,7 +15,6 @@ import (
 	"sync"
 	"time"
 	"unicode"
-	"github.com/zhsyourai/URCF-engine/repositories"
 )
 
 type Service interface {
@@ -123,7 +123,7 @@ func (s *logService) ListAll(page uint32, size uint32, sort string, order string
 		}
 		logs, err = s.repo.FindAll(page, size, []repositories.Sort{
 			{
-				Name: sort,
+				Name:  sort,
 				Order: o,
 			},
 		})

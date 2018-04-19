@@ -14,8 +14,8 @@ func TestPluginService(t *testing.T) {
 		Name:        "test_hello_world",
 		Enable:      true,
 		InstallTime: time.Now(),
-		EnterPoint: "/usr/bin/python3 plugin.py",
-		Version: *utils.SemanticVersionMust(utils.NewSemVerFromString("1.0.0")),
+		EnterPoint:  "/usr/bin/python3 plugin.py",
+		Version:     *utils.SemanticVersionMust(utils.NewSemVerFromString("1.0.0")),
 	}, "./hello_world")
 	if err != nil {
 		t.Fatal(err)

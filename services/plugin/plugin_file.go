@@ -3,11 +3,11 @@ package plugin
 import (
 	"archive/zip"
 	"fmt"
-	"io"
 	"gopkg.in/yaml.v2"
+	"io"
 	"io/ioutil"
-	"path"
 	"os"
+	"path"
 )
 
 type PositionError struct {
@@ -93,4 +93,3 @@ func (f *File) ReleaseToDirectory(dir string) error {
 func (f *File) Close() error {
 	return f.readCloser.Close()
 }
-

@@ -34,9 +34,9 @@ type Rpc struct {
 }
 
 type Sys struct {
-	WorkPath string
+	WorkPath     string
 	DatabasePath string
-	PluginPath string
+	PluginPath   string
 }
 
 type GlobalConfig struct {

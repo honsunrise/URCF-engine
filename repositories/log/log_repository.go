@@ -1,15 +1,15 @@
 package log
 
 import (
+	"database/sql"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/repositories"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
 	"io"
-	"path"
-	_ "github.com/mattn/go-sqlite3"
-	"database/sql"
 	"log"
 	"os"
-	"github.com/zhsyourai/URCF-engine/repositories"
+	"path"
 )
 
 const (
@@ -79,9 +79,9 @@ func NewLogRepository() Repository {
 	return &logRepository{OrderPaging: &repositories.OrderPaging{
 		MaxSize: 100,
 		CanOrderFields: map[string]repositories.Order{
-			"name": repositories.ASC | repositories.DESC,
-			"message": repositories.ASC | repositories.DESC,
-			"level": repositories.ASC | repositories.DESC,
+			"name":        repositories.ASC | repositories.DESC,
+			"message":     repositories.ASC | repositories.DESC,
+			"level":       repositories.ASC | repositories.DESC,
 			"create_time": repositories.ASC | repositories.DESC,
 		},
 	}, db: db}
@@ -166,7 +166,7 @@ func (r *logRepository) FindLogByName(name string, page uint32, size uint32,
 	if err != nil {
 		return
 	}
-	rows, err := tx.Query(_SELECT_BY_NAME_SQL + paSoStr, name)
+	rows, err := tx.Query(_SELECT_BY_NAME_SQL+paSoStr, name)
 	if err != nil {
 		return
 	}

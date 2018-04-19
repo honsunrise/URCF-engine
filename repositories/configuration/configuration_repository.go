@@ -5,14 +5,15 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/zhsyourai/URCF-engine/models"
-	"github.com/zhsyourai/URCF-engine/services/global_configuration"
-	"path"
 	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
-	"os"
-	"fmt"
 	"errors"
+	"fmt"
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/repositories"
+	"github.com/zhsyourai/URCF-engine/services/global_configuration"
+	"os"
+	"path"
 )
 
 const (
@@ -47,7 +48,7 @@ type Repository interface {
 	io.Closer
 	InsertConfig(config *models.Config) error
 	FindConfigByKey(key string) (models.Config, error)
-	FindAll() ([]models.Config, error)
+	FindAll(page uint32, size uint32, sorts []repositories.Sort) ([]models.Config, error)
 	CountAll() (int64, error)
 	DeleteConfigByKey(key string) (models.Config, error)
 	DeleteAll() error
@@ -73,12 +74,21 @@ func NewConfigurationRepository() Repository {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &configurationRepository{db}
+	return &configurationRepository{OrderPaging: &repositories.OrderPaging{
+		MaxSize: 100,
+		CanOrderFields: map[string]repositories.Order{
+			"key":         repositories.ASC | repositories.DESC,
+			"expires":     repositories.ASC | repositories.DESC,
+			"update_time": repositories.ASC | repositories.DESC,
+			"create_time": repositories.ASC | repositories.DESC,
+		},
+	}, db: db}
 }
 
 // configurationRepository is a "Repository"
 // which manages the accounts using the memory data source (map).
 type configurationRepository struct {
+	*repositories.OrderPaging
 	db *sql.DB
 }
 
@@ -123,7 +133,7 @@ func (r *configurationRepository) FindConfigByKey(key string) (config models.Con
 	}()
 
 	err = tx.QueryRow(_SELECT_BY_KEY_SQL, key).Scan(
-		&config.Key, &config.Value, &config.CreateDate, &config.UpdateDate, &config.Expires)
+		&config.Key, &config.Value, &config.CreateTime, &config.UpdateTime, &config.Expires)
 	if err != nil {
 		return
 	}
@@ -131,8 +141,9 @@ func (r *configurationRepository) FindConfigByKey(key string) (config models.Con
 	return
 }
 
-func (r *configurationRepository) FindAll() (configs []models.Config, err error) {
-	configs = make([]models.Config, 0, 50)
+func (r *configurationRepository) FindAll(page uint32, size uint32,
+	sorts []repositories.Sort) (configs []models.Config, err error) {
+	configs = make([]models.Config, 0, 100)
 	tx, err := r.db.Begin()
 	if err != nil {
 		return
@@ -148,7 +159,11 @@ func (r *configurationRepository) FindAll() (configs []models.Config, err error)
 		}
 	}()
 
-	rows, err := tx.Query(_SELECT_ALL_SQL)
+	paSoStr, err := r.BuildPagingOrder(page, size, sorts)
+	if err != nil {
+		return
+	}
+	rows, err := tx.Query(_SELECT_ALL_SQL + paSoStr)
 	if err != nil {
 		return
 	}
@@ -156,7 +171,7 @@ func (r *configurationRepository) FindAll() (configs []models.Config, err error)
 
 	for rows.Next() {
 		var config models.Config
-		err = rows.Scan(&config.Key, &config.Value, &config.CreateDate, &config.UpdateDate, &config.Expires)
+		err = rows.Scan(&config.Key, &config.Value, &config.CreateTime, &config.UpdateTime, &config.Expires)
 		if err != nil {
 			return
 		}
@@ -206,7 +221,7 @@ func (r *configurationRepository) DeleteConfigByKey(key string) (config models.C
 		}
 	}()
 	err = tx.QueryRow(_SELECT_BY_KEY_SQL, key).Scan(
-		&config.Key, &config.Value, &config.CreateDate, &config.UpdateDate, &config.Expires)
+		&config.Key, &config.Value, &config.CreateTime, &config.UpdateTime, &config.Expires)
 	if err != nil {
 		return
 	}
@@ -260,7 +275,7 @@ func (r *configurationRepository) UpdateConfigByKey(key string,
 		}
 	}()
 	err = tx.QueryRow(_SELECT_BY_KEY_SQL, key).Scan(
-		&config.Key, &config.Value, &config.CreateDate, &config.UpdateDate, &config.Expires)
+		&config.Key, &config.Value, &config.CreateTime, &config.UpdateTime, &config.Expires)
 	if err != nil {
 		return
 	}

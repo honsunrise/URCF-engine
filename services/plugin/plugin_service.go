@@ -4,12 +4,12 @@ import (
 	"sync"
 
 	"github.com/zhsyourai/URCF-engine/models"
+	"github.com/zhsyourai/URCF-engine/repositories"
 	"github.com/zhsyourai/URCF-engine/repositories/plugin"
 	"github.com/zhsyourai/URCF-engine/services"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
-	"path"
 	"github.com/zhsyourai/URCF-engine/services/plugin/protocol"
-	"github.com/zhsyourai/URCF-engine/repositories"
+	"path"
 )
 
 type InstallFlag int32
