@@ -22,7 +22,6 @@ type InstallFlag int32
 
 const (
 	Reinstall InstallFlag = 1 << iota
-	Purge
 )
 
 func ParseInstallFlag(option string) (ret InstallFlag, err error) {
@@ -185,10 +184,10 @@ func (s *pluginService) InstallByReaderAt(readerAt io.ReaderAt, size int64,
 	}
 
 	confServ := global_configuration.GetGlobalConfig()
-	releasePath := path.Join(confServ.Get().Sys.PluginPath, pluginFile.PluginManifest.Name+
-		pluginFile.PluginManifest.Version.String())
+	releasePath := path.Join(confServ.Get().Sys.PluginPath, pluginFile.PluginManifest.Name+"@"+
+		pluginFile.PluginManifest.Version)
 
-	pluginFile.ReleaseToDirectory(releasePath)
+	err = pluginFile.ReleaseToDirectory(releasePath)
 	if err != nil {
 		return
 	}

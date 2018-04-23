@@ -1,7 +1,5 @@
 package plugin
 
-import "github.com/zhsyourai/URCF-engine/utils"
-
 type Architecture string
 
 // Machine is found in Header.Machine.
@@ -20,28 +18,27 @@ const (
 type OS string
 
 type Pkg struct {
-	Name    string
-	Version string
+	Name    string `yaml:"name"`
+	Version string `yaml:"version"`
 }
 
 type License struct {
-	Name string
-	Path string
+	Name string `yaml:"name"`
+	Path string `yaml:"desc"`
 }
 
 type PluginManifest struct {
-	Name         string
-	Desc         string
+	Name         string `yaml:"name"`
+	Version      string `yaml:"version"`
 	Architecture Architecture
-	OS
-	Homepage    string
-	Maintainer  string
-	Version     utils.SemanticVersion
-	Checksum    string
-	Conffiles   []string
-	Deps        []Pkg
-	SysDeps     []Pkg `yaml:"sys-deps"`
-	Licenses    []License
-	PreInstall  []string `yaml:"pre-install"`
-	PostInstall []string `yaml:"post-install"`
+	OS           OS
+	Homepage     string
+	Maintainer   string
+	Checksum     string
+	Conffiles    []string
+	Deps         []Pkg
+	SysDeps      []Pkg `yaml:"sys-deps"`
+	Licenses     []License
+	PreInstall   []string `yaml:"pre-install"`
+	PostInstall  []string `yaml:"post-install"`
 }

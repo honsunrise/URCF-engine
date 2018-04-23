@@ -17,7 +17,7 @@ import (
 
 const (
 	_CREATE_TABLE_SQL_ = `CREATE TABLE IF NOT EXISTS plugins (
-			name INTEGER PRIMARY KEY,
+			name TEXT PRIMARY KEY,
 			version TEXT NOT NULL,
 			enter_point TEXT NOT NULL,
 			enable BOOLEAN NOT NULL,
@@ -56,7 +56,7 @@ type Repository interface {
 // the one and only repository type in our example.
 func NewPluginRepository() Repository {
 	confServ := global_configuration.GetGlobalConfig()
-	dbPath := path.Join(confServ.Get().Sys.WorkPath, "database")
+	dbPath := confServ.Get().Sys.DatabasePath
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		os.MkdirAll(dbPath, 0770)
 	}

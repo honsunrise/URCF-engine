@@ -34,9 +34,9 @@ type Rpc struct {
 }
 
 type Sys struct {
-	WorkPath     string
-	DatabasePath string
-	PluginPath   string
+	WorkPath     string `yaml:"work-path"`
+	DatabasePath string `yaml:"database-path"`
+	PluginPath   string `yaml:"plugin-path"`
 }
 
 type GlobalConfig struct {
@@ -58,7 +58,7 @@ func GetGlobalConfig() Service {
 		instance = &globalConfigService{
 			only: GlobalConfig{
 				Rpc: Rpc{Port: 8228},
-				Sys: Sys{WorkPath: "./"},
+				Sys: Sys{WorkPath: "./", PluginPath: "./plugin", DatabasePath: "./database"},
 			},
 		}
 	})

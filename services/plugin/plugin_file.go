@@ -2,12 +2,17 @@ package plugin
 
 import (
 	"archive/zip"
+	"errors"
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
+)
+
+var (
+	ErrCannotFindManifestFile = errors.New("can't find manifest.yml")
 )
 
 type PositionError struct {
@@ -41,6 +46,8 @@ func OpenReader(readCloser io.ReaderAt, size int64) (*File, error) {
 		return nil, err
 	}
 
+	found := false
+
 	for _, f := range ret.reader.File {
 		if f.Name == "manifest.yml" {
 			rc, err := f.Open()
@@ -55,16 +62,29 @@ func OpenReader(readCloser io.ReaderAt, size int64) (*File, error) {
 			if err != nil {
 				return nil, err
 			}
+			found = true
 			break
 		}
+	}
+	if !found {
+		return nil, ErrCannotFindManifestFile
 	}
 	return ret, nil
 }
 
 func (f *File) ReleaseToDirectory(dir string) error {
+	err := os.MkdirAll(dir, 0770)
+	if err != nil {
+		return err
+	}
 	// Open a zip archive for reading.
 	for _, f := range f.reader.File {
-		if f.Name == "manifest.yml" {
+		if f.FileInfo().IsDir() {
+			err = os.MkdirAll(path.Join(dir, f.Name), 0770)
+			if err != nil {
+				return err
+			}
+		} else {
 			rc, err := f.Open()
 			if err != nil {
 				return err

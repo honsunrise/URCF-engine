@@ -61,7 +61,7 @@ type Repository interface {
 // the one and only repository type in our example.
 func NewLogRepository() Repository {
 	confServ := global_configuration.GetGlobalConfig()
-	dbPath := path.Join(confServ.Get().Sys.WorkPath, "database")
+	dbPath := confServ.Get().Sys.DatabasePath
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		os.MkdirAll(dbPath, 0770)
 	}
