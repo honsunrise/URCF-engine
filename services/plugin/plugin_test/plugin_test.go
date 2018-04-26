@@ -9,14 +9,17 @@ import (
 )
 
 func TestPluginService(t *testing.T) {
-	stub := protocol.NewPluginStub()
-	client, err := stub.StartUp(&models.Plugin{
+	stub, err := protocol.StartUpPluginStub(&models.Plugin{
 		Name:        "test_hello_world",
 		Enable:      true,
 		InstallTime: time.Now(),
 		EnterPoint:  "/usr/bin/python3 plugin.py",
 		Version:     *utils.SemanticVersionMust(utils.NewSemVerFromString("1.0.0")),
 	}, "./hello_world")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := stub.GetPluginInterface()
 	if err != nil {
 		t.Fatal(err)
 	}

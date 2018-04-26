@@ -1,9 +1,8 @@
 package plugin
 
 import (
-	"sync"
-
 	"fmt"
+	"github.com/kataras/iris/core/errors"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/repositories"
 	"github.com/zhsyourai/URCF-engine/repositories/plugin"
@@ -14,6 +13,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 )
 
 const None = 0
@@ -22,6 +22,10 @@ type InstallFlag int32
 
 const (
 	Reinstall InstallFlag = 1 << iota
+)
+
+var (
+	ErrPluginNotRun = errors.New("Plugin is not running")
 )
 
 func ParseInstallFlag(option string) (ret InstallFlag, err error) {
@@ -69,7 +73,8 @@ type Service interface {
 	Uninstall(name string, flag UninstallFlag) error
 	Install(path string, flag InstallFlag) (models.Plugin, error)
 	InstallByReaderAt(readerAt io.ReaderAt, size int64, flag InstallFlag) (models.Plugin, error)
-	GetInterface(name string) protocol.CommandProtocol
+	Start(name string) (protocol.CommandProtocol, error)
+	Stop(name string) error
 }
 
 var instance *pluginService
@@ -86,7 +91,8 @@ func GetInstance() Service {
 
 type pluginService struct {
 	services.InitHelper
-	repo plugin.Repository
+	stubMap sync.Map
+	repo    plugin.Repository
 }
 
 func (s *pluginService) Initialize(arguments ...interface{}) error {
@@ -200,8 +206,42 @@ func (s *pluginService) InstallByReaderAt(readerAt io.ReaderAt, size int64,
 	return
 }
 
-func (s *pluginService) GetInterface(name string) protocol.CommandProtocol {
-	return nil
+func (s *pluginService) Start(name string) (cp protocol.CommandProtocol, err error) {
+	confServ := global_configuration.GetGlobalConfig()
+	p, err := s.repo.FindPluginByName(name)
+	if err != nil {
+		return
+	}
+	if value, ok := s.stubMap.Load(name); ok {
+		stub := value.(*protocol.PluginStub)
+		cp, err = stub.GetPluginInterface()
+		return
+	}
+	home := path.Join(confServ.Get().Sys.PluginHome, name)
+	if _, err := os.Stat(home); os.IsNotExist(err) {
+		os.MkdirAll(home, 0770)
+	}
+	stub, err := protocol.StartUpPluginStub(&p, home)
+	if err != nil {
+		return
+	}
+	cp, err = stub.GetPluginInterface()
+	if err != nil {
+		return
+	}
+	s.stubMap.Store(name, stub)
+	return
+}
+
+func (s *pluginService) Stop(name string) (err error) {
+	if value, ok := s.stubMap.Load(name); ok {
+		stub := value.(*protocol.PluginStub)
+		err = stub.Stop()
+		return
+	} else {
+		return ErrPluginNotRun
+	}
+	return
 }
 
 func (f *pluginService) checkArchitecture() error {

@@ -11,11 +11,8 @@ import (
 )
 
 type PluginStub struct {
-	coreClient *core.Client
-}
-
-func NewPluginStub() *PluginStub {
-	return &PluginStub{}
+	coreClient      *core.Client
+	commandProtocol CommandProtocol
 }
 
 type warpGrpcCommandProtocolClient struct {
@@ -61,7 +58,8 @@ func (wg *warpGrpcCommandProtocolClient) ListCommand() ([]string, error) {
 	return lcResp.GetCommands(), nil
 }
 
-func (p *PluginStub) StartUp(plugin *models.Plugin, workDir string) (CommandProtocol, error) {
+func StartUpPluginStub(plugin *models.Plugin, workDir string) (*PluginStub, error) {
+	ret := &PluginStub{}
 	enterPoint := strings.Split(plugin.EnterPoint, " ")
 	coreClient, err := core.NewClient(&core.ClientConfig{
 		Plugins: map[string]core.ClientInstanceInterface{
@@ -76,34 +74,43 @@ func (p *PluginStub) StartUp(plugin *models.Plugin, workDir string) (CommandProt
 	if err != nil {
 		return nil, err
 	}
-	p.coreClient = coreClient
+	ret.coreClient = coreClient
 
 	err = coreClient.Start()
 	if err != nil {
 		return nil, err
 	}
+	return ret, nil
+}
 
-	tmpClient, err := coreClient.Deploy("command")
-	if err != nil {
-		return nil, err
-	}
-
-	protocol, err := coreClient.Protocol()
-	if err != nil {
-		return nil, err
-	}
-	switch protocol {
-	case core.GRPCProtocol:
-		realClient, ok := tmpClient.(grpc.CommandInterfaceClient)
-		if !ok {
-			return nil, errors.New("Instance must be grpc.CommandInterfaceClient")
+func (p *PluginStub) GetPluginInterface() (CommandProtocol, error) {
+	if p.commandProtocol != nil {
+		return p.commandProtocol, nil
+	} else {
+		tmpClient, err := p.coreClient.Deploy("command")
+		if err != nil {
+			return nil, err
 		}
-		return &warpGrpcCommandProtocolClient{
-			context: context.Background(),
-			client:  realClient,
-		}, nil
-	default:
-		return nil, errors.New("Unsupported protocol")
+
+		protocol, err := p.coreClient.Protocol()
+		if err != nil {
+			return nil, err
+		}
+
+		switch protocol {
+		case core.GRPCProtocol:
+			realClient, ok := tmpClient.(grpc.CommandInterfaceClient)
+			if !ok {
+				return nil, errors.New("Instance must be grpc.CommandInterfaceClient")
+			}
+			p.commandProtocol = &warpGrpcCommandProtocolClient{
+				context: context.Background(),
+				client:  realClient,
+			}
+			return p.commandProtocol, nil
+		default:
+			return nil, errors.New("Unsupported protocol")
+		}
 	}
 }
 
