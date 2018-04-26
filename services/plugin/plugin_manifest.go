@@ -35,6 +35,7 @@ type PluginManifest struct {
 	Homepage     string
 	Maintainer   string
 	Checksum     string
+	EnterPoint   string
 	Conffiles    []string
 	Deps         []Pkg
 	SysDeps      []Pkg `yaml:"sys-deps"`

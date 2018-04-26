@@ -9,6 +9,7 @@ import (
 	"github.com/zhsyourai/URCF-engine/services"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
 	"github.com/zhsyourai/URCF-engine/services/plugin/protocol"
+	"github.com/zhsyourai/URCF-engine/utils"
 	"io"
 	"os"
 	"path"
@@ -198,6 +199,12 @@ func (s *pluginService) InstallByReaderAt(readerAt io.ReaderAt, size int64,
 		return
 	}
 
+	plugin.Name = pluginFile.PluginManifest.Name
+	plugin.Version = *utils.SemanticVersionMust(utils.NewSemVerFromString(pluginFile.PluginManifest.Version))
+	plugin.Enable = true
+	plugin.InstallDir = releasePath
+	plugin.EnterPoint = pluginFile.PluginManifest.EnterPoint
+
 	err = s.repo.InsertPlugin(&plugin)
 	if err != nil {
 		return
@@ -207,7 +214,6 @@ func (s *pluginService) InstallByReaderAt(readerAt io.ReaderAt, size int64,
 }
 
 func (s *pluginService) Start(name string) (cp protocol.CommandProtocol, err error) {
-	confServ := global_configuration.GetGlobalConfig()
 	p, err := s.repo.FindPluginByName(name)
 	if err != nil {
 		return
@@ -217,14 +223,12 @@ func (s *pluginService) Start(name string) (cp protocol.CommandProtocol, err err
 		cp, err = stub.GetPluginInterface()
 		return
 	}
-	home := path.Join(confServ.Get().Sys.PluginHome, name)
-	if _, err := os.Stat(home); os.IsNotExist(err) {
-		os.MkdirAll(home, 0770)
-	}
-	stub, err := protocol.StartUpPluginStub(&p, home)
+
+	stub, err := protocol.StartUpPluginStub(&p)
 	if err != nil {
 		return
 	}
+
 	cp, err = stub.GetPluginInterface()
 	if err != nil {
 		return

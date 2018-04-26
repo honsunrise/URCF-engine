@@ -58,7 +58,7 @@ func (wg *warpGrpcCommandProtocolClient) ListCommand() ([]string, error) {
 	return lcResp.GetCommands(), nil
 }
 
-func StartUpPluginStub(plugin *models.Plugin, workDir string) (*PluginStub, error) {
+func StartUpPluginStub(plugin *models.Plugin) (*PluginStub, error) {
 	ret := &PluginStub{}
 	enterPoint := strings.Split(plugin.EnterPoint, " ")
 	coreClient, err := core.NewClient(&core.ClientConfig{
@@ -69,7 +69,7 @@ func StartUpPluginStub(plugin *models.Plugin, workDir string) (*PluginStub, erro
 		Name:    plugin.Name,
 		Cmd:     enterPoint[0],
 		Args:    enterPoint[1:],
-		WorkDir: workDir,
+		WorkDir: plugin.InstallDir,
 	})
 	if err != nil {
 		return nil, err

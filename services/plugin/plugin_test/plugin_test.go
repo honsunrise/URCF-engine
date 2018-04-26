@@ -12,10 +12,11 @@ func TestPluginService(t *testing.T) {
 	stub, err := protocol.StartUpPluginStub(&models.Plugin{
 		Name:        "test_hello_world",
 		Enable:      true,
+		InstallDir:  "./hello_world",
 		InstallTime: time.Now(),
 		EnterPoint:  "/usr/bin/python3 plugin.py",
 		Version:     *utils.SemanticVersionMust(utils.NewSemVerFromString("1.0.0")),
-	}, "./hello_world")
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

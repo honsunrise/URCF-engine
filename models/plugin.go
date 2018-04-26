@@ -10,6 +10,7 @@ type Plugin struct {
 	Version     utils.SemanticVersion
 	EnterPoint  string
 	Enable      bool
+	InstallDir  string
 	InstallTime time.Time
 	UpdateTime  time.Time
 }

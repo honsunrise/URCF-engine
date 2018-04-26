@@ -4,6 +4,9 @@ import plugin_sdk
 
 
 class HelloWorld(plugin_sdk.Plugin):
+    def __init__(self):
+        super(HelloWorld, self).__init__(version="0.0.1-alpha")
+
     def config(self):
         pass
 

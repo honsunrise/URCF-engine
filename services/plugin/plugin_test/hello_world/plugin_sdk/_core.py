@@ -88,14 +88,17 @@ class _PluginServicer(plugin_interface_pb2_grpc.PluginInterfaceServicer):
 
 
 class Plugin(object):
-    def __init__(self, env=None):
+    def __init__(self, env=None, version=""):
         if env == None:
             env = os.environ
+
         self.listener_addr = env.get('ENV_PLUGIN_LISTENER_ADDRESS')
         self.rpc_protocol = env.get('ENV_ALLOW_PLUGIN_RPC_PROTOCOL')
-        self.version = env.get('ENV_REQUEST_VERSION')
-        if self.listener_addr == None or self.rpc_protocol == None or self.version == None:
+        self.request_version = env.get('ENV_REQUEST_VERSION')
+        if self.listener_addr == None or self.rpc_protocol == None or self.request_version == None:
             raise NotImplementedError('You must run this program as plugin.')
+        if self.request_version != version:
+            raise RuntimeError('version not support')
 
     def serve(self):
         # We need to build a health service to work with go-plugin
@@ -120,7 +123,7 @@ class Plugin(object):
         print("Started", flush=True)
         dataOut = os.fdopen(3, "w")
         print("%s: %s" % (MSG_COREVERSION, "1.0.0"), file=dataOut, flush=True)
-        print("%s: %s" % (MSG_VERSION, "1.0.0"), file=dataOut, flush=True)
+        print("%s: %s" % (MSG_VERSION, self.request_version), file=dataOut, flush=True)
         print("%s: %s" % (MSG_ADDRESS, self.listener_addr), file=dataOut, flush=True)
         print("%s: %s" % (MSG_RPC_PROTOCOL, "1"), file=dataOut, flush=True)
         print("%s: %s" % (MSG_DONE, ""), file=dataOut, flush=True)

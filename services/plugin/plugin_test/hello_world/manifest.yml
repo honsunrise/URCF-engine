@@ -18,3 +18,4 @@ pre-install:
   - "preinstall"
 post-install:
   - "postinstall"
+enterpoint: "/usr/bin/python3 plugin.py"
