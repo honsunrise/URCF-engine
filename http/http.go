@@ -85,6 +85,7 @@ func StartHTTPServer() error {
 		controllers.NewNetFilterController().Handler(v1.Group("/netfilter"))
 		controllers.NewProcessesController().Handler(v1.Group("/process"))
 		controllers.NewPluginController(jwtMiddleware).Handler(v1.Group("/plugin"))
+		controllers.NewWebsController(jwtMiddleware).Handler(v1.Group("/webs"))
 	}
 
 	s = &http.Server{

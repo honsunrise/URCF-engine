@@ -139,7 +139,7 @@ func (s *pluginService) ListAll(page uint32, size uint32, sort string, order str
 }
 
 func (s *pluginService) GetByName(name string) (models.Plugin, error) {
-	return s.GetByName(name)
+	return s.repo.FindPluginByName(name)
 }
 
 func (s *pluginService) Uninstall(name string, flag UninstallFlag) error {
@@ -200,9 +200,14 @@ func (s *pluginService) InstallByReaderAt(readerAt io.ReaderAt, size int64,
 	}
 
 	plugin.Name = pluginFile.PluginManifest.Name
+	plugin.Desc = pluginFile.PluginManifest.Desc
+	plugin.Maintainer = pluginFile.PluginManifest.Maintainer
+	plugin.Homepage = pluginFile.PluginManifest.Homepage
 	plugin.Version = *utils.SemanticVersionMust(utils.NewSemVerFromString(pluginFile.PluginManifest.Version))
 	plugin.Enable = true
 	plugin.InstallDir = releasePath
+	plugin.WebsDir = pluginFile.PluginManifest.WebsDir
+	plugin.CoverFile = pluginFile.PluginManifest.CoverFile
 	plugin.EnterPoint = pluginFile.PluginManifest.EnterPoint
 
 	err = s.repo.InsertPlugin(&plugin)

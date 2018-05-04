@@ -28,18 +28,21 @@ type License struct {
 }
 
 type PluginManifest struct {
-	Name         string `yaml:"name"`
-	Version      string `yaml:"version"`
-	Architecture Architecture
-	OS           OS
-	Homepage     string
-	Maintainer   string
-	Checksum     string
-	EnterPoint   string
-	Conffiles    []string
-	Deps         []Pkg
-	SysDeps      []Pkg `yaml:"sys-deps"`
-	Licenses     []License
-	PreInstall   []string `yaml:"pre-install"`
-	PostInstall  []string `yaml:"post-install"`
+	Name         string       `yaml:"name"`
+	Desc         string       `yaml:"desc"`
+	Version      string       `yaml:"version"`
+	Architecture Architecture `yaml:"architecture"`
+	OS           OS           `yaml:"os"`
+	Homepage     string       `yaml:"homepage"`
+	Maintainer   string       `yaml:"maintainer"`
+	Checksum     string       `yaml:"checksum"`
+	EnterPoint   string       `yaml:"enter-point"`
+	Conffiles    []string     `yaml:"conffiles"`
+	Deps         []Pkg        `yaml:"deps"`
+	SysDeps      []Pkg        `yaml:"sys-deps"`
+	Licenses     []License    `yaml:"licenses"`
+	PreInstall   []string     `yaml:"pre-install"`
+	PostInstall  []string     `yaml:"post-install"`
+	CoverFile    string       `yaml:"cover-file"`
+	WebsDir      string       `yaml:"webs-dir"`
 }

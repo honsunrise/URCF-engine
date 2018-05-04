@@ -37,6 +37,7 @@ type Sys struct {
 	WorkPath     string `yaml:"work-path"`
 	DatabasePath string `yaml:"database-path"`
 	PluginPath   string `yaml:"plugin-path"`
+	PluginWebs   string `yaml:"plugin-webs"`
 }
 
 type GlobalConfig struct {

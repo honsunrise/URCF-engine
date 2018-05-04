@@ -2,6 +2,7 @@ package utils
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -38,6 +39,23 @@ type SemanticVersion struct {
 	PreRelease []string
 	Build      []string
 	valid      bool
+}
+
+func (ver *SemanticVersion) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	tmp, err := NewSemVerFromString(s)
+	if err != nil {
+		return nil
+	}
+	*ver = *tmp
+	return nil
+}
+
+func (ver SemanticVersion) MarshalJSON() ([]byte, error) {
+	return json.Marshal(ver.String())
 }
 
 func (ver SemanticVersion) Value() (driver.Value, error) {

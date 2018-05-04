@@ -18,16 +18,21 @@ import (
 const (
 	_CREATE_TABLE_SQL_ = `CREATE TABLE IF NOT EXISTS plugins (
 			name TEXT PRIMARY KEY,
+			desc TEXT,
+			maintainer TEXT NOT NULL,
+			homepage TEXT NOT NULL,
 			version TEXT NOT NULL,
 			enter_point TEXT NOT NULL,
 			enable BOOLEAN NOT NULL,
 			install_dir TEXT NOT NULL,
+			webs_dir TEXT NOT NULL,
+			cover_file TEXT NOT NULL,
 			install_time DATETIME NOT NULL,
 			update_time DATETIME NOT NULL
 		)`
 
-	_INSERT_SQL = `INSERT INTO plugins(name, version, enter_point, enable, install_dir, install_time, update_time)
-			VALUES(?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+	_INSERT_SQL = `INSERT INTO plugins(name, desc, maintainer, homepage, version, enter_point, enable, install_dir, webs_dir, cover_file, install_time, update_time)
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
 
 	_SELECT_ALL_SQL = `SELECT * FROM plugins`
 
@@ -103,8 +108,9 @@ func (r *pluginRepository) InsertPlugin(inputPlugin *models.Plugin) (err error) 
 		}
 	}()
 
-	_, err = tx.Exec(_INSERT_SQL, &inputPlugin.Name, &inputPlugin.Version,
-		&inputPlugin.EnterPoint, &inputPlugin.Enable, &inputPlugin.InstallDir)
+	_, err = tx.Exec(_INSERT_SQL, &inputPlugin.Name, &inputPlugin.Desc, &inputPlugin.Maintainer, &inputPlugin.Homepage,
+		&inputPlugin.Version, &inputPlugin.EnterPoint, &inputPlugin.Enable, &inputPlugin.InstallDir,
+		&inputPlugin.WebsDir, &inputPlugin.CoverFile)
 	if err != nil {
 		return
 	}
@@ -129,7 +135,9 @@ func (r *pluginRepository) FindPluginByName(name string) (plugin models.Plugin, 
 	}()
 
 	err = tx.QueryRow(_SELECT_BY_NAME_SQL, name).Scan(
-		&plugin.Name, &plugin.Version, &plugin.EnterPoint, &plugin.Enable, &plugin.InstallDir, &plugin.InstallTime, &plugin.UpdateTime)
+		&plugin.Name, &plugin.Desc, &plugin.Maintainer, &plugin.Homepage,
+		&plugin.Version, &plugin.EnterPoint, &plugin.Enable, &plugin.InstallDir,
+		&plugin.WebsDir, &plugin.CoverFile, &plugin.InstallTime, &plugin.UpdateTime)
 	if err != nil {
 		return
 	}
@@ -167,8 +175,9 @@ func (r *pluginRepository) FindAll(page uint32, size uint32, sorts []repositorie
 
 	for rows.Next() {
 		var plugin models.Plugin
-		err = rows.Scan(&plugin.Name, &plugin.Version, &plugin.EnterPoint,
-			&plugin.Enable, &plugin.InstallDir, &plugin.InstallTime, &plugin.UpdateTime)
+		err = rows.Scan(&plugin.Name, &plugin.Desc, &plugin.Maintainer, &plugin.Homepage,
+			&plugin.Version, &plugin.EnterPoint, &plugin.Enable, &plugin.InstallDir,
+			&plugin.WebsDir, &plugin.CoverFile, &plugin.InstallTime, &plugin.UpdateTime)
 		if err != nil {
 			return
 		}
@@ -218,8 +227,9 @@ func (r *pluginRepository) DeletePluginByName(name string) (plugin models.Plugin
 		}
 	}()
 	err = tx.QueryRow(_SELECT_BY_NAME_SQL, name).Scan(
-		&plugin.Name, &plugin.Version, &plugin.EnterPoint,
-		&plugin.Enable, &plugin.InstallDir, &plugin.InstallTime, &plugin.UpdateTime)
+		&plugin.Name, &plugin.Desc, &plugin.Maintainer, &plugin.Homepage,
+		&plugin.Version, &plugin.EnterPoint, &plugin.Enable, &plugin.InstallDir,
+		&plugin.WebsDir, &plugin.CoverFile, &plugin.InstallTime, &plugin.UpdateTime)
 	if err != nil {
 		return
 	}
@@ -249,8 +259,9 @@ func (r *pluginRepository) UpdatePluginByName(name string,
 		}
 	}()
 	err = tx.QueryRow(_SELECT_BY_NAME_SQL, name).Scan(
-		&plugin.Name, &plugin.Version, &plugin.EnterPoint,
-		&plugin.Enable, &plugin.InstallDir, &plugin.InstallTime, &plugin.UpdateTime)
+		&plugin.Name, &plugin.Desc, &plugin.Maintainer, &plugin.Homepage,
+		&plugin.Version, &plugin.EnterPoint, &plugin.Enable, &plugin.InstallDir,
+		&plugin.WebsDir, &plugin.CoverFile, &plugin.InstallTime, &plugin.UpdateTime)
 	if err != nil {
 		return
 	}
