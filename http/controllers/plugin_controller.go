@@ -22,14 +22,16 @@ type PluginController struct {
 }
 
 func (c *PluginController) Handler(root *gin.RouterGroup) {
-	root.GET("/list", c.ListPluginHandler)
-	root.GET("/", c.GetPluginHandler)
-	root.POST("/", c.InstallPluginHandler)
-	root.DELETE("/", c.UninstallPluginHandler)
+	root.GET("", c.ListPluginHandler)
+	root.GET("/:name", c.GetPluginHandler)
+	root.GET("/:name/commands", c.GetPluginCommandsHandler)
+	root.POST("/:name/:command", c.ExecPluginCommandHandler)
+	root.POST("", c.InstallPluginHandler)
+	root.DELETE("", c.UninstallPluginHandler)
 }
 
 func (c *PluginController) GetPluginHandler(ctx *gin.Context) {
-	nameStr := ctx.Query("name")
+	nameStr := ctx.Param("name")
 	ret, err := c.service.GetByName(nameStr)
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
@@ -37,6 +39,42 @@ func (c *PluginController) GetPluginHandler(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, ret)
+}
+
+func (c *PluginController) GetPluginCommandsHandler(ctx *gin.Context) {
+	nameStr := ctx.Param("name")
+	plug, err := c.service.Start(nameStr)
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+	ret, err := plug.ListCommand()
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, ret)
+}
+
+func (c *PluginController) ExecPluginCommandHandler(ctx *gin.Context) {
+	nameStr := ctx.Param("name")
+	commandStr := ctx.Param("command")
+	params := ctx.QueryArray("params")
+	plug, err := c.service.Start(nameStr)
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+	ret, err := plug.Command(commandStr, params...)
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, shard.PluginCommandExecResult{
+		Result: ret,
+	})
 }
 
 func (c *PluginController) ListPluginHandler(ctx *gin.Context) {
