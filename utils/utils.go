@@ -2,6 +2,7 @@ package utils
 
 import (
 	"net"
+	"path"
 	"reflect"
 	"strings"
 )
@@ -63,4 +64,24 @@ func CovertToSchemeAddress(addr net.Addr) string {
 		return "unix://" + unixAddr.String()
 	}
 	return ""
+}
+
+func LastChar(str string) uint8 {
+	if str == "" {
+		return 0
+	}
+	return str[len(str)-1]
+}
+
+func JoinPath(absolutePath, relativePath string) string {
+	if relativePath == "" {
+		return absolutePath
+	}
+
+	finalPath := path.Join(absolutePath, relativePath)
+	appendSlash := LastChar(relativePath) == '/' && LastChar(finalPath) != '/'
+	if appendSlash {
+		return finalPath + "/"
+	}
+	return finalPath
 }

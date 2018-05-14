@@ -24,7 +24,11 @@ func StartRPCServer() (err error) {
 		log.Fatal("listen error:", err)
 	}
 	log.Info("RPC listen at: ", address)
-	return http.Serve(l, nil)
+	err = http.Serve(l, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
 }
 
 func StopRPCServer() (err error) {

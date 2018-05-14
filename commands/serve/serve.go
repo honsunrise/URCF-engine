@@ -109,28 +109,16 @@ func start() (err error) {
 	pluginServ.Initialize()
 	go func() {
 		err = rpc.StartRPCServer()
-		if err != nil {
-			log.Fatal(err)
-		}
 	}()
 	go func() {
 		err = http.StartHTTPServer()
-		if err != nil {
-			log.Fatal(err)
-		}
 	}()
 	return
 }
 
 func stop() (err error) {
 	err = rpc.StopRPCServer()
-	if err != nil {
-		log.Fatal(err)
-	}
 	err = http.StopHTTPServer()
-	if err != nil {
-		log.Fatal(err)
-	}
 	pluginServ := plugin.GetInstance()
 	pluginServ.UnInitialize()
 	processesServ := processes.GetInstance()

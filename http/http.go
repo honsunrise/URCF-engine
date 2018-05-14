@@ -2,6 +2,8 @@ package http
 
 import (
 	stdContext "context"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"time"
 
 	"crypto/rand"
@@ -16,11 +18,13 @@ import (
 )
 
 var (
-	s               *http.Server
-	shutdownTimeout = 5 * time.Second
+	api             *http.Server
+	webs            *http.Server
+	w               errgroup.Group
+	shutdownTimeout = 10 * time.Second
 )
 
-func StartHTTPServer() error {
+func apiServer() (*http.Server, error) {
 	router := gin.Default()
 	secureConf := secure.New(secure.Config{
 		AllowedHosts:          []string{"example.com", "ssl.example.com"},
@@ -53,7 +57,7 @@ func StartHTTPServer() error {
 	})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	jwtGenerator, err := gin_jwt.NewGinJwtGenerator(gin_jwt.GeneratorConfig{
@@ -65,7 +69,7 @@ func StartHTTPServer() error {
 	})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	router.Use(secureConf)
@@ -75,7 +79,6 @@ func StartHTTPServer() error {
 	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "HEAD", "DELETE"}
 	corsConfig.AllowHeaders = []string{"Authorization", "Origin", "Content-Length", "Content-Type"}
 	router.Use(cors.New(corsConfig))
-	// router.Use(jwtHandler.Handler)
 
 	v1 := router.Group("/v1")
 	{
@@ -85,24 +88,117 @@ func StartHTTPServer() error {
 		controllers.NewNetFilterController().Handler(v1.Group("/netfilter"))
 		controllers.NewProcessesController().Handler(v1.Group("/process"))
 		controllers.NewPluginController(jwtMiddleware).Handler(v1.Group("/plugins"))
-		controllers.NewWebsController(jwtMiddleware).Handler(v1.Group("/webs"))
 	}
 
-	s = &http.Server{
+	return &http.Server{
 		Addr:           ":8080",
 		Handler:        router,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
+	}, nil
+}
+
+func websServer() (*http.Server, error) {
+	router := gin.Default()
+	secureConf := secure.New(secure.Config{
+		AllowedHosts:          []string{"example.com", "ssl.example.com"},
+		SSLRedirect:           true,
+		SSLHost:               "ssl.example.com",
+		STSSeconds:            315360000,
+		STSIncludeSubdomains:  true,
+		FrameDeny:             true,
+		ContentTypeNosniff:    true,
+		BrowserXssFilter:      true,
+		ContentSecurityPolicy: "default-src 'self'",
+		IENoOpen:              true,
+		ReferrerPolicy:        "strict-origin-when-cross-origin",
+		SSLProxyHeaders:       map[string]string{"X-Forwarded-Proto": "https"},
+		IsDevelopment:         config.PROD,
+	})
+
+	const SigningAlgorithm = "RS512"
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		panic(err)
 	}
 
-	return s.ListenAndServe()
+	jwtMiddleware, err := gin_jwt.NewGinJwtMiddleware(gin_jwt.MiddlewareConfig{
+		Realm:            "urcf",
+		SigningAlgorithm: SigningAlgorithm,
+		KeyFunc: func() interface{} {
+			return &key.PublicKey
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	router.Use(secureConf)
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowCredentials = true
+	corsConfig.AllowAllOrigins = true
+	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "HEAD", "DELETE"}
+	corsConfig.AllowHeaders = []string{"Authorization", "Origin", "Content-Length", "Content-Type"}
+	router.Use(cors.New(corsConfig))
+
+	controllers.NewWebsController(jwtMiddleware).Handler(router.Group("/"))
+
+	return &http.Server{
+		Addr:           ":8081",
+		Handler:        router,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}, nil
+}
+
+func StartHTTPServer() error {
+	api, err := apiServer()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	webs, err := websServer()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	w.Go(func() error {
+		err := api.ListenAndServe()
+		if err != nil {
+			log.Fatal(err)
+		}
+		return err
+	})
+
+	w.Go(func() error {
+		err := webs.ListenAndServe()
+		if err != nil {
+			log.Fatal(err)
+		}
+		return err
+	})
+
+	return w.Wait()
 }
 
 func StopHTTPServer() (err error) {
 	ctx, cancel := stdContext.WithTimeout(stdContext.Background(), shutdownTimeout)
 	defer cancel()
-	// close all hosts
-	err = s.Shutdown(ctx)
+
+	err = api.Shutdown(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = webs.Shutdown(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return
 }
