@@ -18,4 +18,6 @@ pre-install:
   - "preinstall"
 post-install:
   - "postinstall"
-enterpoint: "/usr/bin/python3 plugin.py"
+enter-point: "/usr/bin/python3 plugin.py"
+webs-dir: "webs"
+cover-file: "cover.png"
