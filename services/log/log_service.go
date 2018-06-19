@@ -10,11 +10,21 @@ import (
 	"github.com/zhsyourai/URCF-engine/repositories/log"
 	"github.com/zhsyourai/URCF-engine/services"
 	"io"
-	"os"
 	"strings"
 	"sync"
 	"time"
 	"unicode"
+)
+
+type Level uint32
+
+const (
+	PanicLevel Level = iota
+	FatalLevel
+	ErrorLevel
+	WarnLevel
+	InfoLevel
+	DebugLevel
 )
 
 type Service interface {
@@ -23,6 +33,7 @@ type Service interface {
 	WarpReader(name string, r io.Reader) error
 	ListAll(page uint32, size uint32, sort string, order string) (int64, []models.Log, error)
 	Clean(ids ...int64) error
+	ChangeLevel(level Level) error
 }
 
 var instance *logService
@@ -31,7 +42,8 @@ var once sync.Once
 func GetInstance() Service {
 	once.Do(func() {
 		instance = &logService{
-			repo: log.NewLogRepository(),
+			level: InfoLevel,
+			repo:  log.NewLogRepository(),
 		}
 	})
 	return instance
@@ -39,7 +51,8 @@ func GetInstance() Service {
 
 type logService struct {
 	services.InitHelper
-	repo log.Repository
+	level Level
+	repo  log.Repository
 }
 
 type logWriter struct{ *logService }
@@ -88,11 +101,16 @@ func (s *logService) UnInitialize(arguments ...interface{}) error {
 	})
 }
 
+func (s *logService) ChangeLevel(level Level) error {
+	s.level = level
+	return nil
+}
+
 func (s *logService) GetLogger(name string) (*logrus.Entry, error) {
 	logger := &logrus.Logger{
-		Out:       os.Stderr,
 		Formatter: new(logrus.JSONFormatter),
 		Hooks:     make(logrus.LevelHooks),
+		Level:     logrus.Level(s.level),
 	}
 	if !config.PROD {
 		logger.SetLevel(logrus.DebugLevel)
@@ -193,7 +211,7 @@ func (s *logService) WarpReader(name string, r io.Reader) error {
 				line = strings.TrimRightFunc(line, unicode.IsSpace)
 				entry, kvPairs, err := parseJSON(line)
 				if err != nil {
-					logger.Debug(line)
+					logger.Info(line)
 				} else {
 					for k, v := range kvPairs {
 						logger = logger.WithField(k, v)
