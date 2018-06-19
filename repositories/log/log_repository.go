@@ -79,6 +79,7 @@ func NewLogRepository() Repository {
 	return &logRepository{OrderPaging: &repositories.OrderPaging{
 		MaxSize: 100,
 		CanOrderFields: map[string]repositories.Order{
+			"id":          repositories.ASC | repositories.DESC,
 			"name":        repositories.ASC | repositories.DESC,
 			"message":     repositories.ASC | repositories.DESC,
 			"level":       repositories.ASC | repositories.DESC,
