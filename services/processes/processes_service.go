@@ -184,7 +184,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 
 	proc.Status = types.Prepare
 
-	_, loaded := s.procMap.LoadOrStore(name, &processPair{
+	_, loaded = s.procMap.LoadOrStore(name, &processPair{
 		proc:      proc,
 		procAttr:  procAttr,
 		finalArgs: append([]string{cmd}, args...),
