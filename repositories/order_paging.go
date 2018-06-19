@@ -58,8 +58,9 @@ func (o OrderPaging) BuildPagingOrder(page uint32, size uint32, sorts []Sort) (s
 	if size > o.MaxSize {
 		return "", ErrPagingSize
 	}
+	offset := page * size
 	if len(sorts) == 0 {
-		return fmt.Sprintf(" LIMIT %d, %d", page, size), nil
+		return fmt.Sprintf(" LIMIT %d, %d", offset, size), nil
 	} else {
 		if len(o.CanOrderFields) == 0 {
 			return "", ErrNoFieldCanBeOrdered
@@ -84,6 +85,6 @@ func (o OrderPaging) BuildPagingOrder(page uint32, size uint32, sorts []Sort) (s
 				return "", ErrFieldCannotOrder
 			}
 		}
-		return fmt.Sprintf(" ORDER BY %s LIMIT %d, %d", orderStr, page, size), nil
+		return fmt.Sprintf(" ORDER BY %s LIMIT %d, %d", orderStr, offset, size), nil
 	}
 }
