@@ -102,8 +102,9 @@ func (s *processesService) loadProcessPair(proc *types.Process) (*processPair, e
 }
 
 func (s *processesService) Prepare(name string, workDir string, cmd string, args []string, env map[string]string,
-	option models.ProcessOption) (proc *types.Process, err error) {
-	proc = &types.Process{
+	option models.ProcessOption) (*types.Process, error) {
+	var err error
+	proc := &types.Process{
 		ProcessParam: models.ProcessParam{
 			Name:    name,
 			Cmd:     cmd,
@@ -116,32 +117,32 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 	}
 	rStdIn, lStdIn, err := os.Pipe()
 	if err != nil {
-		return
+		return nil, err
 	}
 	proc.StdIn = lStdIn
 	lStdOut, rStdOut, err := os.Pipe()
 	if err != nil {
-		return
+		return nil, err
 	}
 	proc.StdOut = lStdOut
 	lStdErr, rStdErr, err := os.Pipe()
 	if err != nil {
-		return
+		return nil, err
 	}
 	proc.StdErr = lStdErr
 	lDataOut, rDataOut, err := os.Pipe()
 	if err != nil {
-		return
+		return nil, err
 	}
 	proc.DataOut = lDataOut
 	if option&models.HookLog != 0 {
 		err = logservice.GetInstance().WarpReader(name, lStdErr)
 		if err != nil {
-			return
+			return nil, err
 		}
 		err = logservice.GetInstance().WarpReader(name, lStdOut)
 		if err != nil {
-			return
+			return nil, err
 		}
 	}
 
@@ -173,6 +174,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 		for _, f := range procAttr.Files {
 			f.Close()
 		}
+		s.procMap.Delete(name)
 		proc.Status = types.Exited
 	}()
 
@@ -184,10 +186,11 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 		finalArgs: append([]string{cmd}, args...),
 	})
 	if loaded {
+		close(proc.ExitChan)
 		return nil, errors.New("process exist")
 	}
 
-	return
+	return proc, err
 }
 
 func (s *processesService) FindByName(name string) *types.Process {
