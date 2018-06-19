@@ -104,6 +104,10 @@ func (s *processesService) loadProcessPair(proc *types.Process) (*processPair, e
 func (s *processesService) Prepare(name string, workDir string, cmd string, args []string, env map[string]string,
 	option models.ProcessOption) (*types.Process, error) {
 	var err error
+	_, loaded := s.procMap.Load(name)
+	if loaded {
+		return nil, errors.New("process exist")
+	}
 	proc := &types.Process{
 		ProcessParam: models.ProcessParam{
 			Name:    name,
