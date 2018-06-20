@@ -86,7 +86,7 @@ func apiServer() (*http.Server, error) {
 		controllers.NewConfigurationController().Handler(v1.Group("/configuration"))
 		controllers.NewLogController(jwtMiddleware).Handler(v1.Group("/log"))
 		controllers.NewNetFilterController().Handler(v1.Group("/netfilter"))
-		controllers.NewProcessesController().Handler(v1.Group("/process"))
+		controllers.NewProcessesController().Handler(v1.Group("/processes"))
 		controllers.NewPluginController(jwtMiddleware).Handler(v1.Group("/plugins"))
 	}
 

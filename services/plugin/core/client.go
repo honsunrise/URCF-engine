@@ -109,11 +109,11 @@ type Client struct {
 
 func NewClient(config *ClientConfig) (*Client, error) {
 	if config.Cmd == "" {
-		return nil, errors.New("Cmd can't be empty.")
+		return nil, errors.New("cmd can't be empty")
 	}
 
 	if config.Plugins == nil {
-		return nil, errors.New("Plugins can't be nil. It's must have last one plugin.")
+		return nil, errors.New("plugins can't be nil. It's must have last one plugin")
 	}
 
 	if config.WorkDir == "" {
@@ -150,7 +150,8 @@ func NewClient(config *ClientConfig) (*Client, error) {
 }
 
 func (c *Client) exitCleanUp() {
-	<-c.process.ExitChan
+	procServ := processes.GetInstance()
+	<-procServ.Wait(c.config.Name)
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.status = clientStatusStopped
@@ -191,11 +192,11 @@ func (c *Client) Start() error {
 
 	defer func() {
 		go func() {
-			for _ = range linesCh {
+			for range linesCh {
 			}
 		}()
 	}()
-	err = procServ.Start(process)
+	err = procServ.Start(c.config.Name)
 	if err != nil {
 		return err
 	}
@@ -203,7 +204,7 @@ func (c *Client) Start() error {
 	defer func() {
 		if c.status != clientStatusDone && c.status != clientStatusEarlyExit {
 			c.status = clientStatusStopped
-			procServ.Stop(c.process)
+			procServ.Stop(c.config.Name)
 		}
 	}()
 
@@ -213,7 +214,7 @@ func (c *Client) Start() error {
 		case <-timeout:
 			c.status = clientStatusTimeOut
 			return errors.New("timeout while waiting for plugin to start")
-		case <-process.ExitChan:
+		case <-procServ.Wait(c.config.Name):
 			c.status = clientStatusEarlyExit
 			return errors.New("plugin exited before we could connect")
 		case lineBytes := <-linesCh:
@@ -320,7 +321,7 @@ func (c *Client) Stop() error {
 		return errors.New("client not run")
 	}
 	c.client.UnInitialization()
-	err := procServ.Stop(c.process)
+	err := procServ.Stop(c.config.Name)
 	if err != nil {
 		return err
 	}

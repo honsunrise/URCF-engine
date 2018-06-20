@@ -2,13 +2,14 @@ package models
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go/types"
 	"strings"
 )
 
-type ProcessOption int
+type ProcessOption uint32
 
 const (
 	None                      = 0
@@ -16,15 +17,30 @@ const (
 	HookLog
 )
 
-func (option ProcessOption) String() (ret string) {
+func (option ProcessOption) MarshalJSON() ([]byte, error) {
 	if option == None {
-		return "none"
+		return json.Marshal([]string{})
 	} else {
+		optionArray := []string{}
 		if option&AutoRestart == AutoRestart {
-			ret += ",autoRestart"
+			optionArray = append(optionArray, "AutoRestart")
 		}
 		if option&HookLog == HookLog {
-			ret += ",hookLog"
+			optionArray = append(optionArray, "HookLog")
+		}
+		return json.Marshal(optionArray)
+	}
+}
+
+func (option ProcessOption) String() (ret string) {
+	if option == None {
+		return "None"
+	} else {
+		if option&AutoRestart == AutoRestart {
+			ret += ",AutoRestart"
+		}
+		if option&HookLog == HookLog {
+			ret += ",HookLog"
 		}
 		return strings.TrimPrefix(ret, ",")
 	}
@@ -88,10 +104,10 @@ func (args *Args) Scan(value interface{}) error {
 type Env map[string]string
 
 type ProcessParam struct {
-	Name    string
-	Cmd     string
-	Args    Args
-	WorkDir string
-	Env     Env
-	Option  ProcessOption
+	Name    string        `json:"name"`
+	Cmd     string        `json:"cmd"`
+	Args    Args          `json:"args"`
+	WorkDir string        `json:"work_dir"`
+	Env     Env           `json:"env"`
+	Option  ProcessOption `json:"option"`
 }

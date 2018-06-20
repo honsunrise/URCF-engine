@@ -6,9 +6,9 @@ import (
 
 // ProcessStatistics is a wrapper with the process current Statistics info.
 type ProcessStatistics struct {
-	Restarts  int
-	StartTime time.Time
-	UpTime    time.Duration
+	Restarts  int           `json:"restart_count"`
+	StartTime time.Time     `json:"start_time"`
+	UpTime    time.Duration `json:"uptime"`
 }
 
 func (p *ProcessStatistics) AddRestart() {
