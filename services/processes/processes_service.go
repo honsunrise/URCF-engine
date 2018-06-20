@@ -2,6 +2,11 @@ package processes
 
 import (
 	"errors"
+	"os"
+	"strings"
+	"sync"
+	"syscall"
+
 	"github.com/looplab/fsm"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/models"
@@ -9,16 +14,13 @@ import (
 	logservice "github.com/zhsyourai/URCF-engine/services/log"
 	"github.com/zhsyourai/URCF-engine/services/processes/types"
 	"github.com/zhsyourai/URCF-engine/services/processes/watchdog"
-	"os"
-	"strings"
-	"sync"
-	"syscall"
 )
 
 var ProcessExist = errors.New("process exist")
 var ProcessNotExist = errors.New("process not exist")
 var ProcessNotRun = errors.New("process does not run")
 var ProcessStillRun = errors.New("process still run")
+var OperatorNotComplete = errors.New("current have operator not complete")
 
 type Service interface {
 	services.ServiceLifeCycle
@@ -103,7 +105,13 @@ func (s *processesService) runAutoReStart() {
 	}
 }
 
-func (s *processesService) init(pp *processPair) error {
+func (s *processesService) init(name string) error {
+	result, loaded := s.procMap.Load(name)
+	if !loaded {
+		return ProcessNotExist
+	}
+	pp := result.(*processPair)
+
 	rStdIn, lStdIn, err := os.Pipe()
 	proc := pp.proc
 	if err != nil {
@@ -157,7 +165,15 @@ func (s *processesService) init(pp *processPair) error {
 	pp.procAttr = procAttr
 	pp.finalArgs = append([]string{proc.Cmd}, proc.Args...)
 	pp.ExitDoneChan = make(chan struct{}, 1)
-	return proc.State.Enter(types.Prepare)
+	return nil
+}
+
+func (s *processesService) start(name string) error {
+
+}
+
+func (s *processesService) stop(name string, isKill bool) error {
+
 }
 
 func (s *processesService) release(pp *processPair) {
@@ -173,7 +189,6 @@ func (s *processesService) release(pp *processPair) {
 	if pp.proc.Process != nil {
 		pp.proc.Process.Release()
 	}
-	close(pp.ExitDoneChan)
 }
 
 func (s *processesService) ListAll() (processes []*types.Process) {
@@ -193,7 +208,8 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 		return nil, ProcessExist
 	}
 
-	pp := &processPair{
+	var pp *processPair
+	pp = &processPair{
 		proc: &types.Process{
 			ProcessParam: models.ProcessParam{
 				Name:    name,
@@ -206,15 +222,36 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 			State: types.Exited,
 		},
 		FSM: fsm.NewFSM(
-			types.Exited.String(),
+			"exited",
 			fsm.Events{
-				{Name: "start", Src: []string{"closed"}, Dst: "open"},
-				{Name: "stop", Src: []string{"open"}, Dst: "closed"},
-				{Name: "restart", Src: []string{"open"}, Dst: "closed"},
-				{Name: "kill", Src: []string{"open"}, Dst: "closed"},
+				{Name: "init", Src: []string{"exited"}, Dst: "prepare"},
+				{Name: "start", Src: []string{"prepare"}, Dst: "running"},
+				{Name: "stop", Src: []string{"running"}, Dst: "exiting"},
+				{Name: "stopDone", Src: []string{"exiting"}, Dst: "exited"},
 			},
 			fsm.Callbacks{
-				"enter_state": func(e *fsm.Event) { d.enterState(e) },
+				"before_init": func(e *fsm.Event) {
+					err := s.init(name)
+					if err != nil {
+						e.Cancel(err)
+					}
+				},
+				"before_start": func(e *fsm.Event) {
+					err := s.start(name)
+					if err != nil {
+						e.Cancel(err)
+					}
+				},
+				"before_stop": func(e *fsm.Event) {
+					isKill := e.Args[0].(bool)
+					err := s.stop(name, isKill)
+					if err != nil {
+						e.Cancel(err)
+					}
+				},
+				"enter_exited": func(e *fsm.Event) {
+					close(pp.ExitDoneChan)
+				},
 			},
 		),
 	}
@@ -224,7 +261,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 		return nil, ProcessExist
 	}
 
-	err := s.init(pp)
+	err := pp.FSM.Event("init")
 	if err != nil {
 		return nil, err
 	}
@@ -297,6 +334,24 @@ func (s *processesService) Stop(name string) error {
 	}
 }
 
+func (s *processesService) Kill(name string) error {
+	result, ok := s.procMap.Load(name)
+	if !ok {
+		return ProcessNotExist
+	}
+	pp := result.(*processPair)
+
+	if err := pp.proc.State.CanEnter(types.Exiting); err == nil {
+		err = pp.proc.Process.Kill()
+		if err != nil {
+			return err
+		}
+		return pp.proc.State.Enter(types.Exiting)
+	} else {
+		return err
+	}
+}
+
 func (s *processesService) Restart(name string) error {
 	result, ok := s.procMap.Load(name)
 	if !ok {
@@ -318,24 +373,6 @@ func (s *processesService) Restart(name string) error {
 	}
 	pp.proc.Statistics.AddRestart()
 	return nil
-}
-
-func (s *processesService) Kill(name string) error {
-	result, ok := s.procMap.Load(name)
-	if !ok {
-		return ProcessNotExist
-	}
-	pp := result.(*processPair)
-
-	if err := pp.proc.State.CanEnter(types.Exiting); err == nil {
-		err = pp.proc.Process.Kill()
-		if err != nil {
-			return err
-		}
-		return pp.proc.State.Enter(types.Exiting)
-	} else {
-		return err
-	}
 }
 
 func (s *processesService) Clean(name string) error {
