@@ -1,28 +1,39 @@
 package types
 
 import (
+	"sync"
 	"time"
 )
 
 // ProcessStatistics is a wrapper with the process current Statistics info.
 type ProcessStatistics struct {
-	Restarts  int           `json:"restart_count"`
-	StartTime time.Time     `json:"start_time"`
-	UpTime    time.Duration `json:"uptime"`
+	lock         sync.Mutex
+	Restarts     uint32    `json:"restart_count"`
+	Stops        uint32    `json:"stop_count"`
+	StartUpTime  time.Time `json:"startup_time"`
+	LastStopTime time.Time `json:"laststop_time"`
 }
 
 func (p *ProcessStatistics) AddRestart() {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	p.Restarts++
 }
 
-func (p *ProcessStatistics) InitUpTime() {
-	p.StartTime = time.Now()
+func (p *ProcessStatistics) AddStop() {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	p.Stops++
 }
 
-func (p *ProcessStatistics) SetUpTime() {
-	p.UpTime = time.Since(p.StartTime)
+func (p *ProcessStatistics) InitStartUpTime() {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	p.StartUpTime = time.Now()
 }
 
-func (p *ProcessStatistics) ResetUpTime() {
-	p.UpTime = time.Duration(0)
+func (p *ProcessStatistics) SetLastStopTime() {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	p.LastStopTime = time.Now()
 }

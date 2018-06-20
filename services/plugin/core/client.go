@@ -18,6 +18,8 @@ import (
 	"time"
 )
 
+var ClientNotRun = errors.New("client not run")
+
 var CoreProtocolVersion, _ = utils.NewSemVerFromString("1.0.0-rc1")
 
 type Protocol int32
@@ -98,13 +100,13 @@ const (
 )
 
 type Client struct {
-	client   ClientInterface
-	lock     sync.Mutex
-	context  context.Context
-	config   *ClientConfig
-	process  *types.Process
-	protocol Protocol
-	status   clientStatus
+	rpcClient ClientInterface
+	lock      sync.Mutex
+	context   context.Context
+	config    *ClientConfig
+	process   *types.Process
+	protocol  Protocol
+	status    clientStatus
 }
 
 func NewClient(config *ClientConfig) (*Client, error) {
@@ -167,17 +169,26 @@ func (c *Client) Start() error {
 	env[EnvRequestVersion] = c.config.Version.String()
 
 	procServ := processes.GetInstance()
-	process, err := procServ.Prepare(c.config.Name, c.config.WorkDir, c.config.Cmd, c.config.Args, env, models.HookLog)
+	process, err := procServ.Prepare(c.config.Name, c.config.WorkDir, c.config.Cmd, c.config.Args,
+		env, models.HookLog|models.AutoRestart)
+	if err != nil && err != processes.ProcessExist {
+		return err
+	} else if err == processes.ProcessExist {
+		c.process = procServ.FindByName(c.config.Name)
+	} else {
+		c.process = process
+	}
+
+	err = procServ.Start(c.config.Name)
 	if err != nil {
 		return err
 	}
-	c.process = process
 
 	linesCh := make(chan []byte)
 	go func() {
 		defer close(linesCh)
 
-		buf := bufio.NewReader(process.DataOut)
+		buf := bufio.NewReader(c.process.DataOut)
 		for {
 			line, err := buf.ReadBytes('\n')
 			if err == io.EOF {
@@ -196,10 +207,6 @@ func (c *Client) Start() error {
 			}
 		}()
 	}()
-	err = procServ.Start(c.config.Name)
-	if err != nil {
-		return err
-	}
 
 	defer func() {
 		if c.status != clientStatusDone && c.status != clientStatusEarlyExit {
@@ -276,7 +283,7 @@ func (c *Client) Start() error {
 				switch c.protocol {
 				case NoneProtocol:
 				case GRPCProtocol:
-					c.client, err = NewGRPCClient(c.context, c.config)
+					c.rpcClient, err = NewGRPCClient(c.context, c.config)
 					if err != nil {
 						return err
 					}
@@ -286,7 +293,7 @@ func (c *Client) Start() error {
 					return err
 				}
 
-				err = c.client.Initialization()
+				err = c.rpcClient.Initialization()
 				if err != nil {
 					return err
 				}
@@ -303,12 +310,15 @@ func (c *Client) Start() error {
 func (c *Client) Deploy(name string) (interface{}, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	return c.client.Deploy(name)
+	if c.status != clientStatusDone {
+		return NoneProtocol, ClientNotRun
+	}
+	return c.rpcClient.Deploy(name)
 }
 
 func (c *Client) Protocol() (Protocol, error) {
 	if c.status != clientStatusDone {
-		return NoneProtocol, errors.New("client not run")
+		return NoneProtocol, ClientNotRun
 	}
 	return c.protocol, nil
 }
@@ -316,11 +326,11 @@ func (c *Client) Protocol() (Protocol, error) {
 func (c *Client) Stop() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	procServ := processes.GetInstance()
 	if c.status != clientStatusDone {
-		return errors.New("client not run")
+		return ClientNotRun
 	}
-	c.client.UnInitialization()
+	procServ := processes.GetInstance()
+	c.rpcClient.UnInitialization()
 	err := procServ.Stop(c.config.Name)
 	if err != nil {
 		return err

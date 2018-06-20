@@ -26,7 +26,7 @@ func dialWithAddrAndTls(context context.Context, addr net.Addr, tls *tls.Config)
 
 	// We use a custom dialer so that we can connect over unix domain sockets
 	opts = append(opts, grpc.WithDialer(func(_ string, timeout time.Duration) (net.Conn, error) {
-		// Connect to the client
+		// Connect to the rpcClient
 		conn, err := net.DialTimeout(addr.Network(), addr.String(), timeout)
 		if err != nil {
 			return nil, err
