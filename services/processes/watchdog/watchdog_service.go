@@ -14,6 +14,7 @@ import (
 type Service interface {
 	services.ServiceLifeCycle
 	StartWatch(proc *types.Process) error
+	StartWatchWithNotify(proc *types.Process, notify <-chan *os.ProcessState) error
 	StopWatch(proc *types.Process) error
 	GetDeathsChan() chan *types.Process
 }
@@ -67,6 +68,16 @@ func waitTargetProcess(proc *types.Process, dog *dog) {
 	dog.ExitNotify <- state
 }
 
+func waitTargetNotify(proc *types.Process, notify *sync.WaitGroup, dog *dog) {
+	log.Infof("Starting watcher on process %s with notify", proc.Name)
+	state := notify.Wait
+	if dog.Stopping.Load().(bool) {
+		return
+	}
+	dog.Stopping.Store(true)
+	dog.ExitNotify <- state
+}
+
 func (watcher *watchDog) watch(proc *types.Process, dog *dog) {
 	defer delete(watcher.watchProcesses, proc.Name)
 	select {
@@ -95,6 +106,25 @@ func (watcher *watchDog) StartWatch(proc *types.Process) (err error) {
 	dog.Stopping.Store(false)
 	watcher.watchProcesses[proc.Name] = dog
 	go waitTargetProcess(proc, dog)
+	go watcher.watch(proc, dog)
+	return
+}
+
+func (watcher *watchDog) StartWatchWithNotify(proc *types.Process, notify *sync.WaitGroup) (err error) {
+	watcher.Lock()
+	defer watcher.Unlock()
+	if _, ok := watcher.watchProcesses[proc.Name]; ok {
+		log.Warnf("A watcher for this process already exists.")
+		return
+	}
+	dog := &dog{
+		Proc:       proc,
+		ExitNotify: make(chan *os.ProcessState, 1),
+		StopNotify: make(chan struct{}, 1),
+	}
+	dog.Stopping.Store(false)
+	watcher.watchProcesses[proc.Name] = dog
+	go waitTargetNotify(proc, notify, dog)
 	go watcher.watch(proc, dog)
 	return
 }

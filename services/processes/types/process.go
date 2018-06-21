@@ -34,14 +34,6 @@ func (i ProcessStatus) MarshalText() ([]byte, error) {
 	return []byte(utils.StringName(uint32(i), processStrings, "processStatus.", false)), nil
 }
 
-func (i ProcessStatus) Enter(state ProcessStatus) error {
-
-}
-
-func (i ProcessStatus) CanEnter(state ProcessStatus) error {
-
-}
-
 type Process struct {
 	models.ProcessParam
 	Pid        int               `json:"pid"`
