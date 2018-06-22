@@ -39,11 +39,22 @@ type Service interface {
 }
 
 type processPair struct {
-	proc         *types.Process
-	procAttr     *os.ProcAttr
-	finalArgs    []string
-	ExitDoneChan chan *os.ProcessState
-	FSM          *fsm.FSM
+	proc        *types.Process
+	procAttr    *os.ProcAttr
+	finalArgs   []string
+	osProcState *os.ProcessState
+	FSM         *fsm.FSM
+	waitGroup   sync.WaitGroup
+}
+
+func (pp *processPair) Wait() *os.ProcessState {
+	pp.waitGroup.Wait()
+	return pp.osProcState
+}
+
+func (pp *processPair) Done(state *os.ProcessState) {
+	pp.osProcState = state
+	pp.waitGroup.Done()
 }
 
 // processesService is a os.processesService wrapper with Statistics and more info that will be used on Master to maintain
@@ -176,7 +187,7 @@ func (s *processesService) init(name string) error {
 	}
 	pp.procAttr = procAttr
 	pp.finalArgs = append([]string{proc.Cmd}, proc.Args...)
-	pp.ExitDoneChan = make(chan *os.ProcessState, 1)
+	pp.waitGroup.Add(1)
 	return nil
 }
 
@@ -197,7 +208,7 @@ func (s *processesService) start(name string) error {
 	pp.proc.Statistics.InitStartUpTime()
 
 	if pp.proc.Option&models.AutoRestart != 0 {
-		err = s.watchDog.StartWatchWithNotify(pp.proc, pp.ExitDoneChan)
+		err = s.watchDog.StartWatch(pp.proc, pp)
 		if err != nil {
 			return err
 		}
@@ -322,7 +333,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 				"enter_exited": func(e *fsm.Event) {
 					state := e.Args[0].(*os.ProcessState)
 					pp.proc.State = types.Exited
-					pp.ExitDoneChan <- state
+					pp.Done(state)
 				},
 				"before_remove": func(e *fsm.Event) {
 					s.procMap.Delete(name)
@@ -405,7 +416,7 @@ func (s *processesService) Restart(name string) error {
 		return err
 	}
 
-	<-pp.ExitDoneChan
+	pp.Wait()
 
 	err = pp.FSM.Event("start")
 	if err != nil {
@@ -436,7 +447,7 @@ func (s *processesService) Watch(name string) error {
 	}
 	pp := result.(*processPair)
 
-	return s.watchDog.StartWatch(pp.proc)
+	return s.watchDog.StartWatch(pp.proc, pp)
 }
 
 func (s *processesService) Wait(name string) <-chan error {
@@ -449,7 +460,7 @@ func (s *processesService) Wait(name string) <-chan error {
 	pp := result.(*processPair)
 
 	go func() {
-		<-pp.ExitDoneChan
+		pp.Wait()
 		close(ret)
 	}()
 
