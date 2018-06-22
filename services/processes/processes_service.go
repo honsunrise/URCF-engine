@@ -12,7 +12,6 @@ import (
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services"
 	logservice "github.com/zhsyourai/URCF-engine/services/log"
-	"github.com/zhsyourai/URCF-engine/services/processes/types"
 	"github.com/zhsyourai/URCF-engine/services/processes/watchdog"
 )
 
@@ -25,9 +24,9 @@ var OperatorNotComplete = errors.New("current have operator not complete")
 type Service interface {
 	services.ServiceLifeCycle
 	Prepare(name string, workDir string, cmd string, args []string, env map[string]string,
-		option models.ProcessOption) (*types.Process, error)
-	ListAll() []*types.Process
-	FindByName(name string) *types.Process
+		option models.ProcessOption) (*models.Process, error)
+	ListAll() []*models.Process
+	FindByName(name string) *models.Process
 	Start(name string) error
 	Stop(name string) error
 	Restart(name string) error
@@ -39,7 +38,7 @@ type Service interface {
 }
 
 type processPair struct {
-	proc        *types.Process
+	proc        *models.Process
 	procAttr    *os.ProcAttr
 	finalArgs   []string
 	osProcState *os.ProcessState
@@ -110,7 +109,7 @@ func (s *processesService) runAutoReStart() {
 			continue
 		}
 		log.Infof("Restarting process %s.", proc.Name)
-		if proc.State == types.Running {
+		if proc.State == models.Running {
 			log.Warnf("process %s was supposed to be dead, but it is alive.", proc.Name)
 		}
 
@@ -259,8 +258,8 @@ func (s *processesService) release(pp *processPair) {
 	pp.proc.Process.Release()
 }
 
-func (s *processesService) ListAll() (processes []*types.Process) {
-	processes = []*types.Process{}
+func (s *processesService) ListAll() (processes []*models.Process) {
+	processes = []*models.Process{}
 	s.procMap.Range(func(key, value interface{}) bool {
 		processPair := value.(*processPair)
 		processes = append(processes, processPair.proc)
@@ -270,7 +269,7 @@ func (s *processesService) ListAll() (processes []*types.Process) {
 }
 
 func (s *processesService) Prepare(name string, workDir string, cmd string, args []string, env map[string]string,
-	option models.ProcessOption) (*types.Process, error) {
+	option models.ProcessOption) (*models.Process, error) {
 	_, loaded := s.procMap.Load(name)
 	if loaded {
 		return nil, ProcessExist
@@ -278,7 +277,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 
 	var pp *processPair
 	pp = &processPair{
-		proc: &types.Process{
+		proc: &models.Process{
 			ProcessParam: models.ProcessParam{
 				Name:    name,
 				Cmd:     cmd,
@@ -287,7 +286,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 				WorkDir: workDir,
 				Option:  option,
 			},
-			State: types.Exited,
+			State: models.Exited,
 		},
 		FSM: fsm.NewFSM(
 			"exited",
@@ -306,7 +305,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 					}
 				},
 				"enter_prepare": func(e *fsm.Event) {
-					pp.proc.State = types.Prepare
+					pp.proc.State = models.Prepare
 				},
 				"before_start": func(e *fsm.Event) {
 					err := s.start(name)
@@ -315,7 +314,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 					}
 				},
 				"enter_running": func(e *fsm.Event) {
-					pp.proc.State = types.Running
+					pp.proc.State = models.Running
 				},
 				"before_stop": func(e *fsm.Event) {
 					isKill := e.Args[0].(bool)
@@ -325,14 +324,14 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 					}
 				},
 				"enter_exiting": func(e *fsm.Event) {
-					pp.proc.State = types.Exiting
+					pp.proc.State = models.Exiting
 				},
 				"before_stopDone": func(e *fsm.Event) {
 					s.release(pp)
 				},
 				"enter_exited": func(e *fsm.Event) {
 					state := e.Args[0].(*os.ProcessState)
-					pp.proc.State = types.Exited
+					pp.proc.State = models.Exited
 					pp.Done(state)
 				},
 				"before_remove": func(e *fsm.Event) {
@@ -355,7 +354,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 	return pp.proc, nil
 }
 
-func (s *processesService) FindByName(name string) *types.Process {
+func (s *processesService) FindByName(name string) *models.Process {
 	if p, ok := s.procMap.Load(name); ok {
 		return p.(*processPair).proc
 	}

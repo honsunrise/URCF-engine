@@ -19,7 +19,7 @@ type ProcessesController struct {
 
 func (c *ProcessesController) Handler(root *gin.RouterGroup) {
 	root.GET("/list", c.ListHandler)
-	root.DELETE("/*name", c.KillHandler)
+	root.DELETE("/:name", c.KillHandler)
 }
 
 func (c *ProcessesController) ListHandler(ctx *gin.Context) {

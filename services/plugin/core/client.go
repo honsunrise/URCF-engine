@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services/processes"
-	"github.com/zhsyourai/URCF-engine/services/processes/types"
 	"github.com/zhsyourai/URCF-engine/utils"
 	"io"
 	"net"
@@ -104,7 +103,7 @@ type Client struct {
 	lock      sync.Mutex
 	context   context.Context
 	config    *ClientConfig
-	process   *types.Process
+	process   *models.Process
 	protocol  Protocol
 	status    clientStatus
 }

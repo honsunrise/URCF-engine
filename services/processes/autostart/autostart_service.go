@@ -11,7 +11,6 @@ import (
 	"github.com/zhsyourai/URCF-engine/repositories/autostart"
 	"github.com/zhsyourai/URCF-engine/services"
 	"github.com/zhsyourai/URCF-engine/services/processes"
-	"github.com/zhsyourai/URCF-engine/services/processes/types"
 )
 
 type Service interface {
@@ -19,7 +18,7 @@ type Service interface {
 	StartAll() error
 	EnableAll() error
 	DisableAll() error
-	Add(process types.Process, startDelay int32, stopDelay int32, priority int32, parallel bool) (int64, error)
+	Add(process models.Process, startDelay int32, stopDelay int32, priority int32, parallel bool) (int64, error)
 	Remove(id int64) error
 	Disable(id int64) error
 	Enable(id int64) error
@@ -29,7 +28,7 @@ type autoStart struct {
 	services.InitHelper
 	sync.Mutex
 	init             bool
-	processes        map[string]*types.Process
+	processes        map[string]*models.Process
 	repo             autostart.Repository
 	cache            map[int64]*models.AutoStart
 	sortCacheKey     []string
@@ -56,7 +55,7 @@ func GetInstance() Service {
 		instance = &autoStart{
 			cache:            make(map[int64]*models.AutoStart),
 			sortCacheKey:     make([]string, 0),
-			processes:        make(map[string]*types.Process),
+			processes:        make(map[string]*models.Process),
 			repo:             autostart.NewAutostartRepository(),
 			init:             false,
 			processesService: processes.GetInstance(),
@@ -151,7 +150,7 @@ func (a *autoStart) DisableAll() error {
 	return err
 }
 
-func (a *autoStart) Add(process types.Process, startDelay int32, stopDelay int32, priority int32, parallel bool) (id int64, err error) {
+func (a *autoStart) Add(process models.Process, startDelay int32, stopDelay int32, priority int32, parallel bool) (id int64, err error) {
 	err = initCache(a)
 	if err != nil {
 		return

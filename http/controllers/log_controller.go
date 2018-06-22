@@ -24,7 +24,7 @@ type LogController struct {
 
 func (c *LogController) Handler(root *gin.RouterGroup) {
 	root.GET("/list", c.ListLogHandler)
-	root.DELETE("/*id", c.CleanLogHandler)
+	root.DELETE("/:id", c.CleanLogHandler)
 }
 
 func (c *LogController) ListLogHandler(ctx *gin.Context) {

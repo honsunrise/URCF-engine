@@ -1,11 +1,9 @@
-package types
+package models
 
 import (
 	"github.com/zhsyourai/URCF-engine/utils"
 	"io"
 	"os"
-
-	"github.com/zhsyourai/URCF-engine/models"
 )
 
 type ProcessStatus int
@@ -35,7 +33,7 @@ func (i ProcessStatus) MarshalText() ([]byte, error) {
 }
 
 type Process struct {
-	models.ProcessParam
+	ProcessParam
 	Pid        int               `json:"pid"`
 	PidFile    string            `json:"pid_file"`
 	StdIn      io.WriteCloser    `json:"-"`
