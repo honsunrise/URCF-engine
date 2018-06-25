@@ -34,26 +34,28 @@ type Service interface {
 	Remove(name string) error
 	Watch(name string) error
 	Wait(name string) <-chan error
+	WaitRestart(name string) <-chan error
 	IsAlive(name string) bool
 }
 
 type processPair struct {
-	proc        *models.Process
-	procAttr    *os.ProcAttr
-	finalArgs   []string
-	osProcState *os.ProcessState
-	FSM         *fsm.FSM
-	waitGroup   sync.WaitGroup
+	proc             *models.Process
+	procAttr         *os.ProcAttr
+	finalArgs        []string
+	osProcState      *os.ProcessState
+	FSM              *fsm.FSM
+	exitWaitGroup    sync.WaitGroup
+	restartWaitGroup sync.WaitGroup
 }
 
 func (pp *processPair) Wait() *os.ProcessState {
-	pp.waitGroup.Wait()
+	pp.exitWaitGroup.Wait()
 	return pp.osProcState
 }
 
-func (pp *processPair) Done(state *os.ProcessState) {
+func (pp *processPair) done(state *os.ProcessState) {
 	pp.osProcState = state
-	pp.waitGroup.Done()
+	pp.exitWaitGroup.Done()
 }
 
 // processesService is a os.processesService wrapper with Statistics and more info that will be used on Master to maintain
@@ -133,7 +135,12 @@ func (s *processesService) init(name string) error {
 		return ProcessNotExist
 	}
 	pp := result.(*processPair)
-
+	needRelease := true
+	defer func() {
+		if needRelease {
+			s.release(pp)
+		}
+	}()
 	rStdIn, lStdIn, err := os.Pipe()
 	proc := pp.proc
 	if err != nil {
@@ -186,7 +193,8 @@ func (s *processesService) init(name string) error {
 	}
 	pp.procAttr = procAttr
 	pp.finalArgs = append([]string{proc.Cmd}, proc.Args...)
-	pp.waitGroup.Add(1)
+	pp.exitWaitGroup.Add(1)
+	needRelease = false
 	return nil
 }
 
@@ -246,16 +254,24 @@ func (s *processesService) stop(name string, isKill bool) error {
 }
 
 func (s *processesService) release(pp *processPair) {
-	pp.proc.StdIn.Close()
-	pp.proc.StdOut.Close()
-	pp.proc.DataOut.Close()
-	pp.proc.StdErr.Close()
+	if pp.proc.StdIn != nil {
+		pp.proc.StdIn.Close()
+	}
+	if pp.proc.StdOut != nil {
+		pp.proc.StdOut.Close()
+	}
+	if pp.proc.DataOut != nil {
+		pp.proc.DataOut.Close()
+	}
+	if pp.proc.StdErr != nil {
+		pp.proc.StdErr.Close()
+	}
 	for _, f := range pp.procAttr.Files {
 		f.Close()
 	}
-	pp.proc.Statistics.AddStop()
-	pp.proc.Statistics.SetLastStopTime()
-	pp.proc.Process.Release()
+	if pp.proc.Process != nil {
+		pp.proc.Process.Release()
+	}
 }
 
 func (s *processesService) ListAll() (processes []*models.Process) {
@@ -312,6 +328,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 					if err != nil {
 						e.Cancel(err)
 					}
+					pp.restartWaitGroup.Done()
 				},
 				"enter_running": func(e *fsm.Event) {
 					pp.proc.State = models.Running
@@ -327,12 +344,14 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 					pp.proc.State = models.Exiting
 				},
 				"before_stopDone": func(e *fsm.Event) {
+					pp.proc.Statistics.AddStop()
+					pp.proc.Statistics.SetLastStopTime()
 					s.release(pp)
 				},
 				"enter_exited": func(e *fsm.Event) {
 					state := e.Args[0].(*os.ProcessState)
 					pp.proc.State = models.Exited
-					pp.Done(state)
+					pp.done(state)
 				},
 				"before_remove": func(e *fsm.Event) {
 					s.procMap.Delete(name)
@@ -346,6 +365,7 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 		return nil, ProcessExist
 	}
 
+	pp.restartWaitGroup.Add(1)
 	err := pp.FSM.Event("init")
 	if err != nil {
 		return nil, err
@@ -461,6 +481,26 @@ func (s *processesService) Wait(name string) <-chan error {
 	go func() {
 		pp.Wait()
 		close(ret)
+	}()
+
+	return ret
+}
+
+func (s *processesService) WaitRestart(name string) <-chan error {
+	ret := make(chan error, 1)
+	result, ok := s.procMap.Load(name)
+	if !ok {
+		ret <- ProcessNotExist
+		return ret
+	}
+	pp := result.(*processPair)
+
+	go func() {
+		for true {
+			pp.restartWaitGroup.Wait()
+			ret <- nil
+			pp.restartWaitGroup.Add(1)
+		}
 	}()
 
 	return ret
