@@ -158,13 +158,13 @@ func websServer() (*http.Server, error) {
 	}, nil
 }
 
-func StartHTTPServer() error {
-	api, err := apiServer()
+func StartHTTPServer() (err error) {
+	api, err = apiServer()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	webs, err := websServer()
+	webs, err = websServer()
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -1,6 +1,7 @@
 package netfilter
 
 import (
+	"github.com/prometheus/common/log"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services"
 	"sync"
@@ -46,9 +47,9 @@ func (s *netfilterService) UnInitialize(arguments ...interface{}) error {
 }
 
 func (s *netfilterService) ListAll(table string, chain string) ([]models.IptableRule, error) {
-	s.iptables.List(table, chain)
-
-	return nil, nil
+	result, err := s.iptables.List(table, chain)
+	log.Info(result)
+	return nil, err
 }
 
 func (s *netfilterService) ListChains(table string) ([]string, error) {
