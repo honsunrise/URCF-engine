@@ -76,16 +76,18 @@ const (
 )
 
 type ClientConfig struct {
-	Plugins          map[string]ClientInstanceInterface
-	Version          *utils.SemanticVersion
-	Name             string
-	Cmd              string
-	Args             []string
-	WorkDir          string
-	Address          net.Addr
-	StartTimeout     time.Duration
-	AllowedProtocols Protocols
-	TLS              *tls.Config
+	Plugins              map[string]ClientInstanceInterface
+	Version              *utils.SemanticVersion
+	Name                 string
+	Cmd                  string
+	Args                 []string
+	WorkDir              string
+	Address              net.Addr
+	StartTimeout         time.Duration
+	AllowedProtocols     Protocols
+	TLS                  *tls.Config
+	ConnectedCallback    func(client *Client)
+	DisconnectedCallback func(client *Client)
 }
 
 type clientStatus int
@@ -182,7 +184,27 @@ func (c *Client) Start() error {
 	if err != nil {
 		return err
 	}
+	go func() {
+		<-procServ.Wait(c.config.Name)
+		c.config.DisconnectedCallback(c)
+	}()
+	go func() {
+		err := <-procServ.WaitRestart(c.config.Name)
+		if err != nil {
+			return
+		}
+		err = c.communication()
+		if err != nil {
+			return
+		}
+		c.config.ConnectedCallback(c)
+	}()
 
+	return nil
+}
+
+func (c *Client) communication() (err error) {
+	procServ := processes.GetInstance()
 	linesCh := make(chan []byte)
 	go func() {
 		defer close(linesCh)
