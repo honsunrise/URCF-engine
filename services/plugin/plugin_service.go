@@ -8,7 +8,7 @@ import (
 	"github.com/zhsyourai/URCF-engine/repositories/plugin"
 	"github.com/zhsyourai/URCF-engine/services"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
-	"github.com/zhsyourai/URCF-engine/services/plugin/protocol"
+	"github.com/zhsyourai/URCF-engine/services/plugin/core"
 	"github.com/zhsyourai/URCF-engine/utils"
 	"io"
 	"os"
@@ -74,7 +74,7 @@ type Service interface {
 	Uninstall(name string, flag UninstallFlag) error
 	Install(path string, flag InstallFlag) (models.Plugin, error)
 	InstallByReaderAt(readerAt io.ReaderAt, size int64, flag InstallFlag) (models.Plugin, error)
-	Start(name string) (protocol.CommandProtocol, error)
+	Start(name string) (core.CommandProtocol, error)
 	Stop(name string) error
 }
 
@@ -218,13 +218,13 @@ func (s *pluginService) InstallByReaderAt(readerAt io.ReaderAt, size int64,
 	return
 }
 
-func (s *pluginService) Start(name string) (cp protocol.CommandProtocol, err error) {
+func (s *pluginService) Start(name string) (cp core.CommandProtocol, err error) {
 	p, err := s.repo.FindPluginByName(name)
 	if err != nil {
 		return
 	}
 	if value, ok := s.stubMap.Load(name); ok {
-		stub := value.(*protocol.PluginStub)
+		stub := value.(*core.PluginStub)
 		cp, err = stub.GetPluginInterface()
 		return
 	}

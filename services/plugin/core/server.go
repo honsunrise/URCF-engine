@@ -306,15 +306,6 @@ func (c *Server) communication() (err error) {
 	return nil
 }
 
-func (c *Server) Deploy(name string) (interface{}, error) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.status != clientStatusDone {
-		return NoneProtocol, ServerNotRun
-	}
-	return c.rpcClient.Deploy(name)
-}
-
 func (c *Server) Protocol() (Protocol, error) {
 	if c.status != clientStatusDone {
 		return NoneProtocol, ServerNotRun
