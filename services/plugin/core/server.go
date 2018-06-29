@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-var ClientNotRun = errors.New("client not run")
+var ServerNotRun = errors.New("server not run")
 
 var CoreProtocolVersion, _ = utils.NewSemVerFromString("1.0.0-rc1")
 
@@ -63,10 +63,15 @@ func (ps Protocols) Exist(item Protocol) bool {
 	return false
 }
 
+type PluginReportInfo struct {
+	Name    string
+	Version utils.SemanticVersion
+}
+
 const (
-	EnvPluginListenerAddress  = "ENV_PLUGIN_LISTENER_ADDRESS"
-	EnvAllowPluginRpcProtocol = "ENV_ALLOW_PLUGIN_RPC_PROTOCOL"
-	EnvRequestVersion         = "ENV_REQUEST_VERSION"
+	EnvPluginConnectAddress = "ENV_PLUGIN_CONNECT_ADDRESS"
+	EnvSupportRpcProtocol   = "ENV_SUPPORT_RPC_PROTOCOL"
+	EnvRequestVersion       = "ENV_REQUEST_VERSION"
 
 	MsgCoreVersion = "CoreVersion"
 	MsgVersion     = "Version"
@@ -75,66 +80,39 @@ const (
 	MsgDone        = "DONE"
 )
 
-type ClientConfig struct {
-	Plugins              map[string]ClientInstanceInterface
-	Version              *utils.SemanticVersion
-	Name                 string
-	Cmd                  string
-	Args                 []string
-	WorkDir              string
+type ServerConfig struct {
 	Address              net.Addr
-	StartTimeout         time.Duration
-	AllowedProtocols     Protocols
+	SupportProtocols     Protocols
 	TLS                  *tls.Config
-	ConnectedCallback    func(client *Client)
-	DisconnectedCallback func(client *Client)
+	ConnectedCallback    func(server *Server)
+	DisconnectedCallback func(server *Server)
 }
 
-type clientStatus int
+type serverStatus int
 
 const (
-	clientStatusTimeOut clientStatus = iota
-	clientStatusStopped
-	clientStatusPartInit
-	clientStatusEarlyExit
-	clientStatusDone
+	serverStatusTimeOut serverStatus = iota
+	serverStatusStopped
+	serverStatusPartInit
+	serverStatusEarlyExit
+	serverStatusDone
 )
 
-type Client struct {
-	rpcClient ClientInterface
-	lock      sync.Mutex
-	context   context.Context
-	config    *ClientConfig
-	process   *models.Process
-	protocol  Protocol
-	status    clientStatus
+type Server struct {
+	lock     sync.Mutex
+	plugins  map[string]serverInstanceInterface
+	context  context.Context
+	config   *ServerConfig
+	process  *models.Process
+	protocol Protocol
+	status   serverStatus
 }
 
-func NewClient(config *ClientConfig) (*Client, error) {
-	if config.Cmd == "" {
-		return nil, errors.New("cmd can't be empty")
-	}
-
-	if config.Plugins == nil {
-		return nil, errors.New("plugins can't be nil. It's must have last one plugin")
-	}
-
-	if config.WorkDir == "" {
-		config.WorkDir = "."
-	}
-
-	if config.StartTimeout == 0 {
-		config.StartTimeout = 1 * time.Minute
-	}
-
-	if config.AllowedProtocols == nil {
-		config.AllowedProtocols = Protocols{
+func NewServer(config *ServerConfig) (*Server, error) {
+	if config.SupportProtocols == nil {
+		config.SupportProtocols = Protocols{
 			GRPCProtocol,
 		}
-	}
-
-	if config.Version == nil {
-		config.Version, _ = utils.NewSemVerFromString("1.0.0")
 	}
 
 	if config.Address == nil {
@@ -145,28 +123,28 @@ func NewClient(config *ClientConfig) (*Client, error) {
 		config.Address = addr
 	}
 
-	return &Client{
+	return &Server{
 		config:  config,
 		context: context.Background(),
-		status:  clientStatusStopped,
+		status:  serverStatusStopped,
 	}, nil
 }
 
-func (c *Client) exitCleanUp() {
-	procServ := processes.GetInstance()
-	<-procServ.Wait(c.config.Name)
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.status = clientStatusStopped
-}
+//func (c *Server) exitCleanUp() {
+//	procServ := processes.GetInstance()
+//	<-procServ.Wait(c.config.Name)
+//	c.lock.Lock()
+//	defer c.lock.Unlock()
+//	c.status = serverStatusStopped
+//}
 
-func (c *Client) Start() error {
+func (c *Server) Start() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	env := make(map[string]string)
-	env[EnvPluginListenerAddress] = utils.CovertToSchemeAddress(c.config.Address)
-	env[EnvAllowPluginRpcProtocol] = c.config.AllowedProtocols.String()
+	env[EnvPluginConnectAddress] = utils.CovertToSchemeAddress(c.config.Address)
+	env[EnvSupportRpcProtocol] = c.config.SupportProtocols.String()
 	env[EnvRequestVersion] = c.config.Version.String()
 
 	procServ := processes.GetInstance()
@@ -203,7 +181,7 @@ func (c *Client) Start() error {
 	return nil
 }
 
-func (c *Client) communication() (err error) {
+func (c *Server) communication() (err error) {
 	procServ := processes.GetInstance()
 	linesCh := make(chan []byte)
 	go func() {
@@ -295,9 +273,9 @@ func (c *Client) communication() (err error) {
 					return err
 				}
 				c.protocol = Protocol(ui64)
-				if !c.config.AllowedProtocols.Exist(c.protocol) {
+				if !c.config.SupportProtocols.Exist(c.protocol) {
 					err = fmt.Errorf("Unsupported plugin protocol %q. Supported: %v",
-						c.protocol, c.config.AllowedProtocols)
+						c.protocol, c.config.SupportProtocols)
 					return err
 				}
 			case strings.ToLower(MsgDone):
@@ -310,7 +288,7 @@ func (c *Client) communication() (err error) {
 					}
 				default:
 					err = fmt.Errorf("Unsupported plugin protocol %q. Supported: %v",
-						c.protocol, c.config.AllowedProtocols)
+						c.protocol, c.config.SupportProtocols)
 					return err
 				}
 
@@ -328,27 +306,27 @@ func (c *Client) communication() (err error) {
 	return nil
 }
 
-func (c *Client) Deploy(name string) (interface{}, error) {
+func (c *Server) Deploy(name string) (interface{}, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.status != clientStatusDone {
-		return NoneProtocol, ClientNotRun
+		return NoneProtocol, ServerNotRun
 	}
 	return c.rpcClient.Deploy(name)
 }
 
-func (c *Client) Protocol() (Protocol, error) {
+func (c *Server) Protocol() (Protocol, error) {
 	if c.status != clientStatusDone {
-		return NoneProtocol, ClientNotRun
+		return NoneProtocol, ServerNotRun
 	}
 	return c.protocol, nil
 }
 
-func (c *Client) Stop() error {
+func (c *Server) Stop() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.status != clientStatusDone {
-		return ClientNotRun
+		return ServerNotRun
 	}
 	procServ := processes.GetInstance()
 	c.rpcClient.UnInitialization()

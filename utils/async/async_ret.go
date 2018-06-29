@@ -81,7 +81,7 @@ func BundleResultHandler(handlers []ResultHandler) HandlerBundle {
 	return ob
 }
 
-type AsyncRet <-chan interface{}
+type AsyncRet chan interface{}
 
 // Subscribe subscribes an ResultHandler and returns a Subscription channel.
 func (o AsyncRet) Subscribe(handlers ...ResultHandler) <-chan struct{} {

@@ -1,9 +1,10 @@
-package protocol
+package core
 
 import (
 	"context"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/kataras/iris/core/errors"
+	"github.com/reactivex/rxgo/observable"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services/plugin/core"
 	"github.com/zhsyourai/URCF-engine/services/plugin/protocol/grpc"
@@ -13,8 +14,9 @@ import (
 
 type PluginStub struct {
 	context    context.Context
-	coreClient *core.Client
+	coreClient *core.Server
 	realClient atomic.Value
+	ob         observable.Observable
 }
 
 func StartUpPluginStub(plugin *models.Plugin) (*PluginStub, error) {
@@ -22,7 +24,7 @@ func StartUpPluginStub(plugin *models.Plugin) (*PluginStub, error) {
 		context: context.Background(),
 	}
 	enterPoint := strings.Split(plugin.EnterPoint, " ")
-	coreClient, err := core.NewClient(&core.ClientConfig{
+	coreClient, err := core.NewServer(&core.ServerConfig{
 		Plugins: map[string]core.ClientInstanceInterface{
 			"command": &grpc.CommandPlugin{},
 		},
@@ -31,7 +33,7 @@ func StartUpPluginStub(plugin *models.Plugin) (*PluginStub, error) {
 		Cmd:     enterPoint[0],
 		Args:    enterPoint[1:],
 		WorkDir: plugin.InstallDir,
-		ConnectedCallback: func(client *core.Client) {
+		ConnectedCallback: func(client *core.Server) {
 			tmpClient, err := client.Deploy("command")
 			if err != nil {
 				return
@@ -56,7 +58,7 @@ func StartUpPluginStub(plugin *models.Plugin) (*PluginStub, error) {
 				return
 			}
 		},
-		DisconnectedCallback: func(client *core.Client) {
+		DisconnectedCallback: func(client *core.Server) {
 			ret.realClient.Store(nil)
 		},
 	})
@@ -72,7 +74,7 @@ func StartUpPluginStub(plugin *models.Plugin) (*PluginStub, error) {
 	return ret, nil
 }
 
-func (p *PluginStub) Command(name string, params ...string) (string, error) {
+func (p *PluginStub) Command(name string, params ...string) observable.Observable {
 	realClient := p.realClient.Load().(grpc.CommandInterfaceClient)
 	if realClient != nil {
 		commandResp, err := realClient.Command(p.context, &grpc.CommandRequest{
