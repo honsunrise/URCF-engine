@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/kataras/iris/core/errors"
 	"github.com/zhsyourai/URCF-engine/models"
@@ -9,7 +10,9 @@ import (
 	"github.com/zhsyourai/URCF-engine/services"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
 	"github.com/zhsyourai/URCF-engine/services/plugin/core"
+	"github.com/zhsyourai/URCF-engine/services/processes"
 	"github.com/zhsyourai/URCF-engine/utils"
+	"github.com/zhsyourai/URCF-engine/utils/async"
 	"io"
 	"os"
 	"path"
@@ -25,8 +28,15 @@ const (
 	Reinstall InstallFlag = 1 << iota
 )
 
+const (
+	EnvPluginConnectAddress = "ENV_PLUGIN_CONNECT_ADDRESS"
+	EnvSupportRpcProtocol   = "ENV_SUPPORT_RPC_PROTOCOL"
+	EnvInstallVersion       = "ENV_INSTALLED_VERSION"
+)
+
 var (
-	ErrPluginNotRun = errors.New("Plugin is not running")
+	ErrPluginHasBeenStarted = errors.New("Plugin has been started")
+	ErrPluginNotRun         = errors.New("Plugin is not running")
 )
 
 func ParseInstallFlag(option string) (ret InstallFlag, err error) {
@@ -74,8 +84,11 @@ type Service interface {
 	Uninstall(name string, flag UninstallFlag) error
 	Install(path string, flag InstallFlag) (models.Plugin, error)
 	InstallByReaderAt(readerAt io.ReaderAt, size int64, flag InstallFlag) (models.Plugin, error)
-	Start(name string) (core.CommandProtocol, error)
+	Start(name string) error
 	Stop(name string) error
+	Command(pluginName string, name string, params []string) async.AsyncRet
+	GetHelp(pluginName string, name string) async.AsyncRet
+	ListCommand(pluginName string) async.AsyncRet
 }
 
 var instance *pluginService
@@ -92,19 +105,76 @@ func GetInstance() Service {
 
 type pluginService struct {
 	services.InitHelper
-	stubMap sync.Map
-	repo    plugin.Repository
+	server     *core.Server
+	processMap sync.Map
+	repo       plugin.Repository
+}
+
+func (s *pluginService) Command(pluginName string, name string, params ...string) async.AsyncRet {
+	return async.From(func() interface{} {
+		pluginInterface, err := s.server.GetPlugin(pluginName)
+		if err != nil {
+			return err
+		}
+		result, err := pluginInterface.Command(name, params)
+		if err != nil {
+			return err
+		}
+		return result
+	})
+}
+
+func (s *pluginService) GetHelp(pluginName string, name string) async.AsyncRet {
+	return async.From(func() interface{} {
+		pluginInterface, err := s.server.GetPlugin(pluginName)
+		if err != nil {
+			return err
+		}
+		result, err := pluginInterface.GetHelp(name)
+		if err != nil {
+			return err
+		}
+		return result
+	})
+}
+
+func (s *pluginService) ListCommand(pluginName string) async.AsyncRet {
+	return async.From(func() interface{} {
+		pluginInterface, err := s.server.GetPlugin(pluginName)
+		if err != nil {
+			return err
+		}
+		result, err := pluginInterface.ListCommand()
+		if err != nil {
+			return err
+		}
+		return result
+	})
 }
 
 func (s *pluginService) Initialize(arguments ...interface{}) error {
 	return s.CallInitialize(func() error {
-		return nil
+		var err error
+		s.server, err = core.NewServer(core.DefaultServerConfig)
+		if err != nil {
+			return err
+		}
+		err = s.server.Start()
+		if err != nil {
+			return err
+		}
+		return err
 	})
 }
 
 func (s *pluginService) UnInitialize(arguments ...interface{}) error {
 	return s.CallUnInitialize(func() error {
-		return nil
+		var err error
+		err = s.server.Stop()
+		if err != nil {
+			return err
+		}
+		return err
 	})
 }
 
@@ -218,39 +288,59 @@ func (s *pluginService) InstallByReaderAt(readerAt io.ReaderAt, size int64,
 	return
 }
 
-func (s *pluginService) Start(name string) (cp core.CommandProtocol, err error) {
+func (s *pluginService) Start(name string) error {
 	p, err := s.repo.FindPluginByName(name)
 	if err != nil {
-		return
+		return err
 	}
-	if value, ok := s.stubMap.Load(name); ok {
-		stub := value.(*core.PluginStub)
-		cp, err = stub.GetPluginInterface()
-		return
+	_, loaded := s.processMap.Load(p.Name)
+	if loaded {
+		return ErrPluginHasBeenStarted
+	}
+	listenAddr := s.server.GetListenAddress()
+	jsonListenAddr, err := json.Marshal(listenAddr)
+	if err != nil {
+		return err
+	}
+	enterPoint := strings.Split(p.EnterPoint, " ")
+	env := make(map[string]string)
+	env[EnvPluginConnectAddress] = string(jsonListenAddr)
+	env[EnvSupportRpcProtocol] = s.server.GetUsedProtocol().String()
+	env[EnvInstallVersion] = p.Version.String()
+
+	procServ := processes.GetInstance()
+	process, err := procServ.Prepare(p.Name, p.InstallDir, enterPoint[0], enterPoint[1:], env,
+		models.HookLog|models.AutoRestart)
+	if err != nil && err != processes.ProcessExist {
+		return err
+	} else if err == processes.ProcessExist {
+		process = procServ.FindByName(p.Name)
+	}
+	_, loaded = s.processMap.LoadOrStore(p.Name, process)
+	if loaded {
+		return ErrPluginHasBeenStarted
 	}
 
-	stub, err := protocol.StartUpPluginStub(&p)
+	err = procServ.Start(p.Name)
 	if err != nil {
-		return
+		return err
 	}
 
-	cp, err = stub.GetPluginInterface()
-	if err != nil {
-		return
-	}
-	s.stubMap.Store(name, stub)
-	return
+	return nil
 }
 
-func (s *pluginService) Stop(name string) (err error) {
-	if value, ok := s.stubMap.Load(name); ok {
-		stub := value.(*protocol.PluginStub)
-		err = stub.Stop()
-		return
+func (s *pluginService) Stop(name string) error {
+	_, loaded := s.processMap.Load(name)
+	if loaded {
+		procServ := processes.GetInstance()
+		err := procServ.Stop(name)
+		if err != nil {
+			return err
+		}
 	} else {
 		return ErrPluginNotRun
 	}
-	return
+	return nil
 }
 
 func (f *pluginService) checkArchitecture() error {
