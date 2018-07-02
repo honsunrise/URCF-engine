@@ -260,11 +260,11 @@ func (s *processesService) release(pp *processPair) {
 	if pp.proc.StdOut != nil {
 		pp.proc.StdOut.Close()
 	}
-	if pp.proc.DataOut != nil {
-		pp.proc.DataOut.Close()
-	}
 	if pp.proc.StdErr != nil {
 		pp.proc.StdErr.Close()
+	}
+	if pp.proc.DataOut != nil {
+		pp.proc.DataOut.Close()
 	}
 	for _, f := range pp.procAttr.Files {
 		f.Close()

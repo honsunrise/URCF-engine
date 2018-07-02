@@ -8,7 +8,7 @@ import (
 type PluginInterface interface {
 	Command(name string, params []string) (string, error)
 	GetHelp(name string) (string, error)
-	ListCommand() (string, error)
+	ListCommand() ([]string, error)
 }
 
 type ServerInterface interface {

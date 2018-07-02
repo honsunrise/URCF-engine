@@ -5,10 +5,10 @@ import plugin_sdk
 
 class HelloWorld(plugin_sdk.Plugin):
     def __init__(self):
-        super(HelloWorld, self).__init__(version="0.0.1-alpha")
+        super(HelloWorld, self).__init__(version="1.0.0")
 
     def config(self):
-        pass
+        return 'JsonRPCProtocol', self.connect_addr['connect_addr']
 
     def command(self, name):
         if name == "Hello":
@@ -20,17 +20,7 @@ class HelloWorld(plugin_sdk.Plugin):
     def list_command(self):
         return ["Hello"]
 
-
-def serve():
+if __name__ == '__main__':
     # We need to build a health service to work with go-plugin
     hello = HelloWorld()
-    hello.serve()
-    try:
-        while True:
-            time.sleep(60 * 60 * 24)
-    except KeyboardInterrupt:
-        hello.stop(0)
-
-
-if __name__ == '__main__':
-    serve()
+    hello.run()

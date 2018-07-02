@@ -27,8 +27,13 @@ var protocolStrings = []utils.IntName{
 func (i Protocol) String() string {
 	return utils.StringName(uint32(i), protocolStrings, "plugin.", false)
 }
+
 func (i Protocol) GoString() string {
 	return utils.StringName(uint32(i), protocolStrings, "plugin.", true)
+}
+
+func (i Protocol) MarshalText() ([]byte, error) {
+	return []byte(i.String()), nil
 }
 
 type Protocols []Protocol
@@ -123,6 +128,8 @@ func NewServer(config *ServerConfig) (*Server, error) {
 		supportProtocols: map[Protocol]ServerFactory{
 			JsonRPCProtocol: &JsonRPCFactory{},
 		},
+		protocols: make(map[Protocol]ServerInterface, 10),
+		plugins:   make(map[string]PluginInterface, 10),
 	}, nil
 }
 

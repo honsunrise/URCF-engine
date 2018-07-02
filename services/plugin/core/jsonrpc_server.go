@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"github.com/zhsyourai/URCF-engine/utils/async"
 	"golang.org/x/net/websocket"
 	"net"
 	"net/http"
@@ -20,43 +19,35 @@ type warpPlugin struct {
 	rpcClient *rpc.Client
 }
 
-func (wp *warpPlugin) Command(name string, params []string) async.AsyncRet {
-	return async.From(
-		func() interface{} {
-			rpcCli := wp.rpcClient
-			commands := make([]string, 10)
-			err := rpcCli.Call("Plugin.Command", nil, &commands)
-			if err != nil {
-				return err
-			}
-			return commands
-		})
+func (wp *warpPlugin) Command(name string, params []string) (string, error) {
+	rpcCli := wp.rpcClient
+	var result string
+	err := rpcCli.Call("Plugin.Command", nil, &result)
+	if err != nil {
+		return "", err
+	}
+	return result, nil
 }
 
-func (wp *warpPlugin) GetHelp(name string) async.AsyncRet {
-	return async.From(
-		func() interface{} {
-			rpcCli := wp.rpcClient
-			var help string
-			err := rpcCli.Call("Plugin.GetHelp", nil, &help)
-			if err != nil {
-				return err
-			}
-			return help
-		})
+func (wp *warpPlugin) GetHelp(name string) (string, error) {
+	rpcCli := wp.rpcClient
+	var help string
+	err := rpcCli.Call("Plugin.GetHelp", nil, &help)
+	if err != nil {
+		return "", err
+	}
+	return help, nil
+
 }
 
-func (wp *warpPlugin) ListCommand() async.AsyncRet {
-	return async.From(
-		func() interface{} {
-			rpcCli := wp.rpcClient
-			commands := make([]string, 10)
-			err := rpcCli.Call("Plugin.ListCommand", nil, &commands)
-			if err != nil {
-				return err
-			}
-			return commands
-		})
+func (wp *warpPlugin) ListCommand() ([]string, error) {
+	rpcCli := wp.rpcClient
+	commands := make([]string, 10)
+	err := rpcCli.Call("Plugin.ListCommand", nil, &commands)
+	if err != nil {
+		return nil, err
+	}
+	return commands, nil
 }
 
 type JsonRPCFactory struct{}
@@ -105,7 +96,8 @@ func (s *JsonRPCServer) Serve(lis net.Listener, TLS *tls.Config) error {
 		lis = tls.NewListener(lis, TLS)
 	}
 	s.httpServer = &http.Server{Handler: nil}
-	return s.httpServer.Serve(lis)
+	go s.httpServer.Serve(lis)
+	return nil
 }
 
 func (s *JsonRPCServer) Stop() error {

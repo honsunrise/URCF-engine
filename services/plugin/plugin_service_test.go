@@ -3,6 +3,7 @@ package plugin_test
 import (
 	"fmt"
 	"github.com/zhsyourai/URCF-engine/services/plugin"
+	"github.com/zhsyourai/URCF-engine/utils/async"
 	"testing"
 	"time"
 )
@@ -17,19 +18,25 @@ func TestInstall(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	pluginService := plugin.GetInstance()
-	cp, err := pluginService.Start("HelloWord")
+	err := pluginService.Start("HelloWord")
 	if err != nil {
 		t.Fatalf("%s(%s)", "Start error", fmt.Sprint(err))
 	}
-	commands, err := cp.ListCommand()
-	if err != nil {
-		t.Fatalf("%s(%s)", "List command error", fmt.Sprint(err))
-	}
-	t.Logf("List command: %v", commands)
-	result, err := cp.Command("Hello")
-	if err != nil {
-		t.Fatalf("%s(%s)", "Call Hello command error", fmt.Sprint(err))
-	}
-	t.Logf("Hello command result: %v", result)
+	<-pluginService.ListCommand("HelloWord").Subscribe(
+		async.ErrFunc(func(err error) {
+			t.Fatalf("%s(%s)", "List command error", fmt.Sprint(err))
+		}), async.ResultFunc(func(result interface{}) {
+			t.Logf("List command: %v", result)
+		}),
+	)
+	<-pluginService.Command("HelloWord", "Hello").Subscribe(
+		async.ErrFunc(func(err error) {
+			t.Fatalf("%s(%s)", "Call Hello command error", fmt.Sprint(err))
+
+		}), async.ResultFunc(func(result interface{}) {
+			t.Logf("Hello command result: %v", result)
+
+		}),
+	)
 	<-time.After(time.Second * 3)
 }

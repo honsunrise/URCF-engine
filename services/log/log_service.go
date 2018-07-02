@@ -12,6 +12,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	"unicode"
 )
@@ -207,6 +208,15 @@ func (s *logService) WarpReader(name string, r io.Reader) error {
 		bufR := bufio.NewReader(r)
 		for {
 			line, err := bufR.ReadString('\n')
+			if err != nil {
+				if err == io.EOF || err == syscall.EIO || strings.Contains(err.Error(), "file already closed") {
+					break
+				} else {
+					logrus.Error(err)
+					break
+				}
+			}
+
 			if line != "" {
 				line = strings.TrimRightFunc(line, unicode.IsSpace)
 				entry, kvPairs, err := parseJSON(line)
@@ -234,10 +244,6 @@ func (s *logService) WarpReader(name string, r io.Reader) error {
 						}
 					}
 				}
-			}
-
-			if err == io.EOF {
-				break
 			}
 		}
 	}()

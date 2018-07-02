@@ -86,7 +86,7 @@ type Service interface {
 	InstallByReaderAt(readerAt io.ReaderAt, size int64, flag InstallFlag) (models.Plugin, error)
 	Start(name string) error
 	Stop(name string) error
-	Command(pluginName string, name string, params []string) async.AsyncRet
+	Command(pluginName string, name string, params ...string) async.AsyncRet
 	GetHelp(pluginName string, name string) async.AsyncRet
 	ListCommand(pluginName string) async.AsyncRet
 }

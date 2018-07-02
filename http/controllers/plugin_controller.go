@@ -5,6 +5,7 @@ import (
 	"github.com/zhsyourai/URCF-engine/http/controllers/shard"
 	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
 	"github.com/zhsyourai/URCF-engine/services/plugin"
+	"github.com/zhsyourai/URCF-engine/utils/async"
 	"net/http"
 )
 
@@ -25,9 +26,29 @@ func (c *PluginController) Handler(root *gin.RouterGroup) {
 	root.GET("", c.ListPluginHandler)
 	root.GET("/:name", c.GetPluginHandler)
 	root.GET("/:name/commands", c.GetPluginCommandsHandler)
+	root.GET("/:name/start", c.StartPluginHandler)
+	root.GET("/:name/stop", c.StopPluginHandler)
 	root.POST("/:name/:command", c.ExecPluginCommandHandler)
 	root.POST("", c.InstallPluginHandler)
 	root.DELETE("", c.UninstallPluginHandler)
+}
+
+func (c *PluginController) StartPluginHandler(ctx *gin.Context) {
+	nameStr := ctx.Param("name")
+	err := c.service.Start(nameStr)
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+}
+
+func (c *PluginController) StopPluginHandler(ctx *gin.Context) {
+	nameStr := ctx.Param("name")
+	err := c.service.Stop(nameStr)
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
 }
 
 func (c *PluginController) GetPluginHandler(ctx *gin.Context) {
@@ -43,38 +64,25 @@ func (c *PluginController) GetPluginHandler(ctx *gin.Context) {
 
 func (c *PluginController) GetPluginCommandsHandler(ctx *gin.Context) {
 	nameStr := ctx.Param("name")
-	plug, err := c.service.Start(nameStr)
-	if err != nil {
+	c.service.ListCommand(nameStr).Subscribe(async.ErrFunc(func(err error) {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	ret, err := plug.ListCommand()
-	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, ret)
+	}), async.ResultFunc(func(result interface{}) {
+		ctx.JSON(http.StatusOK, result)
+	}))
 }
 
 func (c *PluginController) ExecPluginCommandHandler(ctx *gin.Context) {
 	nameStr := ctx.Param("name")
 	commandStr := ctx.Param("command")
 	params := ctx.QueryArray("params")
-	plug, err := c.service.Start(nameStr)
-	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	ret, err := plug.Command(commandStr, params...)
-	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
 
-	ctx.JSON(http.StatusOK, shard.PluginCommandExecResult{
-		Result: ret,
-	})
+	c.service.Command(nameStr, commandStr, params...).Subscribe(async.ErrFunc(func(err error) {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+	}), async.ResultFunc(func(result interface{}) {
+		ctx.JSON(http.StatusOK, shard.PluginCommandExecResult{
+			Result: result.(string),
+		})
+	}))
 }
 
 func (c *PluginController) ListPluginHandler(ctx *gin.Context) {

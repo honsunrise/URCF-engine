@@ -2,26 +2,14 @@ from __future__ import print_function
 
 import os
 import sys
+import asyncio
+import json
+import re
+from jsonrpc_websocket import Server
 
-import grpc
-from concurrent import futures
-from grpc_health.v1 import health_pb2, health_pb2_grpc
-from grpc_health.v1.health import HealthServicer
-
-from . import command_pb2
-from . import command_pb2_grpc
-from . import plugin_interface_pb2
-from . import plugin_interface_pb2_grpc
-
-ENV_PLUGIN_LISTENER_ADDRESS = "ENV_PLUGIN_LISTENER_ADDRESS"
-ENV_ALLOW_PLUGIN_RPC_PROTOCOL = "ENV_ALLOW_PLUGIN_RPC_PROTOCOL"
-ENV_REQUEST_VERSION = "ENV_REQUEST_VERSION"
-
-MSG_COREVERSION = "CoreVersion"
-MSG_VERSION = "Version"
-MSG_ADDRESS = "Address"
-MSG_RPC_PROTOCOL = "RPCProtocol"
-MSG_DONE = "DONE"
+ENV_PLUGIN_CONNECT_ADDRESS = "ENV_PLUGIN_CONNECT_ADDRESS"
+ENV_SUPPORT_RPC_PROTOCOL = "ENV_SUPPORT_RPC_PROTOCOL"
+ENV_INSTALL_VERSION = "ENV_INSTALLED_VERSION"
 
 GRPCProtocol = 1
 
@@ -37,96 +25,43 @@ if sys.version_info[:2] < (3, 3):
             # Why might file=None? IDK, but it works for print(i, file=None)
             file.flush() if file is not None else sys.stdout.flush()
 
+def parse_address(addr):
+    prog = re.compile('(.*)://(.*)')
+    result = prog.match(addr)
+    return result[0], result[1]
 
-class _CommandServicer(command_pb2_grpc.CommandInterfaceServicer):
-    """Implementation of Command service."""
-
-    def __init__(self, handler):
-        self.handler = handler
-
-    def Command(self, request, context):
-        result = self.handler.command(request.name)
-        r = command_pb2.CommandResp()
-        r.result = result
-        return r
-
-    def GetHelp(self, request, context):
-        help = self.handler.get_help(request.subcommand)
-        r = command_pb2.CommandHelpResp()
-        r.help = help
-        return r
-
-    def ListCommand(self, request, context):
-        commands = self.handler.list_command()
-        r = command_pb2.ListCommandResp()
-        r.commands.extend(commands)
-        return r
-
-
-class _PluginServicer(plugin_interface_pb2_grpc.PluginInterfaceServicer):
-    """Implementation of Plugin service."""
-
-    def __init__(self, server, handler):
-        self._server = server
-        self._handler = handler
-
-    def Initialization(self, request, context):
-        es = plugin_interface_pb2.ErrorStatus()
-        return es
-
-    def Deploy(self, request, context):
-        if request.name == "command":
-            command_pb2_grpc.add_CommandInterfaceServicer_to_server(_CommandServicer(self._handler), self._server)
-            return plugin_interface_pb2.ErrorStatus()
-        es = plugin_interface_pb2.ErrorStatus()
-        es.error = "Plugin not support!"
-        return es
-
-    def UnInitialization(self, request, context):
-        es = plugin_interface_pb2.ErrorStatus()
-        return es
-
+def client_method(arg1, arg2):
+    return arg1 + arg2
 
 class Plugin(object):
     def __init__(self, env=None, version=""):
         if env == None:
             env = os.environ
 
-        self.listener_addr = env.get('ENV_PLUGIN_LISTENER_ADDRESS')
-        self.rpc_protocol = env.get('ENV_ALLOW_PLUGIN_RPC_PROTOCOL')
-        self.request_version = env.get('ENV_REQUEST_VERSION')
-        if self.listener_addr == None or self.rpc_protocol == None or self.request_version == None:
+        self.connect_addr = json.loads(env.get(ENV_PLUGIN_CONNECT_ADDRESS))
+        self.rpc_protocols = env.get(ENV_SUPPORT_RPC_PROTOCOL)
+        self.install_version = env.get(ENV_INSTALL_VERSION)
+
+        if self.connect_addr == None or self.rpc_protocols == None or self.install_version == None:
             raise NotImplementedError('You must run this program as plugin.')
-        if self.request_version != version:
+        if self.install_version != version:
             raise RuntimeError('version not support')
 
-    def serve(self):
-        # We need to build a health service to work with go-plugin
-        health = HealthServicer()
-        health.set("command", health_pb2.HealthCheckResponse.ServingStatus.Value('SERVING'))
-        # Start the server.
-        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        plugin_interface_pb2_grpc.add_PluginInterfaceServicer_to_server(_PluginServicer(server, self), server)
-        health_pb2_grpc.add_HealthServicer_to_server(health, server)
-        print("Address: " + self.listener_addr, flush=True)
-        address = self.listener_addr.split("://")
-        if len(address) != 2:
-            raise RuntimeError('Address format nor correct')
-        if address[0] == "unix":
-            realAddr = "unix:" + address[1]
-        elif address[0] == "tcp" or address[0] == "tcp4" or address[0] == "tcp6":
-            realAddr = address[1]
-        else:
-            raise RuntimeError('Address not support')
-        server.add_insecure_port(realAddr)
-        server.start()
-        print("Started", flush=True)
-        dataOut = os.fdopen(3, "w")
-        print("%s: %s" % (MSG_COREVERSION, "1.0.0"), file=dataOut, flush=True)
-        print("%s: %s" % (MSG_VERSION, self.request_version), file=dataOut, flush=True)
-        print("%s: %s" % (MSG_ADDRESS, self.listener_addr), file=dataOut, flush=True)
-        print("%s: %s" % (MSG_RPC_PROTOCOL, "1"), file=dataOut, flush=True)
-        print("%s: %s" % (MSG_DONE, ""), file=dataOut, flush=True)
+        self.protocol, addr = self.config()
+        self.schema, self.addr = parse_address(addr)
+
+    @asyncio.coroutine
+    def run(self):
+        if self.protocol == 'JsonRPCProtocol':
+            server = Server('ws://' + self.addr)
+            server.Plugin.Command = client_method
+            server.Plugin.GetHelp = client_method
+            server.Plugin.ListCommand = client_method
+            try:
+                yield from server.ws_connect()
+            finally:
+                yield from server.close()
+                yield from server.session.close()
 
     def stop(self, code):
         pass
