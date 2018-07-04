@@ -17,7 +17,7 @@ import (
 
 func TestPluginService(t *testing.T) {
 	pluginVersion := utils.SemanticVersionMust(utils.NewSemVerFromString("1.0.0"))
-	pluginName := "test_hello_world"
+	pluginName := "HelloWorld"
 	procServ := processes.GetInstance()
 	var err error
 	server, err := core.NewServer(core.DefaultServerConfig)

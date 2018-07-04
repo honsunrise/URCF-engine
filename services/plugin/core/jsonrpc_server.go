@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"github.com/prometheus/common/log"
 	"golang.org/x/net/websocket"
 	"net"
 	"net/http"
 	"net/rpc"
 	"net/rpc/jsonrpc"
 	"sync"
+	"time"
 )
 
 var ErrCannotConnectTwice = errors.New("can't connect twice")
@@ -64,7 +66,7 @@ type JsonRPCServer struct {
 	rpi          RegisterPluginInterface
 }
 
-func (s *JsonRPCServer) getPluginInfo(rpcClient *rpc.Client) error {
+func (s *JsonRPCServer) serverPlugin(rpcClient *rpc.Client) error {
 	info := &PluginReportInfo{}
 	err := rpcClient.Call("Plugin.GetPluginInfo", nil, info)
 	if err != nil {
@@ -81,17 +83,26 @@ func (s *JsonRPCServer) getPluginInfo(rpcClient *rpc.Client) error {
 	if err != nil {
 		return err
 	}
+	for true {
+		<-time.After(30 * time.Second)
+		var pong string
+		err := rpcClient.Call("Plugin.Ping", nil, &pong)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (s *JsonRPCServer) Serve(lis net.Listener, TLS *tls.Config) error {
-	http.Handle("/plugin", websocket.Handler(func(ws *websocket.Conn) {
+	handler := websocket.Server{Handler: func(ws *websocket.Conn) {
 		rpcClient := jsonrpc.NewClient(ws)
-		err := s.getPluginInfo(rpcClient)
+		err := s.serverPlugin(rpcClient)
 		if err != nil {
-			ws.Close()
+			log.Error(err)
 		}
-	}))
+	}}
+	http.Handle("/plugin", handler)
 	if TLS != nil {
 		lis = tls.NewListener(lis, TLS)
 	}
