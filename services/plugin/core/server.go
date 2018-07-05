@@ -36,6 +36,19 @@ func (i Protocol) MarshalText() ([]byte, error) {
 	return []byte(i.String()), nil
 }
 
+func (i *Protocol) UnmarshalText(b []byte) error {
+	*i = JsonRPCProtocol
+	switch string(b) {
+	case "NoneProtocol":
+		*i = NoneProtocol
+	case "JsonRPCProtocol":
+		*i = JsonRPCProtocol
+	default:
+		return errors.New(string(b) + " not correct error")
+	}
+	return nil
+}
+
 type Protocols []Protocol
 
 func (ps Protocols) String() string {
@@ -60,8 +73,8 @@ func (ps Protocols) Exist(item Protocol) bool {
 }
 
 type PluginReportInfo struct {
-	Name    string
-	Version utils.SemanticVersion
+	Name    string                `json:"name"`
+	Version utils.SemanticVersion `json:"version"`
 }
 
 const (

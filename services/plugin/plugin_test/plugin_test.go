@@ -30,15 +30,6 @@ func TestPluginService(t *testing.T) {
 		t.Fatal(err)
 		return
 	}
-	defer func() {
-		<-time.After(time.Second * 3)
-		<-procServ.Wait(pluginName)
-		err = server.Stop()
-		if err != nil {
-			t.Fatal(err)
-			return
-		}
-	}()
 
 	listenAddr := server.GetListenAddress()
 	jsonListenAddr, err := json.Marshal(listenAddr)
@@ -56,6 +47,17 @@ func TestPluginService(t *testing.T) {
 	if err != nil && err != processes.ProcessExist {
 		t.Fatal(err)
 	}
+	defer func() {
+		// <-time.After(10 * time.Second)
+		procServ.Stop(pluginName)
+		<-time.After(3 * time.Second)
+		err = server.Stop()
+		if err != nil {
+			t.Fatal(err)
+			return
+		}
+	}()
+
 	go func() {
 		buf := bufio.NewReader(process.StdErr)
 		for {
@@ -92,6 +94,8 @@ func TestPluginService(t *testing.T) {
 
 	<-procServ.WaitRestart(pluginName)
 
+	<-time.After(2 * time.Second)
+
 	pluginInterface, err := server.GetPlugin(pluginName)
 	if err != nil {
 		t.Fatal(err)
@@ -107,12 +111,13 @@ func TestPluginService(t *testing.T) {
 	if commands[0] != "Hello" {
 		t.Fatal("Command hello not supported!")
 	}
-	result, err := pluginInterface.Command("Hello", nil)
+	result, err := pluginInterface.Command("echo", []string{"echome!"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result != "World" {
-		t.Fatal("Command Hello exec not correct")
+	if result != "echome!" {
+		t.Fatalf("Command Hello exec not correct result: %v", result)
 	}
 	t.Logf("Exec result %v", result)
+	<-time.After(10 * time.Second)
 }

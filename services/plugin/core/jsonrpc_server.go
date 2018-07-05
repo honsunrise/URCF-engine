@@ -4,12 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"github.com/powerman/rpc-codec/jsonrpc2"
 	"github.com/prometheus/common/log"
 	"golang.org/x/net/websocket"
 	"net"
 	"net/http"
-	"net/rpc"
-	"net/rpc/jsonrpc"
 	"sync"
 	"time"
 )
@@ -18,13 +17,21 @@ var ErrCannotConnectTwice = errors.New("can't connect twice")
 
 type warpPlugin struct {
 	name      string
-	rpcClient *rpc.Client
+	rpcClient *jsonrpc2.Client
+}
+
+type commandParam struct {
+	Name   string   `json:"name"`
+	Params []string `json:"params"`
 }
 
 func (wp *warpPlugin) Command(name string, params []string) (string, error) {
 	rpcCli := wp.rpcClient
 	var result string
-	err := rpcCli.Call("Plugin.Command", nil, &result)
+	err := rpcCli.Call("Plugin.Command", &commandParam{
+		Name:   name,
+		Params: params,
+	}, &result)
 	if err != nil {
 		return "", err
 	}
@@ -34,7 +41,7 @@ func (wp *warpPlugin) Command(name string, params []string) (string, error) {
 func (wp *warpPlugin) GetHelp(name string) (string, error) {
 	rpcCli := wp.rpcClient
 	var help string
-	err := rpcCli.Call("Plugin.GetHelp", nil, &help)
+	err := rpcCli.Call("Plugin.GetHelp", name, &help)
 	if err != nil {
 		return "", err
 	}
@@ -66,7 +73,7 @@ type JsonRPCServer struct {
 	rpi          RegisterPluginInterface
 }
 
-func (s *JsonRPCServer) serverPlugin(rpcClient *rpc.Client) error {
+func (s *JsonRPCServer) serverPlugin(rpcClient *jsonrpc2.Client) error {
 	info := &PluginReportInfo{}
 	err := rpcClient.Call("Plugin.GetPluginInfo", nil, info)
 	if err != nil {
@@ -84,7 +91,7 @@ func (s *JsonRPCServer) serverPlugin(rpcClient *rpc.Client) error {
 		return err
 	}
 	for true {
-		<-time.After(30 * time.Second)
+		<-time.After(10 * time.Second)
 		var pong string
 		err := rpcClient.Call("Plugin.Ping", nil, &pong)
 		if err != nil {
@@ -96,7 +103,7 @@ func (s *JsonRPCServer) serverPlugin(rpcClient *rpc.Client) error {
 
 func (s *JsonRPCServer) Serve(lis net.Listener, TLS *tls.Config) error {
 	handler := websocket.Server{Handler: func(ws *websocket.Conn) {
-		rpcClient := jsonrpc.NewClient(ws)
+		rpcClient := jsonrpc2.NewClient(ws)
 		err := s.serverPlugin(rpcClient)
 		if err != nil {
 			log.Error(err)

@@ -1,7 +1,7 @@
 import time
 
 import plugin_sdk
-
+import sys
 
 class HelloWorld(plugin_sdk.Plugin):
     def __init__(self):
@@ -10,9 +10,9 @@ class HelloWorld(plugin_sdk.Plugin):
     def config(self, protocols, connect_addr):
         return 'JsonRPCProtocol', connect_addr['JsonRPCProtocol']
 
-    def command(self, name):
-        if name == "Hello":
-            return "World"
+    def command(self, name, params):
+        if name == "echo":
+            return params[0]
 
     def get_help(self, name):
         return "Hello"
@@ -25,7 +25,5 @@ class HelloWorld(plugin_sdk.Plugin):
 
 
 if __name__ == '__main__':
-    # We need to build a health service to work with go-plugin
     hello = HelloWorld()
     hello.run()
-    time.sleep(2)
