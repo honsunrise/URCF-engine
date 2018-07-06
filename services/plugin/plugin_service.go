@@ -248,7 +248,7 @@ func (s *pluginService) Command(name string, command string, params ...string) (
 	if pluginInterface, err := s._fsmHelper(name); err != nil {
 		return "", err
 	} else {
-		result, err := pluginInterface.Command(name, params)
+		result, err := pluginInterface.Command(command, params)
 		if err != nil {
 			return "", err
 		}
