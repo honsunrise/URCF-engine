@@ -4,8 +4,14 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
+	"os"
+	"path"
+	"strings"
+	"sync"
+
 	"github.com/kataras/iris/core/errors"
-	"github.com/looplab/fsm"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/repositories"
 	"github.com/zhsyourai/URCF-engine/repositories/plugin"
@@ -14,13 +20,6 @@ import (
 	"github.com/zhsyourai/URCF-engine/services/plugin/core"
 	"github.com/zhsyourai/URCF-engine/services/processes"
 	"github.com/zhsyourai/URCF-engine/utils"
-	"io"
-	"net"
-	"os"
-	"path"
-	"strings"
-	"sync"
-	"time"
 )
 
 const None = 0
@@ -113,8 +112,8 @@ func GetInstance() Service {
 }
 
 type pluginPair struct {
-	FSM             *fsm.FSM
-	PluginInterface core.PluginInterface
+	lock            sync.Mutex
+	pluginInterface core.PluginInterface
 	process         *models.Process
 }
 
@@ -207,10 +206,9 @@ func (s *pluginService) getListenAddress() map[models.Protocol]string {
 func (s *pluginService) Register(name string, plugin core.PluginInterface) error {
 	if result, ok := s.plugins.Load(name); ok {
 		pp := result.(*pluginPair)
-		err := pp.FSM.Event("startDone", plugin)
-		if err != nil {
-			return err
-		}
+		pp.lock.Lock()
+		defer pp.lock.Unlock()
+		pp.pluginInterface = plugin
 		return nil
 	} else {
 		return ErrPluginNotStarted
@@ -220,7 +218,9 @@ func (s *pluginService) Register(name string, plugin core.PluginInterface) error
 func (s *pluginService) IsRegister(name string) bool {
 	if result, ok := s.plugins.Load(name); ok {
 		pp := result.(*pluginPair)
-		return pp.FSM.Is("started")
+		pp.lock.Lock()
+		defer pp.lock.Unlock()
+		return pp.pluginInterface != nil
 	}
 	return false
 }
@@ -228,10 +228,9 @@ func (s *pluginService) IsRegister(name string) bool {
 func (s *pluginService) UnRegister(name string) error {
 	if result, ok := s.plugins.Load(name); ok {
 		pp := result.(*pluginPair)
-		err := pp.FSM.Event("stopDone")
-		if err != nil {
-			return err
-		}
+		pp.lock.Lock()
+		defer pp.lock.Unlock()
+		pp.pluginInterface = nil
 		return nil
 	} else {
 		return ErrPluginNotStarted
@@ -241,12 +240,13 @@ func (s *pluginService) UnRegister(name string) error {
 func (s *pluginService) _fsmHelper(name string) (core.PluginInterface, error) {
 	if v, ok := s.plugins.Load(name); ok {
 		pp := v.(*pluginPair)
-		if pp.FSM.Is("started") {
-			return pp.PluginInterface, nil
-		} else if pp.FSM.Is("starting") {
+		pp.lock.Lock()
+		defer pp.lock.Unlock()
+		if pp.pluginInterface != nil {
+			return pp.pluginInterface, nil
+		} else {
 			return nil, ErrPluginIsStarting
 		}
-		return nil, ErrPluginNotStarted
 	} else {
 		return nil, ErrPluginNotStarted
 	}
@@ -370,8 +370,14 @@ func (s *pluginService) InstallByReaderAt(readerAt io.ReaderAt, size int64,
 		return
 	}
 
+	_, err = s.repo.FindPluginByName(pluginFile.PluginManifest.Name)
+	if err == nil {
+		err = ErrPluginExist
+		return
+	}
+
 	confServ := global_configuration.GetGlobalConfig()
-	releasePath := path.Join(confServ.Get().Sys.PluginPath, pluginFile.PluginManifest.Name+"@"+
+	releasePath := path.Join(confServ.Get().Sys.PluginPath, pluginFile.PluginManifest.Name + "@"+
 		pluginFile.PluginManifest.Version)
 
 	err = pluginFile.ReleaseToDirectory(releasePath)
@@ -396,53 +402,6 @@ func (s *pluginService) InstallByReaderAt(readerAt io.ReaderAt, size int64,
 	}
 
 	return
-}
-
-func (s *pluginService) start(name string) error {
-	procServ := processes.GetInstance()
-	err := procServ.Start(name)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *pluginService) startDone(name string, pi core.PluginInterface) error {
-	procServ := processes.GetInstance()
-	result, _ := s.plugins.Load(name)
-	pp := result.(*pluginPair)
-	pp.PluginInterface = pi
-	go func() {
-		<-procServ.Wait(name)
-		result, _ := s.plugins.Load(name)
-		pp := result.(*pluginPair)
-		pp.FSM.Event("stopSelf")
-	}()
-	return nil
-}
-
-func (s *pluginService) stop(name string) error {
-	go func() {
-		time.Sleep(10 * time.Second)
-		result, _ := s.plugins.Load(name)
-		pp := result.(*pluginPair)
-		pp.FSM.Event("stopDone")
-	}()
-	procServ := processes.GetInstance()
-	err := procServ.Stop(name)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *pluginService) stopDone(name string) error {
-	s.plugins.Delete(name)
-	return nil
-}
-
-func (s *pluginService) stopSelf(name string) error {
-
 }
 
 func (s *pluginService) Start(name string) error {
@@ -477,51 +436,13 @@ func (s *pluginService) Start(name string) error {
 	pp := &pluginPair{
 		process: process,
 	}
-	pp.FSM = fsm.NewFSM("stopped",
-		fsm.Events{
-			{Name: "start", Src: []string{"stopped", "starting"}, Dst: "starting"},
-			{Name: "startDone", Src: []string{"starting", "started"}, Dst: "started"},
-			{Name: "stop", Src: []string{"started", "stopping"}, Dst: "stopping"},
-			{Name: "stopDone", Src: []string{"stopping", "stopped"}, Dst: "stopped"},
-			{Name: "stopSelf", Src: []string{"started"}, Dst: "stopped"},
-		},
-		fsm.Callbacks{
-			"leave_stopped": func(e *fsm.Event) {
-				err := s.start(name)
-				if err != nil {
-					e.Cancel(err)
-				}
-			},
-			"leave_starting": func(e *fsm.Event) {
-				pi := e.Args[0].(core.PluginInterface)
-				err := s.startDone(name, pi)
-				if err != nil {
-					e.Cancel(err)
-				}
-			},
-			"enter_stopping": func(e *fsm.Event) {
-				err := s.stop(name)
-				if err != nil {
-					e.Cancel(err)
-				}
-			},
-			"leave_stopping": func(e *fsm.Event) {
-				err := s.stopDone(name)
-				if err != nil {
-					e.Cancel(err)
-				}
-			},
-			"before_stopSelf": func(e *fsm.Event) {
 
-			},
-		},
-	)
 	_, loaded = s.plugins.LoadOrStore(p.Name, pp)
 	if loaded {
 		return ErrPluginHasBeenStarted
 	}
 
-	err = pp.FSM.Event("start")
+	err = procServ.Start(name)
 	if err != nil {
 		return err
 	}
@@ -532,7 +453,12 @@ func (s *pluginService) Stop(name string) error {
 	result, loaded := s.plugins.Load(name)
 	if loaded {
 		pp := result.(*pluginPair)
-		err := pp.FSM.Event("stop")
+		pp.lock.Lock()
+		defer pp.lock.Unlock()
+		defer s.plugins.Delete(name)
+		pp.pluginInterface = nil
+		procServ := processes.GetInstance()
+		err := procServ.Stop(name)
 		if err != nil {
 			return err
 		}
