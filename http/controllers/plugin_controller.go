@@ -5,7 +5,6 @@ import (
 	"github.com/zhsyourai/URCF-engine/http/controllers/shard"
 	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
 	"github.com/zhsyourai/URCF-engine/services/plugin"
-	"github.com/zhsyourai/URCF-engine/utils/async"
 	"net/http"
 )
 
@@ -64,11 +63,12 @@ func (c *PluginController) GetPluginHandler(ctx *gin.Context) {
 
 func (c *PluginController) GetPluginCommandsHandler(ctx *gin.Context) {
 	nameStr := ctx.Param("name")
-	c.service.ListCommand(nameStr).Subscribe(async.ErrFunc(func(err error) {
+	result, err := c.service.ListCommand(nameStr)
+	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
-	}), async.ResultFunc(func(result interface{}) {
+	} else {
 		ctx.JSON(http.StatusOK, result)
-	}))
+	}
 }
 
 func (c *PluginController) ExecPluginCommandHandler(ctx *gin.Context) {
@@ -76,13 +76,12 @@ func (c *PluginController) ExecPluginCommandHandler(ctx *gin.Context) {
 	commandStr := ctx.Param("command")
 	params := ctx.QueryArray("params")
 
-	c.service.Command(nameStr, commandStr, params...).Subscribe(async.ErrFunc(func(err error) {
+	result, err := c.service.Command(nameStr, commandStr, params...)
+	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
-	}), async.ResultFunc(func(result interface{}) {
-		ctx.JSON(http.StatusOK, shard.PluginCommandExecResult{
-			Result: result.(string),
-		})
-	}))
+	} else {
+		ctx.JSON(http.StatusOK, result)
+	}
 }
 
 func (c *PluginController) ListPluginHandler(ctx *gin.Context) {

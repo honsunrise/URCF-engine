@@ -62,50 +62,56 @@ func (wp *warpPlugin) ListCommand() ([]string, error) {
 type JsonRPCFactory struct{}
 
 func (JsonRPCFactory) New(rpi RegisterPluginInterface) (ServerInterface, error) {
-	return &JsonRPCServer{
+	server := &JsonRPCServer{
 		rpi: rpi,
-	}, nil
+	}
+	return server, nil
 }
 
 type JsonRPCServer struct {
-	rpcClientMap sync.Map
-	httpServer   *http.Server
-	rpi          RegisterPluginInterface
+	plugins    sync.Map
+	httpServer *http.Server
+	rpi        RegisterPluginInterface
 }
 
-func (s *JsonRPCServer) serverPlugin(rpcClient *jsonrpc2.Client) error {
+func (s *JsonRPCServer) serverPlugin(rpcClient *jsonrpc2.Client) (string, error) {
 	info := &PluginReportInfo{}
 	err := rpcClient.Call("Plugin.GetPluginInfo", nil, info)
 	if err != nil {
-		return err
+		return "", err
 	}
-	_, loaded := s.rpcClientMap.LoadOrStore(info.Name, rpcClient)
+	_, loaded := s.plugins.Load(info.Name)
 	if loaded {
-		return ErrCannotConnectTwice
+		return info.Name, ErrCannotConnectTwice
 	}
-	err = s.rpi.Register(info.Name, &warpPlugin{
+	wp := &warpPlugin{
 		name:      info.Name,
 		rpcClient: rpcClient,
-	})
-	if err != nil {
-		return err
 	}
+	err = s.rpi.Register(info.Name, wp)
+	if err != nil {
+		return info.Name, err
+	}
+	s.plugins.Store(info.Name, wp)
 	for true {
 		<-time.After(10 * time.Second)
 		var pong string
 		err := rpcClient.Call("Plugin.Ping", nil, &pong)
 		if err != nil {
-			return err
+			return info.Name, err
 		}
 	}
-	return nil
+	return info.Name, nil
 }
 
 func (s *JsonRPCServer) Serve(lis net.Listener, TLS *tls.Config) error {
 	handler := websocket.Server{Handler: func(ws *websocket.Conn) {
 		rpcClient := jsonrpc2.NewClient(ws)
-		err := s.serverPlugin(rpcClient)
+		pluginName, err := s.serverPlugin(rpcClient)
 		if err != nil {
+			if _, ok := s.plugins.Load(pluginName); ok {
+				s.rpi.UnRegister(pluginName)
+			}
 			log.Error(err)
 		}
 	}}

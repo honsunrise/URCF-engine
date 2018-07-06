@@ -1,9 +1,11 @@
 package plugin
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/kataras/iris/core/errors"
+	"github.com/looplab/fsm"
 	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/repositories"
 	"github.com/zhsyourai/URCF-engine/repositories/plugin"
@@ -12,12 +14,13 @@ import (
 	"github.com/zhsyourai/URCF-engine/services/plugin/core"
 	"github.com/zhsyourai/URCF-engine/services/processes"
 	"github.com/zhsyourai/URCF-engine/utils"
-	"github.com/zhsyourai/URCF-engine/utils/async"
 	"io"
+	"net"
 	"os"
 	"path"
 	"strings"
 	"sync"
+	"time"
 )
 
 const None = 0
@@ -36,7 +39,9 @@ const (
 
 var (
 	ErrPluginHasBeenStarted = errors.New("Plugin has been started")
-	ErrPluginNotRun         = errors.New("Plugin is not running")
+	ErrPluginNotStarted     = errors.New("Plugin is not started")
+	ErrPluginIsStarting     = errors.New("Plugin is starting")
+	ErrPluginExist          = errors.New("plugin exist")
 )
 
 func ParseInstallFlag(option string) (ret InstallFlag, err error) {
@@ -86,9 +91,9 @@ type Service interface {
 	InstallByReaderAt(readerAt io.ReaderAt, size int64, flag InstallFlag) (models.Plugin, error)
 	Start(name string) error
 	Stop(name string) error
-	Command(pluginName string, name string, params ...string) async.AsyncRet
-	GetHelp(pluginName string, name string) async.AsyncRet
-	ListCommand(pluginName string) async.AsyncRet
+	Command(pluginName string, name string, params ...string) (string, error)
+	GetHelp(pluginName string, name string) (string, error)
+	ListCommand(pluginName string) ([]string, error)
 }
 
 var instance *pluginService
@@ -98,84 +103,181 @@ func GetInstance() Service {
 	once.Do(func() {
 		instance = &pluginService{
 			repo: plugin.NewPluginRepository(),
+			supportProtocols: map[models.Protocol]core.ServerFactory{
+				models.JsonRPCProtocol: &core.JsonRPCFactory{},
+			},
+			protocols: make(map[models.Protocol]core.ServerInterface),
 		}
 	})
 	return instance
 }
 
+type pluginPair struct {
+	FSM             *fsm.FSM
+	PluginInterface core.PluginInterface
+	process         *models.Process
+}
+
 type pluginService struct {
 	services.InitHelper
-	server     *core.Server
-	processMap sync.Map
-	repo       plugin.Repository
-}
-
-func (s *pluginService) Command(pluginName string, name string, params ...string) async.AsyncRet {
-	return async.From(func() interface{} {
-		pluginInterface, err := s.server.GetPlugin(pluginName)
-		if err != nil {
-			return err
-		}
-		result, err := pluginInterface.Command(name, params)
-		if err != nil {
-			return err
-		}
-		return result
-	})
-}
-
-func (s *pluginService) GetHelp(pluginName string, name string) async.AsyncRet {
-	return async.From(func() interface{} {
-		pluginInterface, err := s.server.GetPlugin(pluginName)
-		if err != nil {
-			return err
-		}
-		result, err := pluginInterface.GetHelp(name)
-		if err != nil {
-			return err
-		}
-		return result
-	})
-}
-
-func (s *pluginService) ListCommand(pluginName string) async.AsyncRet {
-	return async.From(func() interface{} {
-		pluginInterface, err := s.server.GetPlugin(pluginName)
-		if err != nil {
-			return err
-		}
-		result, err := pluginInterface.ListCommand()
-		if err != nil {
-			return err
-		}
-		return result
-	})
+	repo             plugin.Repository
+	supportProtocols map[models.Protocol]core.ServerFactory
+	protocols        map[models.Protocol]core.ServerInterface
+	plugins          sync.Map
+	config           global_configuration.ServerConfig
 }
 
 func (s *pluginService) Initialize(arguments ...interface{}) error {
 	return s.CallInitialize(func() error {
-		var err error
-		s.server, err = core.NewServer(core.DefaultServerConfig)
-		if err != nil {
-			return err
+		s.config = global_configuration.GetGlobalConfig().Get().PluginServer
+		if s.config.UsedProtocols == nil || len(s.config.Address) == 0 {
+			s.config.UsedProtocols = models.Protocols{
+				models.JsonRPCProtocol,
+			}
 		}
-		err = s.server.Start()
-		if err != nil {
-			return err
+
+		if s.config.Address == nil || len(s.config.Address) == 0 {
+			s.config.Address = make(map[models.Protocol]net.Listener)
+			for _, protocol := range s.config.UsedProtocols {
+				addr, err := Listener(true)
+				if err != nil {
+					return err
+				}
+				s.config.Address[protocol] = addr
+			}
 		}
-		return err
+
+		if s.config.TLS == nil {
+			s.config.TLS = make(map[models.Protocol]*tls.Config)
+		}
+
+		for _, protocol := range s.config.UsedProtocols {
+			factory := s.supportProtocols[protocol]
+			if factory != nil {
+				instance, err := s.supportProtocols[protocol].New(s)
+				if err != nil {
+					return err
+				}
+				if s.config.TLS[protocol] != nil {
+					err := instance.Serve(s.config.Address[protocol], s.config.TLS[protocol])
+					if err != nil {
+						return err
+					}
+				} else {
+					err := instance.Serve(s.config.Address[protocol], nil)
+					if err != nil {
+						return err
+					}
+				}
+				s.protocols[protocol] = instance
+			} else {
+				panic(errors.New("protocol not support"))
+			}
+		}
+		return nil
 	})
 }
 
 func (s *pluginService) UnInitialize(arguments ...interface{}) error {
 	return s.CallUnInitialize(func() error {
-		var err error
-		err = s.server.Stop()
+		var err error = nil
+		for _, protocol := range s.config.UsedProtocols {
+			err1 := s.protocols[protocol].Stop()
+			if err1 != nil {
+				err = err1
+			}
+			delete(s.protocols, protocol)
+		}
+		s.plugins.Range(func(key, value interface{}) bool {
+			s.plugins.Delete(key)
+			return true
+		})
+		return err
+	})
+}
+
+func (s *pluginService) getListenAddress() map[models.Protocol]string {
+	ret := make(map[models.Protocol]string, 10)
+	for k, v := range s.config.Address {
+		ret[k] = utils.CovertToSchemeAddress(v.Addr())
+	}
+	return ret
+}
+
+func (s *pluginService) Register(name string, plugin core.PluginInterface) error {
+	if result, ok := s.plugins.Load(name); ok {
+		pp := result.(*pluginPair)
+		err := pp.FSM.Event("startDone", plugin)
 		if err != nil {
 			return err
 		}
-		return err
-	})
+		return nil
+	} else {
+		return ErrPluginNotStarted
+	}
+}
+
+func (s *pluginService) UnRegister(name string) error {
+	if result, ok := s.plugins.Load(name); ok {
+		pp := result.(*pluginPair)
+		err := pp.FSM.Event("stopDone")
+		if err != nil {
+			return err
+		}
+		return nil
+	} else {
+		return ErrPluginNotStarted
+	}
+}
+
+func (s *pluginService) _fsmHelper(name string) (core.PluginInterface, error) {
+	if v, ok := s.plugins.Load(name); ok {
+		pp := v.(*pluginPair)
+		if pp.FSM.Is("started") {
+			return pp.PluginInterface, nil
+		} else if pp.FSM.Is("starting") {
+			return nil, ErrPluginIsStarting
+		}
+		return nil, ErrPluginNotStarted
+	} else {
+		return nil, ErrPluginNotStarted
+	}
+}
+
+func (s *pluginService) Command(name string, command string, params ...string) (string, error) {
+	if pluginInterface, err := s._fsmHelper(name); err != nil {
+		return "", err
+	} else {
+		result, err := pluginInterface.Command(name, params)
+		if err != nil {
+			return "", err
+		}
+		return result, nil
+	}
+}
+
+func (s *pluginService) GetHelp(name string, command string) (string, error) {
+	if pluginInterface, err := s._fsmHelper(name); err != nil {
+		return "", err
+	} else {
+		result, err := pluginInterface.GetHelp(command)
+		if err != nil {
+			return "", err
+		}
+		return result, nil
+	}
+}
+
+func (s *pluginService) ListCommand(name string) ([]string, error) {
+	if pluginInterface, err := s._fsmHelper(name); err != nil {
+		return nil, err
+	} else {
+		result, err := pluginInterface.ListCommand()
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
 }
 
 func (s *pluginService) ListAll(page uint32, size uint32, sort string, order string) (total int64, plugins []models.Plugin,
@@ -288,16 +390,52 @@ func (s *pluginService) InstallByReaderAt(readerAt io.ReaderAt, size int64,
 	return
 }
 
+func (s *pluginService) start(name string) error {
+	procServ := processes.GetInstance()
+	err := procServ.Start(name)
+	if err != nil {
+		return err
+	}
+	go func() {
+		<-procServ.Wait(name)
+		result, _ := s.plugins.Load(name)
+		pp := result.(*pluginPair)
+		pp.FSM.Event("stopDone")
+	}()
+	return nil
+}
+
+func (s *pluginService) stop(name string) error {
+	go func() {
+		time.Sleep(10 * time.Second)
+		result, _ := s.plugins.Load(name)
+		pp := result.(*pluginPair)
+		pp.FSM.Event("stopDone")
+	}()
+	procServ := processes.GetInstance()
+	err := procServ.Stop(name)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *pluginService) stopDone(name string) error {
+	s.plugins.Delete(name)
+	return nil
+}
+
 func (s *pluginService) Start(name string) error {
+	config := global_configuration.GetGlobalConfig().Get().PluginServer
 	p, err := s.repo.FindPluginByName(name)
 	if err != nil {
 		return err
 	}
-	_, loaded := s.processMap.Load(p.Name)
+	_, loaded := s.plugins.Load(p.Name)
 	if loaded {
 		return ErrPluginHasBeenStarted
 	}
-	listenAddr := s.server.GetListenAddress()
+	listenAddr := s.getListenAddress()
 	jsonListenAddr, err := json.Marshal(listenAddr)
 	if err != nil {
 		return err
@@ -305,7 +443,7 @@ func (s *pluginService) Start(name string) error {
 	enterPoint := strings.Split(p.EnterPoint, " ")
 	env := make(map[string]string)
 	env[EnvPluginConnectAddress] = string(jsonListenAddr)
-	env[EnvSupportRpcProtocol] = s.server.GetUsedProtocol().String()
+	env[EnvSupportRpcProtocol] = config.UsedProtocols.String()
 	env[EnvInstallVersion] = p.Version.String()
 
 	procServ := processes.GetInstance()
@@ -316,29 +454,71 @@ func (s *pluginService) Start(name string) error {
 	} else if err == processes.ProcessExist {
 		process = procServ.FindByName(p.Name)
 	}
-	_, loaded = s.processMap.LoadOrStore(p.Name, process)
+	pp := &pluginPair{
+		process: process,
+	}
+	pp.FSM = fsm.NewFSM("stopped",
+		fsm.Events{
+			{Name: "start", Src: []string{"stopped", "starting"}, Dst: "starting"},
+			{Name: "startDone", Src: []string{"starting", "started"}, Dst: "started"},
+			{Name: "stop", Src: []string{"started", "stopping"}, Dst: "stopping"},
+			{Name: "stopDone", Src: []string{"started", "stopping", "stopped"}, Dst: "stopped"},
+		},
+		fsm.Callbacks{
+			"leave_stopped": func(e *fsm.Event) {
+				err := s.start(name)
+				if err != nil {
+					e.Cancel(err)
+				}
+			},
+			"leave_starting": func(e *fsm.Event) {
+				pi := e.Args[0].(core.PluginInterface)
+				pp.PluginInterface = pi
+			},
+			"leave_started": func(e *fsm.Event) {
+				if e.Dst == "stopping" {
+					err := s.stop(name)
+					if err != nil {
+						e.Cancel(err)
+					}
+				} else {
+					err := s.stopDone(name)
+					if err != nil {
+						e.Cancel(err)
+					}
+				}
+			},
+			"leave_stopping": func(e *fsm.Event) {
+				err := s.stopDone(name)
+				if err != nil {
+					e.Cancel(err)
+				}
+			},
+		},
+	)
+	_, loaded = s.plugins.LoadOrStore(p.Name, pp)
 	if loaded {
 		return ErrPluginHasBeenStarted
 	}
 
-	err = procServ.Start(p.Name)
+	err = pp.FSM.Event("start")
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
 func (s *pluginService) Stop(name string) error {
-	_, loaded := s.processMap.Load(name)
+	result, loaded := s.plugins.Load(name)
 	if loaded {
-		procServ := processes.GetInstance()
-		err := procServ.Stop(name)
+		pp := result.(*pluginPair)
+		err := pp.FSM.Event("stop")
 		if err != nil {
 			return err
 		}
+		return nil
 	} else {
-		return ErrPluginNotRun
+		return ErrPluginNotStarted
 	}
 	return nil
 }

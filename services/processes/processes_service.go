@@ -194,6 +194,7 @@ func (s *processesService) init(name string) error {
 	pp.procAttr = procAttr
 	pp.finalArgs = append([]string{proc.Cmd}, proc.Args...)
 	pp.exitWaitGroup.Add(1)
+	pp.restartWaitGroup.Add(1)
 	needRelease = false
 	return nil
 }
@@ -496,11 +497,8 @@ func (s *processesService) WaitRestart(name string) <-chan error {
 	pp := result.(*processPair)
 
 	go func() {
-		for true {
-			pp.restartWaitGroup.Wait()
-			ret <- nil
-			pp.restartWaitGroup.Add(1)
-		}
+		pp.restartWaitGroup.Wait()
+		ret <- nil
 	}()
 
 	return ret

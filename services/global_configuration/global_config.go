@@ -1,10 +1,13 @@
 package global_configuration
 
 import (
+	"crypto/tls"
 	log "github.com/sirupsen/logrus"
+	"github.com/zhsyourai/URCF-engine/models"
 	"github.com/zhsyourai/URCF-engine/services"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"net"
 	"os"
 	"sync"
 )
@@ -40,9 +43,16 @@ type Sys struct {
 	PluginWebs   string `yaml:"plugin-webs"`
 }
 
+type ServerConfig struct {
+	Address       map[models.Protocol]net.Listener
+	TLS           map[models.Protocol]*tls.Config
+	UsedProtocols models.Protocols
+}
+
 type GlobalConfig struct {
-	Rpc Rpc
-	Sys Sys
+	Rpc          Rpc
+	Sys          Sys
+	PluginServer ServerConfig
 }
 
 type Service interface {

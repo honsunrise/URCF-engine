@@ -2,8 +2,14 @@ package core
 
 import (
 	"crypto/tls"
+	"github.com/zhsyourai/URCF-engine/utils"
 	"net"
 )
+
+type PluginReportInfo struct {
+	Name    string                `json:"name"`
+	Version utils.SemanticVersion `json:"version"`
+}
 
 type PluginInterface interface {
 	Command(name string, params []string) (string, error)
@@ -18,6 +24,7 @@ type ServerInterface interface {
 
 type RegisterPluginInterface interface {
 	Register(name string, plugin PluginInterface) error
+	UnRegister(name string) error
 }
 
 type ServerFactory interface {
