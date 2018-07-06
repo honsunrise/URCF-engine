@@ -80,7 +80,9 @@ func (c *PluginController) ExecPluginCommandHandler(ctx *gin.Context) {
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		ctx.JSON(http.StatusOK, result)
+		ctx.JSON(http.StatusOK, &shard.PluginCommandExecResult{
+			Result: result,
+		})
 	}
 }
 
