@@ -9,7 +9,6 @@ import (
 	"golang.org/x/net/websocket"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 )
 
@@ -69,7 +68,6 @@ func (JsonRPCFactory) New(rpi RegisterPluginInterface) (ServerInterface, error) 
 }
 
 type JsonRPCServer struct {
-	plugins    sync.Map
 	httpServer *http.Server
 	rpi        RegisterPluginInterface
 }
@@ -80,8 +78,7 @@ func (s *JsonRPCServer) serverPlugin(rpcClient *jsonrpc2.Client) (string, error)
 	if err != nil {
 		return "", err
 	}
-	_, loaded := s.plugins.Load(info.Name)
-	if loaded {
+	if s.rpi.IsRegister(info.Name) {
 		return info.Name, ErrCannotConnectTwice
 	}
 	wp := &warpPlugin{
@@ -92,7 +89,7 @@ func (s *JsonRPCServer) serverPlugin(rpcClient *jsonrpc2.Client) (string, error)
 	if err != nil {
 		return info.Name, err
 	}
-	s.plugins.Store(info.Name, wp)
+
 	for true {
 		<-time.After(10 * time.Second)
 		var pong string
@@ -109,7 +106,7 @@ func (s *JsonRPCServer) Serve(lis net.Listener, TLS *tls.Config) error {
 		rpcClient := jsonrpc2.NewClient(ws)
 		pluginName, err := s.serverPlugin(rpcClient)
 		if err != nil {
-			if _, ok := s.plugins.Load(pluginName); ok {
+			if s.rpi.IsRegister(pluginName) {
 				s.rpi.UnRegister(pluginName)
 			}
 			log.Error(err)

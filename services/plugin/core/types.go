@@ -25,6 +25,7 @@ type ServerInterface interface {
 type RegisterPluginInterface interface {
 	Register(name string, plugin PluginInterface) error
 	UnRegister(name string) error
+	IsRegister(name string) bool
 }
 
 type ServerFactory interface {

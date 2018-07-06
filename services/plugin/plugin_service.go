@@ -217,6 +217,14 @@ func (s *pluginService) Register(name string, plugin core.PluginInterface) error
 	}
 }
 
+func (s *pluginService) IsRegister(name string) bool {
+	if result, ok := s.plugins.Load(name); ok {
+		pp := result.(*pluginPair)
+		return pp.FSM.Is("started")
+	}
+	return false
+}
+
 func (s *pluginService) UnRegister(name string) error {
 	if result, ok := s.plugins.Load(name); ok {
 		pp := result.(*pluginPair)
@@ -396,11 +404,19 @@ func (s *pluginService) start(name string) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (s *pluginService) startDone(name string, pi core.PluginInterface) error {
+	procServ := processes.GetInstance()
+	result, _ := s.plugins.Load(name)
+	pp := result.(*pluginPair)
+	pp.PluginInterface = pi
 	go func() {
 		<-procServ.Wait(name)
 		result, _ := s.plugins.Load(name)
 		pp := result.(*pluginPair)
-		pp.FSM.Event("stopDone")
+		pp.FSM.Event("stopSelf")
 	}()
 	return nil
 }
@@ -423,6 +439,10 @@ func (s *pluginService) stop(name string) error {
 func (s *pluginService) stopDone(name string) error {
 	s.plugins.Delete(name)
 	return nil
+}
+
+func (s *pluginService) stopSelf(name string) error {
+
 }
 
 func (s *pluginService) Start(name string) error {
@@ -462,7 +482,8 @@ func (s *pluginService) Start(name string) error {
 			{Name: "start", Src: []string{"stopped", "starting"}, Dst: "starting"},
 			{Name: "startDone", Src: []string{"starting", "started"}, Dst: "started"},
 			{Name: "stop", Src: []string{"started", "stopping"}, Dst: "stopping"},
-			{Name: "stopDone", Src: []string{"started", "stopping", "stopped"}, Dst: "stopped"},
+			{Name: "stopDone", Src: []string{"stopping", "stopped"}, Dst: "stopped"},
+			{Name: "stopSelf", Src: []string{"started"}, Dst: "stopped"},
 		},
 		fsm.Callbacks{
 			"leave_stopped": func(e *fsm.Event) {
@@ -473,19 +494,15 @@ func (s *pluginService) Start(name string) error {
 			},
 			"leave_starting": func(e *fsm.Event) {
 				pi := e.Args[0].(core.PluginInterface)
-				pp.PluginInterface = pi
+				err := s.startDone(name, pi)
+				if err != nil {
+					e.Cancel(err)
+				}
 			},
-			"leave_started": func(e *fsm.Event) {
-				if e.Dst == "stopping" {
-					err := s.stop(name)
-					if err != nil {
-						e.Cancel(err)
-					}
-				} else {
-					err := s.stopDone(name)
-					if err != nil {
-						e.Cancel(err)
-					}
+			"enter_stopping": func(e *fsm.Event) {
+				err := s.stop(name)
+				if err != nil {
+					e.Cancel(err)
 				}
 			},
 			"leave_stopping": func(e *fsm.Event) {
@@ -493,6 +510,9 @@ func (s *pluginService) Start(name string) error {
 				if err != nil {
 					e.Cancel(err)
 				}
+			},
+			"before_stopSelf": func(e *fsm.Event) {
+
 			},
 		},
 	)
