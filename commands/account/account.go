@@ -2,7 +2,7 @@ package account
 
 import (
 	"fmt"
-	"github.com/zhsyourai/URCF-engine/rpc/client"
+	"github.com/zhsyourai/URCF-engine/api/rpc/client"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 

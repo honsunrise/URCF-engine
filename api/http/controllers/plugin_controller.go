@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/zhsyourai/URCF-engine/http/controllers/shard"
-	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
+	"github.com/zhsyourai/URCF-engine/api/http/controllers/shard"
+	"github.com/zhsyourai/URCF-engine/api/http/gin-jwt"
 	"github.com/zhsyourai/URCF-engine/services/plugin"
 	"net/http"
 )
@@ -24,12 +24,13 @@ type PluginController struct {
 func (c *PluginController) Handler(root *gin.RouterGroup) {
 	root.GET("", c.ListPluginHandler)
 	root.GET("/:name", c.GetPluginHandler)
+	root.POST("", c.InstallPluginHandler)
+	root.DELETE("", c.UninstallPluginHandler)
+
 	root.GET("/:name/commands", c.GetPluginCommandsHandler)
 	root.GET("/:name/start", c.StartPluginHandler)
 	root.GET("/:name/stop", c.StopPluginHandler)
 	root.POST("/:name/:command", c.ExecPluginCommandHandler)
-	root.POST("", c.InstallPluginHandler)
-	root.DELETE("", c.UninstallPluginHandler)
 }
 
 func (c *PluginController) StartPluginHandler(ctx *gin.Context) {

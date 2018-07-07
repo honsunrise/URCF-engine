@@ -3,7 +3,7 @@ package controllers
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/kataras/iris/core/errors"
-	"github.com/zhsyourai/URCF-engine/http/controllers/shard"
+	"github.com/zhsyourai/URCF-engine/api/http/controllers/shard"
 	"github.com/zhsyourai/URCF-engine/services/configuration"
 	"net/http"
 )

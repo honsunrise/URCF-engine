@@ -2,7 +2,7 @@ package controllers
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
+	"github.com/zhsyourai/URCF-engine/api/http/gin-jwt"
 	"github.com/zhsyourai/URCF-engine/services/plugin"
 	"github.com/zhsyourai/URCF-engine/utils"
 	"net/http"

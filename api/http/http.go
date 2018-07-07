@@ -11,9 +11,9 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/secure"
 	"github.com/gin-gonic/gin"
+	"github.com/zhsyourai/URCF-engine/api/http/controllers"
+	"github.com/zhsyourai/URCF-engine/api/http/gin-jwt"
 	"github.com/zhsyourai/URCF-engine/config"
-	"github.com/zhsyourai/URCF-engine/http/controllers"
-	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
 	"net/http"
 )
 

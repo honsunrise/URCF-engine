@@ -3,8 +3,8 @@ package controllers
 import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"github.com/zhsyourai/URCF-engine/http/controllers/shard"
-	"github.com/zhsyourai/URCF-engine/http/gin-jwt"
+	"github.com/zhsyourai/URCF-engine/api/http/controllers/shard"
+	"github.com/zhsyourai/URCF-engine/api/http/gin-jwt"
 	"github.com/zhsyourai/URCF-engine/services/account"
 	"net/http"
 	"time"

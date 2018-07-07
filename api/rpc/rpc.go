@@ -2,7 +2,7 @@ package rpc
 
 import (
 	log "github.com/sirupsen/logrus"
-	"github.com/zhsyourai/URCF-engine/rpc/server"
+	"github.com/zhsyourai/URCF-engine/api/rpc/server"
 	"github.com/zhsyourai/URCF-engine/services/global_configuration"
 	"net"
 	"net/http"
