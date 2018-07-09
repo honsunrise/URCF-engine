@@ -108,7 +108,7 @@ func start() (err error) {
 	pluginServ := plugin.GetInstance()
 	pluginServ.Initialize()
 	go func() {
-		err = rpc.StartRPCServer()
+		err = ipc.StartRPCServer()
 	}()
 	go func() {
 		err = http.StartHTTPServer()
@@ -117,7 +117,7 @@ func start() (err error) {
 }
 
 func stop() (err error) {
-	err = rpc.StopRPCServer()
+	err = ipc.StopRPCServer()
 	err = http.StopHTTPServer()
 	pluginServ := plugin.GetInstance()
 	pluginServ.UnInitialize()
