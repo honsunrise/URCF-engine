@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 
 	"github.com/looplab/fsm"
@@ -46,6 +47,7 @@ type processPair struct {
 	FSM              *fsm.FSM
 	exitWaitGroup    sync.WaitGroup
 	restartWaitGroup sync.WaitGroup
+	firstRun         atomic.Value
 }
 
 func (pp *processPair) Wait() *os.ProcessState {
@@ -329,9 +331,14 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 					if err != nil {
 						e.Cancel(err)
 					}
-					pp.restartWaitGroup.Done()
 				},
 				"enter_running": func(e *fsm.Event) {
+					if !pp.firstRun.Load().(bool) {
+						pp.proc.Statistics.AddRestart()
+						pp.restartWaitGroup.Done()
+					} else {
+						pp.firstRun.Store(false)
+					}
 					pp.proc.State = models.Running
 				},
 				"before_stop": func(e *fsm.Event) {
@@ -361,12 +368,12 @@ func (s *processesService) Prepare(name string, workDir string, cmd string, args
 		),
 	}
 
+	pp.firstRun.Store(true)
 	_, loaded = s.procMap.LoadOrStore(name, pp)
 	if loaded {
 		return nil, ProcessExist
 	}
 
-	pp.restartWaitGroup.Add(1)
 	err := pp.FSM.Event("init")
 	if err != nil {
 		return nil, err
@@ -442,7 +449,6 @@ func (s *processesService) Restart(name string) error {
 	if err != nil {
 		return err
 	}
-	pp.proc.Statistics.AddRestart()
 	return nil
 }
 
