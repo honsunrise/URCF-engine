@@ -91,7 +91,7 @@ func formatName(name string) string {
 // suitableCallbacks iterates over the methods of the given type. It will determine if a method satisfies the criteria
 // for a RPC callback or a subscription callback and adds it to the collection of callbacks or subscriptions. See server
 // documentation for a summary of these criteria.
-func suitableCallbacks(rcvr reflect.Value, typ reflect.Type) (callbacks, subscriptions) {
+func suitableCallbacks(rcvr interface{}) (callbacks, subscriptions) {
 	callbacks := make(callbacks)
 	subscriptions := make(subscriptions)
 

@@ -3,15 +3,13 @@ package api
 import (
 	"context"
 	"fmt"
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/fatih/set.v0"
 	"reflect"
 	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
-
-	log "github.com/sirupsen/logrus"
-	"gopkg.in/fatih/set.v0"
 )
 
 const MetadataApi = "rpc"
@@ -58,14 +56,7 @@ func (s *RPCService) Modules() map[string]string {
 	return modules
 }
 
-// RegisterName will create a service for the given rcvr type under the given name. When no methods on the given rcvr
-// match the criteria to be either a RPC method or a subscription an error is returned. Otherwise a new service is
-// created and added to the service collection this server instance serves.
 func (s *Server) RegisterName(name string, rcvr interface{}) error {
-	if s.services == nil {
-		s.services = make(serviceRegistry)
-	}
-
 	svc := new(service)
 	svc.typ = reflect.TypeOf(rcvr)
 	rcvrVal := reflect.ValueOf(rcvr)
@@ -77,18 +68,18 @@ func (s *Server) RegisterName(name string, rcvr interface{}) error {
 		return fmt.Errorf("%s is not exported", reflect.Indirect(rcvrVal).Type().Name())
 	}
 
-	methods, subscriptions := suitableCallbacks(rcvrVal, svc.typ)
+	methods, subscriptions := suitableCallbacks(rcvr)
 
 	// already a previous service register under given sname, merge methods/subscriptions
-	if regsvc, present := s.services[name]; present {
+	if regSvc, present := s.services[name]; present {
 		if len(methods) == 0 && len(subscriptions) == 0 {
 			return fmt.Errorf("Service %T doesn't have any suitable methods/subscriptions to expose", rcvr)
 		}
 		for _, m := range methods {
-			regsvc.callbacks[formatName(m.method.Name)] = m
+			regSvc.callbacks[formatName(m.method.Name)] = m
 		}
 		for _, s := range subscriptions {
-			regsvc.subscriptions[formatName(s.method.Name)] = s
+			regSvc.subscriptions[formatName(s.method.Name)] = s
 		}
 		return nil
 	}
