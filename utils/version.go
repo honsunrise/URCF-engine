@@ -173,56 +173,56 @@ func arrayCompare(this []string, other []string) int {
 	}
 }
 
-func (semVer *SemanticVersion) String() string {
+func (ver *SemanticVersion) String() string {
 	var ret string
-	ret += strconv.FormatInt(int64(semVer.Major), 10)
+	ret += strconv.FormatInt(int64(ver.Major), 10)
 	ret += "."
-	ret += strconv.FormatInt(int64(semVer.Minor), 10)
+	ret += strconv.FormatInt(int64(ver.Minor), 10)
 	ret += "."
-	ret += strconv.FormatInt(int64(semVer.Patch), 10)
-	if len(semVer.PreRelease) > 0 {
+	ret += strconv.FormatInt(int64(ver.Patch), 10)
+	if len(ver.PreRelease) > 0 {
 		ret += "-"
-		ret += strings.Join(semVer.PreRelease, ".")
+		ret += strings.Join(ver.PreRelease, ".")
 	}
-	if len(semVer.Build) > 0 {
+	if len(ver.Build) > 0 {
 		ret += "+"
-		ret += strings.Join(semVer.Build, ".")
+		ret += strings.Join(ver.Build, ".")
 	}
 	return ret
 }
 
-func (semVer *SemanticVersion) DetailCompare(other *SemanticVersion) DetailCompareResult {
-	if !other.valid || !semVer.valid {
+func (ver *SemanticVersion) DetailCompare(other *SemanticVersion) DetailCompareResult {
+	if !other.valid || !ver.valid {
 		panic(errors.New("invalid SemanticVersion can't compare"))
 	}
 	var result DetailCompareResult = NoDifferent
 
-	if semVer.Major < other.Major {
+	if ver.Major < other.Major {
 		result |= MajorLT
-	} else if semVer.Major > other.Major {
+	} else if ver.Major > other.Major {
 		result |= MajorGT
 	}
 
-	if semVer.Minor < other.Minor {
+	if ver.Minor < other.Minor {
 		result |= MinorLT
-	} else if semVer.Minor > other.Minor {
+	} else if ver.Minor > other.Minor {
 		result |= MinorGT
 	}
 
-	if semVer.Patch < other.Patch {
+	if ver.Patch < other.Patch {
 		result |= PatchLT
-	} else if semVer.Patch > other.Patch {
+	} else if ver.Patch > other.Patch {
 		result |= PatchGT
 	}
 
-	cr := arrayCompare(semVer.PreRelease, other.PreRelease)
+	cr := arrayCompare(ver.PreRelease, other.PreRelease)
 	if cr < 0 {
 		result |= PreReleaseLT
 	} else if cr > 0 {
 		result |= PreReleaseGT
 	}
 
-	cr = arrayCompare(semVer.Build, other.Build)
+	cr = arrayCompare(ver.Build, other.Build)
 	if cr < 0 {
 		result |= BuildLT
 	} else if cr > 0 {
@@ -232,8 +232,8 @@ func (semVer *SemanticVersion) DetailCompare(other *SemanticVersion) DetailCompa
 	return result
 }
 
-func (semVer *SemanticVersion) Compare(other *SemanticVersion) CompareResult {
-	result := semVer.DetailCompare(other)
+func (ver *SemanticVersion) Compare(other *SemanticVersion) CompareResult {
+	result := ver.DetailCompare(other)
 	if (result & MajorLT) != 0 {
 		return LT
 	} else if (result & MajorGT) != 0 {
@@ -261,8 +261,8 @@ func (semVer *SemanticVersion) Compare(other *SemanticVersion) CompareResult {
 	}
 }
 
-func (semVer *SemanticVersion) Compatible(other *SemanticVersion) bool {
-	result := semVer.DetailCompare(other)
+func (ver *SemanticVersion) Compatible(other *SemanticVersion) bool {
+	result := ver.DetailCompare(other)
 	if (result&MajorLT) != 0 || (result&MajorGT) != 0 {
 		return false
 	} else {
