@@ -20,10 +20,13 @@ type jsonRequest struct {
 	Method  string          `json:"method"`
 	Version string          `json:"jsonrpc"`
 	Id      json.RawMessage `json:"id,omitempty"`
-	Payload json.RawMessage `json:"params,omitempty"`
+	Params  json.RawMessage `json:"params,omitempty"`
 }
 
-type jsonRequests []jsonRequest
+type jsonRequests struct {
+	reqs    []jsonRequest
+	isBatch bool
+}
 
 func (r *jsonRequests) UnmarshalJSON(b []byte) error {
 	var msg json.RawMessage
@@ -41,21 +44,15 @@ func (r *jsonRequests) UnmarshalJSON(b []byte) error {
 	if isArray {
 		var result []jsonRequest
 		json.Unmarshal(b, &result)
-		*r = result
+		r.reqs = result
+		r.isBatch = true
 	} else {
 		var result jsonRequest
 		json.Unmarshal(b, &result)
-		*r = []jsonRequest{result}
+		r.reqs = []jsonRequest{result}
+		r.isBatch = false
 	}
 	return nil
-}
-
-func (r jsonRequests) MarshalJSON() ([]byte, error) {
-	if len(r) == 1 {
-		return json.Marshal(r[0])
-	} else {
-		return json.Marshal([]jsonRequest(r))
-	}
 }
 
 type jsonSuccessResponse struct {
@@ -117,26 +114,42 @@ func NewCodec(rwc io.ReadWriteCloser) ServerCodec {
 	}
 }
 
-func (c *jsonCodec) ReadAndParseRequest(argTypes []reflect.Type) ([]rpcRequest, error) {
+func (c *jsonCodec) ReadRequest() ([]RPCRequest, bool, error) {
 	var requests jsonRequests
 	err := c.decode.Decode(&requests)
 	if err != nil {
-		return nil, err
+		return nil, false, &invalidMessageError{err.Error()}
 	}
-	return parseRequest(argTypes, requests)
+	result := make([]RPCRequest, len(requests.reqs))
+	for i, r := range requests.reqs {
+		if err := checkReqId(r.Id); err != nil {
+			return nil, false, &invalidMessageError{err.Error()}
+		}
+
+		id := &r.Id
+
+		if len(r.Params) == 0 {
+			result[i] = RPCRequest{id: id, params: nil}
+		} else {
+			result[i] = RPCRequest{id: id, params: r.Params}
+		}
+
+		if elem := strings.Split(r.Method, ServiceMethodSeparator); len(elem) == 3 {
+			result[i].service, result[i].executable, result[i].method = elem[0], elem[1], elem[2]
+		} else {
+			result[i].err = &methodNotFoundError{r.Method, ""}
+		}
+	}
+	return result, requests.isBatch, nil
 }
 
-func (c *jsonCodec) WriteResponse(id interface{}, reply interface{}) error {
-	var ret interface{}
-	switch realReply := reply.(type) {
-	case Error:
-		ret = &jsonErrResponse{
-			Version: JSONRPCVersion,
-			Id:      id,
-			Error:   jsonError{Code: realReply.ErrorCode(), Message: realReply.Error()},
-		}
-	default:
-		ret = &jsonSuccessResponse{Version: JSONRPCVersion, Id: id, Result: realReply}
+func (c *jsonCodec) ParseArguments(argTypes []reflect.Type, params interface{}) ([]reflect.Value, error) {
+	return parsePositionalArguments(params.(json.RawMessage), argTypes)
+}
+
+func (c *jsonCodec) Write(responses []interface{}, isBatch bool) error {
+	for i, r := range responses {
+
 	}
 	return c.encode.Encode(ret)
 }
@@ -166,37 +179,7 @@ func checkReqId(reqId json.RawMessage) error {
 	return fmt.Errorf("invalid request id")
 }
 
-func parseRequest(argTypes []reflect.Type, requests []jsonRequest) ([]rpcRequest, Error) {
-	result := make([]rpcRequest, len(requests))
-	for i, r := range requests {
-		if err := checkReqId(r.Id); err != nil {
-			return nil, &invalidMessageError{err.Error()}
-		}
-
-		id := &requests[i].Id
-
-		if len(r.Payload) == 0 {
-			result[i] = rpcRequest{id: id, params: nil}
-		} else {
-			args, err := parseArguments(r.Payload, argTypes)
-			if err != nil {
-				result[i].err = &invalidMessageError{err.Error()}
-			} else {
-				result[i] = rpcRequest{id: id, params: args}
-			}
-		}
-
-		if elem := strings.Split(r.Method, ServiceMethodSeparator); len(elem) == 2 {
-			result[i].service, result[i].method = elem[0], elem[1]
-		} else {
-			result[i].err = &methodNotFoundError{r.Method, ""}
-		}
-	}
-
-	return result, nil
-}
-
-func parseArguments(rawArgs json.RawMessage, types []reflect.Type) ([]reflect.Value, Error) {
+func parsePositionalArguments(rawArgs json.RawMessage, types []reflect.Type) ([]reflect.Value, error) {
 	// Read beginning of the args array.
 	dec := json.NewDecoder(bytes.NewReader(rawArgs))
 	if tok, _ := dec.Token(); tok != json.Delim('[') {
@@ -208,14 +191,14 @@ func parseArguments(rawArgs json.RawMessage, types []reflect.Type) ([]reflect.Va
 		if i >= len(types) {
 			return nil, &invalidParamsError{fmt.Sprintf("too many arguments, want at most %d", len(types))}
 		}
-		argval := reflect.New(types[i])
-		if err := dec.Decode(argval.Interface()); err != nil {
+		argVal := reflect.New(types[i])
+		if err := dec.Decode(argVal.Interface()); err != nil {
 			return nil, &invalidParamsError{fmt.Sprintf("invalid argument %d: %v", i, err)}
 		}
-		if argval.IsNil() && types[i].Kind() != reflect.Ptr {
+		if argVal.IsNil() && types[i].Kind() != reflect.Ptr {
 			return nil, &invalidParamsError{fmt.Sprintf("missing value for required argument %d", i)}
 		}
-		args = append(args, argval.Elem())
+		args = append(args, argVal.Elem())
 	}
 	// Read end of args array.
 	if _, err := dec.Token(); err != nil {
@@ -229,10 +212,4 @@ func parseArguments(rawArgs json.RawMessage, types []reflect.Type) ([]reflect.Va
 		args = append(args, reflect.Zero(types[i]))
 	}
 	return args, nil
-}
-
-// CreateNotification will create a JSON-RPC notification with the given subscription id and event as params.
-func (c *jsonCodec) CreateNotification(subid, namespace string, event interface{}) interface{} {
-	return &jsonNotification{Version: jsonrpcVersion, Method: namespace + notificationMethodSuffix,
-		Params: jsonSubscription{Subscription: subid, Result: event}}
 }

@@ -1,29 +1,16 @@
 package api
 
 import (
-	"bufio"
 	"context"
-	crand "crypto/rand"
-	"encoding/binary"
-	"encoding/hex"
-	"math/rand"
 	"reflect"
-	"strings"
-	"sync"
-	"time"
 	"unicode"
 	"unicode/utf8"
 )
 
-var (
-	subscriptionIDGenMu sync.Mutex
-	subscriptionIDGen   = idGenerator()
-)
-
 // Is this an exported - upper case - name?
 func isExported(name string) bool {
-	rune, _ := utf8.DecodeRuneInString(name)
-	return unicode.IsUpper(rune)
+	runeName, _ := utf8.DecodeRuneInString(name)
+	return unicode.IsUpper(runeName)
 }
 
 // Is this type exported or a builtin?
@@ -88,13 +75,11 @@ func formatName(name string) string {
 	return string(ret)
 }
 
-// suitableCallbacks iterates over the methods of the given type. It will determine if a method satisfies the criteria
-// for a RPC callback or a subscription callback and adds it to the collection of callbacks or subscriptions. See server
-// documentation for a summary of these criteria.
-func suitableCallbacks(rcvr interface{}) (callbacks, subscriptions) {
-	callbacks := make(callbacks)
+func suitableMethods(rcvr interface{}) (calls, subscriptions) {
+	callbacks := make(calls)
 	subscriptions := make(subscriptions)
-
+	typ := reflect.TypeOf(rcvr)
+	rcvrVal := reflect.ValueOf(rcvr)
 METHODS:
 	for m := 0; m < typ.NumMethod(); m++ {
 		method := typ.Method(m)
@@ -104,11 +89,11 @@ METHODS:
 			continue
 		}
 
-		var h callback
+		var h call
 		h.isSubscribe = isPubSub(mtype)
-		h.rcvr = rcvr
+		h.rcvr = rcvrVal
 		h.method = method
-		h.errPos = -1
+		h.hasError = false
 
 		firstArg := 1
 		numIn := mtype.NumIn()
@@ -151,21 +136,22 @@ METHODS:
 		}
 
 		// when a method returns an error it must be the last returned value
-		h.errPos = -1
+		errPos := -1
 		for i := 0; i < mtype.NumOut(); i++ {
 			if isErrorType(mtype.Out(i)) {
-				h.errPos = i
+				errPos = i
+				h.hasError = true
 				break
 			}
 		}
 
-		if h.errPos >= 0 && h.errPos != mtype.NumOut()-1 {
+		if errPos >= 0 && errPos != mtype.NumOut()-1 {
 			continue METHODS
 		}
 
 		switch mtype.NumOut() {
 		case 0, 1, 2:
-			if mtype.NumOut() == 2 && h.errPos == -1 { // method must one return value and 1 error
+			if mtype.NumOut() == 2 && errPos == -1 { // method must one return value and 1 error
 				continue METHODS
 			}
 			callbacks[mname] = &h
@@ -173,38 +159,4 @@ METHODS:
 	}
 
 	return callbacks, subscriptions
-}
-
-// idGenerator helper utility that generates a (pseudo) random sequence of
-// bytes that are used to generate identifiers.
-func idGenerator() *rand.Rand {
-	if seed, err := binary.ReadVarint(bufio.NewReader(crand.Reader)); err == nil {
-		return rand.New(rand.NewSource(seed))
-	}
-	return rand.New(rand.NewSource(int64(time.Now().Nanosecond())))
-}
-
-// NewID generates a identifier that can be used as an identifier in the RPC interface.
-// e.g. filter and subscription identifier.
-func NewID() ID {
-	subscriptionIDGenMu.Lock()
-	defer subscriptionIDGenMu.Unlock()
-
-	id := make([]byte, 16)
-	for i := 0; i < len(id); i += 7 {
-		val := subscriptionIDGen.Int63()
-		for j := 0; i+j < len(id) && j < 7; j++ {
-			id[i+j] = byte(val)
-			val >>= 8
-		}
-	}
-
-	rpcId := hex.EncodeToString(id)
-	// rpc ID's are RPC quantities, no leading zero's and 0 is 0x0
-	rpcId = strings.TrimLeft(rpcId, "0")
-	if rpcId == "" {
-		rpcId = "0"
-	}
-
-	return ID("0x" + rpcId)
 }
