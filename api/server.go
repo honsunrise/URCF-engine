@@ -208,15 +208,25 @@ func (s *Server) createSubscription(ctx context.Context, codec ServerCodec, req 
 
 	go func() {
 		for {
-			select {
-			case v, ok := reply[0].Recv():
-				if ok == true {
-					err := s.notify(codec, sub.ID, v)
+			cases := []reflect.SelectCase{
+				{
+					Dir:  reflect.SelectRecv,
+					Chan: reply[0],
+				},
+				{
+					Dir:  reflect.SelectRecv,
+					Chan: reflect.ValueOf(sub.exit),
+				},
+			}
+			switch index, value, recvOK := reflect.Select(cases); index {
+			case 0:
+				if recvOK == true {
+					err := s.notify(codec, sub.ID, value)
 					if err != nil {
 						sub.err <- err
 					}
 				}
-			case <-sub.exit:
+			case 1:
 				break
 			}
 		}
