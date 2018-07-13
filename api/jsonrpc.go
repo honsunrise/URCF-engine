@@ -39,7 +39,10 @@ func (r *jsonRequests) UnmarshalJSON(b []byte) error {
 		if c == 0x20 || c == 0x09 || c == 0x0a || c == 0x0d {
 			continue
 		}
-		isArray = true
+		if c == '[' {
+			isArray = true
+		}
+		break
 	}
 	if isArray {
 		var result []jsonRequest
@@ -148,10 +151,7 @@ func (c *jsonCodec) ParseArguments(argTypes []reflect.Type, params interface{}) 
 }
 
 func (c *jsonCodec) Write(responses []interface{}, isBatch bool) error {
-	for i, r := range responses {
-
-	}
-	return c.encode.Encode(ret)
+	return nil
 }
 
 func (c *jsonCodec) Close() {
