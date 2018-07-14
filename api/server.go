@@ -19,7 +19,7 @@ var (
 
 const MetadataApi = "rpc"
 
-type Subscription struct {
+type subscription struct {
 	ID         string
 	service    string
 	executable string
@@ -34,7 +34,7 @@ type requestBound struct {
 	err     error
 }
 
-func (s *Subscription) Err() <-chan error {
+func (s *subscription) Err() <-chan error {
 	return s.err
 }
 
@@ -42,7 +42,7 @@ type Server struct {
 	services serviceRegistry
 
 	subMu  sync.RWMutex // guards subMap maps
-	subMap map[string]*Subscription
+	subMap map[string]*subscription
 
 	run      int32
 	codecsMu sync.Mutex
@@ -192,7 +192,7 @@ func (s *Server) Stop() {
 	}
 }
 
-func (s *Server) createSubscription(ctx context.Context, codec ServerCodec, req *requestBound) (*Subscription, error) {
+func (s *Server) createSubscription(ctx context.Context, codec ServerCodec, req *requestBound) (*subscription, error) {
 	args := []reflect.Value{req.call.rcvr, reflect.ValueOf(ctx)}
 	args = append(args, req.params...)
 	reply := req.call.method.Func.Call(args)
@@ -201,7 +201,7 @@ func (s *Server) createSubscription(ctx context.Context, codec ServerCodec, req 
 		return nil, reply[1].Interface().(error)
 	}
 
-	sub := &Subscription{ID: uuid.Must(uuid.NewRandom()).String(), err: make(chan error), exit: make(chan struct{})}
+	sub := &subscription{ID: uuid.Must(uuid.NewRandom()).String(), err: make(chan error), exit: make(chan struct{})}
 	s.subMu.Lock()
 	s.subMap[sub.ID] = sub
 	s.subMu.Unlock()

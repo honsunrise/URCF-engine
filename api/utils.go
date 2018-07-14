@@ -43,9 +43,9 @@ func isErrorType(t reflect.Type) bool {
 	return t.Implements(errorType)
 }
 
-var subscriptionType = reflect.TypeOf((*Subscription)(nil)).Elem()
+var subscriptionType = reflect.TypeOf((*subscription)(nil)).Elem()
 
-// isSubscriptionType returns an indication if the given t is of Subscription or *Subscription type
+// isSubscriptionType returns an indication if the given t is of subscription or *subscription type
 func isSubscriptionType(t reflect.Type) bool {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -54,7 +54,7 @@ func isSubscriptionType(t reflect.Type) bool {
 }
 
 // isPubSub tests whether the given method has as as first argument a context.Context
-// and returns the pair (Subscription, error)
+// and returns the pair (subscription, error)
 func isPubSub(methodType reflect.Type) bool {
 	// numIn(0) is the receiver type
 	if methodType.NumIn() < 2 || methodType.NumOut() != 2 {
