@@ -1,4 +1,4 @@
-package api
+package server
 
 import (
 	"context"
@@ -17,7 +17,26 @@ var (
 	ErrSubscriptionNotFound = errors.New("subscription not found")
 )
 
-const MetadataApi = "rpc"
+type call struct {
+	rcvr          reflect.Value  // receiver of method
+	method        reflect.Method // call
+	argTypes      []reflect.Type // input argument types
+	hasCtx        bool           // method's first argument is a context (not included in argTypes)
+	hasError      bool           // err return idx, of -1 when method cannot return error
+	isSubscribe   bool           // indication if the call is a subscription
+	isUnsubscribe bool           // indication if the call is a subscription
+}
+
+type service struct {
+	name          string        // name for service
+	typ           reflect.Type  // receiver type
+	callbacks     calls         // registered handlers
+	subscriptions subscriptions // available subscriptions/notifications
+}
+
+type serviceRegistry map[string]*service // collection of services
+type calls map[string]*call              // collection of RPC calls
+type subscriptions map[string]*call      // collection of subscription calls
 
 type subscription struct {
 	ID         string
@@ -56,25 +75,10 @@ func NewServer() *Server {
 		run:      1,
 	}
 
-	// register a default service which will provide meta information about the RPC service such as the services and
-	// methods it offers.
 	rpcService := &RPCMetaService{server}
 	server.RegisterName(MetadataApi, rpcService)
 
 	return server
-}
-
-// RPCMetaService gives meta information about the server.
-type RPCMetaService struct {
-	server *Server
-}
-
-func (s *RPCMetaService) List() map[string]string {
-	modules := make(map[string]string)
-	for name := range s.server.services {
-		modules[name] = "1.0"
-	}
-	return modules
 }
 
 func (s *Server) RegisterName(name string, rcvr interface{}) error {
