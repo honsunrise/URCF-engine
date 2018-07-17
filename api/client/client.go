@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"github.com/zhsyourai/URCF-engine/api"
 	"net"
 	"net/url"
 	"reflect"
@@ -28,7 +29,7 @@ var (
 const (
 	// Timeouts
 	tcpKeepAliveInterval = 30 * time.Second
-	defaultDialTimeout   = 10 * time.Second // used when dialing if the context has no deadline
+	defaultDialTimeout   = 10 * time.Second // used when dialincg if the context has no deadline
 	defaultWriteTimeout  = 10 * time.Second // used for calls if the context has no deadline
 	subscribeTimeout     = 5 * time.Second  // overall timeout eth_subscribe, rpc_modules calls
 )
@@ -47,36 +48,9 @@ const (
 	maxClientSubscriptionBuffer = 20000
 )
 
-type jsonrpcMessage struct {
-	Version string          `json:"jsonrpc"`
-	ID      json.RawMessage `json:"id,omitempty"`
-	Method  string          `json:"method,omitempty"`
-	Params  json.RawMessage `json:"params,omitempty"`
-	Error   *jsonError      `json:"error,omitempty"`
-	Result  json.RawMessage `json:"result,omitempty"`
-}
-
-func (msg *jsonrpcMessage) isNotification() bool {
-	return msg.ID == nil && msg.Method != ""
-}
-
-func (msg *jsonrpcMessage) isResponse() bool {
-	return msg.hasValidID() && msg.Method == "" && len(msg.Params) == 0
-}
-
-func (msg *jsonrpcMessage) hasValidID() bool {
-	return len(msg.ID) > 0 && msg.ID[0] != '{' && msg.ID[0] != '['
-}
-
-func (msg *jsonrpcMessage) String() string {
-	b, _ := json.Marshal(msg)
-	return string(b)
-}
-
-// Client represents a connection to an RPC server.
 type Client struct {
-	idCounter   uint32
-	connectFunc func(ctx context.Context) (net.Conn, error)
+	idCounter uint32
+	rawUrl    string
 
 	writeConn net.Conn
 
@@ -118,27 +92,20 @@ func DialContext(ctx context.Context, rawUrl string) (*Client, error) {
 	}
 	switch u.Scheme {
 	case "http", "https":
-		return DialHTTP(rawUrl)
 	case "ws", "wss":
-		return DialWebsocket(ctx, rawUrl, "")
 	case "stdio":
-		return DialStdIO(ctx)
 	case "":
-		return DialIPC(ctx, rawUrl)
 	default:
-		return nil, fmt.Errorf("no known transport for URL scheme %q", u.Scheme)
+		return nil, fmt.Errorf("unknown scheme %q", u.Scheme)
 	}
-}
-
-func newClient(initctx context.Context, connectFunc func(context.Context) (net.Conn, error)) (*Client, error) {
-	conn, err := connectFunc(initctx)
+	conn, err := net.Conn(nil), nil
 	if err != nil {
 		return nil, err
 	}
 	_, isHTTP := conn.(*httpConn)
 	c := &Client{
 		writeConn:   conn,
-		connectFunc: connectFunc,
+		rawUrl:      rawUrl,
 		close:       make(chan struct{}),
 		didQuit:     make(chan struct{}),
 		reconnected: make(chan net.Conn),
@@ -153,6 +120,16 @@ func newClient(initctx context.Context, connectFunc func(context.Context) (net.C
 		go c.dispatch(conn)
 	}
 	return c, nil
+
+}
+
+func NewClientWithCodec(codec api.ClientCodec) *Client {
+	client := &Client{
+		codec:   codec,
+		pending: make(map[uint64]*Call),
+	}
+	go client.input()
+	return client
 }
 
 func (c *Client) nextID() json.RawMessage {
@@ -286,7 +263,7 @@ func (c *Client) BatchContext(ctx context.Context) *BatchBuilder {
 	}
 }
 
-func (c *Client) Subscribe(ctx context.Context, method string, channel chan interface{}, args ...interface{}) (Subscription, error) {
+func (c *Client) Subscribe(ctx context.Context, method string, args ...interface{}, channel chan interface{}) (Subscription, error) {
 	if channel == nil {
 		panic("channel given to Subscribe must not be nil")
 	}
