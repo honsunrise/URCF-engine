@@ -10,10 +10,8 @@ import (
 	"github.com/zhsyourai/URCF-engine/api"
 	"net"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -88,18 +86,12 @@ func NewClientWithCodec(codec api.ClientCodec) *Client {
 	return client
 }
 
-func (c *Client) nextID() json.RawMessage {
-	id := atomic.AddUint32(&c.idCounter, 1)
-	return []byte(strconv.FormatUint(uint64(id), 10))
-}
-
-// SupportedModules calls the rpc_modules method, retrieving the list of
 // APIs that are available on the server.
-func (c *Client) SupportedModules() (map[string]string, error) {
+func (c *Client) SupportedService() (map[string]string, error) {
 	var result map[string]string
 	ctx, cancel := context.WithTimeout(context.Background(), subscribeTimeout)
 	defer cancel()
-	err := c.CallContext(ctx, &result, "rpc_modules")
+	err := c.CallContext(ctx, &result, "Me")
 	return result, err
 }
 
