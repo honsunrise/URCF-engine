@@ -16,7 +16,7 @@ func TestJsonRequests(t *testing.T) {
 	]
 `
 	dec := json.NewDecoder(strings.NewReader(jsonStream))
-	var r jsonRequests
+	var r jsonrpcRequests
 	err := dec.Decode(&r)
 	if err != nil {
 		t.Fatalf("%T: %v\n", err, err)
@@ -24,7 +24,7 @@ func TestJsonRequests(t *testing.T) {
 	t.Logf("%T: %v\n", r, r)
 
 	dec = json.NewDecoder(strings.NewReader(jsonStreamArray))
-	var rs jsonRequests
+	var rs jsonrpcRequests
 	err = dec.Decode(&rs)
 	if err != nil {
 		t.Fatalf("%T: %v\n", err, err)

@@ -35,6 +35,17 @@ type jsonrpcError struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+func (err *jsonrpcError) Error() string {
+	if err.Message == "" {
+		return fmt.Sprintf("json-rpc error %d", err.Code)
+	}
+	return err.Message
+}
+
+func (err *jsonrpcError) ErrorCode() int {
+	return err.Code
+}
+
 type jsonrpcErrorResponse struct {
 	ID     json.RawMessage `json:"id,omitempty"`
 	Method string          `json:"method"`
@@ -47,12 +58,12 @@ type jsonrpcResponse struct {
 	Result json.RawMessage `json:"result"`
 }
 
-type jsonRequests struct {
+type jsonrpcRequests struct {
 	reqs    []jsonrpcRequest
 	isBatch bool
 }
 
-func (r *jsonRequests) UnmarshalJSON(b []byte) error {
+func (r *jsonrpcRequests) UnmarshalJSON(b []byte) error {
 	var msg json.RawMessage
 	if err := json.Unmarshal(b, &msg); err != nil {
 		return err
@@ -96,17 +107,6 @@ type jsonrpcServerCodec struct {
 	rwc    io.ReadWriteCloser
 }
 
-func (err *jsonrpcError) Error() string {
-	if err.Message == "" {
-		return fmt.Sprintf("json-rpc error %d", err.Code)
-	}
-	return err.Message
-}
-
-func (err *jsonrpcError) ErrorCode() int {
-	return err.Code
-}
-
 func NewJsonRPCServerCodec(rwc io.ReadWriteCloser) api.ServerCodec {
 	dec := json.NewDecoder(rwc)
 	dec.UseNumber()
@@ -119,7 +119,7 @@ func NewJsonRPCServerCodec(rwc io.ReadWriteCloser) api.ServerCodec {
 }
 
 func (c *jsonrpcServerCodec) ReadRequest() ([]api.RPCRequest, bool, error) {
-	var requests jsonRequests
+	var requests jsonrpcRequests
 	err := c.decode.Decode(&requests)
 	if err != nil {
 		return nil, false, &api.InvalidMessageError{Message: err.Error()}
@@ -221,4 +221,43 @@ func checkReqId(reqId json.RawMessage) error {
 		return nil
 	}
 	return fmt.Errorf("invalid request id")
+}
+
+type jsonrpcClientCodec struct {
+	closer sync.Once
+	closed chan interface{}
+	decode *json.Decoder
+	encode *json.Encoder
+	rwc    io.ReadWriteCloser
+}
+
+func NewJsonRPCClientCodec(rwc io.ReadWriteCloser) api.ServerCodec {
+	dec := json.NewDecoder(rwc)
+	dec.UseNumber()
+	return &jsonrpcServerCodec{
+		closed: make(chan interface{}),
+		encode: json.NewEncoder(rwc),
+		decode: dec,
+		rwc:    rwc,
+	}
+}
+
+func (c *jsonrpcClientCodec) ReadResponse() ([]api.RPCResponse, bool, error) {
+	panic("implement me")
+}
+
+func (c *jsonrpcClientCodec) ParsePosition(argTypes []reflect.Type, params []interface{}) ([]reflect.Value, error) {
+	panic("implement me")
+}
+
+func (c *jsonrpcClientCodec) Write(request []*api.RPCRequest, isBatch bool) error {
+	panic("implement me")
+}
+
+func (c *jsonrpcClientCodec) Close() {
+	panic("implement me")
+}
+
+func (c *jsonrpcClientCodec) Closed() <-chan interface{} {
+	panic("implement me")
 }

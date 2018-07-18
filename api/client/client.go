@@ -6,11 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/api"
 	"net"
-	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -51,6 +49,7 @@ const (
 type Client struct {
 	idCounter uint32
 	rawUrl    string
+	codec     api.ClientCodec
 
 	writeConn net.Conn
 
@@ -58,7 +57,7 @@ type Client struct {
 	didQuit     chan struct{}            // closed when client quits
 	reconnected chan net.Conn            // where write/reconnect sends the new connection
 	readErr     chan error               // errors from read
-	readResp    chan []*jsonrpcMessage   // valid messages from read
+	readResp    chan []*api.RPCResponse  // valid messages from read
 	requestOp   chan *requestOp          // for registering response IDs
 	sendDone    chan error               // signals write completion, releases write lock
 	respWait    map[string]*requestOp    // active requests
@@ -81,52 +80,9 @@ func (op *requestOp) wait(ctx context.Context) (*jsonrpcMessage, error) {
 	}
 }
 
-func Dial(rawUrl string) (*Client, error) {
-	return DialContext(context.Background(), rawUrl)
-}
-
-func DialContext(ctx context.Context, rawUrl string) (*Client, error) {
-	u, err := url.Parse(rawUrl)
-	if err != nil {
-		return nil, err
-	}
-	switch u.Scheme {
-	case "http", "https":
-	case "ws", "wss":
-	case "stdio":
-	case "":
-	default:
-		return nil, fmt.Errorf("unknown scheme %q", u.Scheme)
-	}
-	conn, err := net.Conn(nil), nil
-	if err != nil {
-		return nil, err
-	}
-	_, isHTTP := conn.(*httpConn)
-	c := &Client{
-		writeConn:   conn,
-		rawUrl:      rawUrl,
-		close:       make(chan struct{}),
-		didQuit:     make(chan struct{}),
-		reconnected: make(chan net.Conn),
-		readErr:     make(chan error),
-		readResp:    make(chan []*jsonrpcMessage),
-		requestOp:   make(chan *requestOp),
-		sendDone:    make(chan error, 1),
-		respWait:    make(map[string]*requestOp),
-		subs:        make(map[string]*subscription),
-	}
-	if !isHTTP {
-		go c.dispatch(conn)
-	}
-	return c, nil
-
-}
-
 func NewClientWithCodec(codec api.ClientCodec) *Client {
 	client := &Client{
-		codec:   codec,
-		pending: make(map[uint64]*Call),
+		codec: codec,
 	}
 	go client.input()
 	return client
