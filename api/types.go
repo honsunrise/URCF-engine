@@ -17,22 +17,19 @@ type RPCResponse struct {
 	Service    string
 	Executable string
 	Method     string
+	ID         interface{}
 	Params     interface{}
 	Err        error
-	ID         interface{}
-	Payload    interface{}
-}
-
-type ErrorResponse struct {
-	ID  interface{}
-	Err error
-}
-
-type NotifyResponse struct {
 	SubId      string
-	Service    string
-	Executable string
 	Payload    interface{}
+}
+
+func (resp RPCResponse) IsError() bool {
+	return resp.Err != nil
+}
+
+func (resp RPCResponse) IsNotify() bool {
+	return resp.SubId != ""
 }
 
 type ServerCodec interface {
@@ -41,7 +38,7 @@ type ServerCodec interface {
 	// parse incoming request
 	ParsePosition(argTypes []reflect.Type, params []interface{}) ([]reflect.Value, error)
 	// Write reply to client.
-	Write(responses []interface{}, isBatch bool) error
+	Write(responses []*RPCResponse, isBatch bool) error
 	// Close underlying data stream
 	Close()
 	// Closed when underlying connection is closed
@@ -53,8 +50,8 @@ type ClientCodec interface {
 	ReadResponse() ([]RPCResponse, bool, error)
 	// parse incoming response
 	ParsePosition(argTypes []reflect.Type, params []interface{}) ([]reflect.Value, error)
-	// Write reply to client.
-	Write(request []interface{}, isBatch bool) error
+	// Write reply to client. Don't need set ID
+	Write(request []*RPCRequest, isBatch bool) error
 	// Close underlying data stream
 	Close()
 	// Closed when underlying connection is closed

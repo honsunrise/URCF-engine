@@ -156,7 +156,7 @@ func (s *Server) serveRequest(ctx context.Context, codec api.ServerCodec) error 
 		reqs, isBatch, err := s.readRequest(codec)
 		if err != nil {
 			log.Debug(fmt.Sprintf("read error %v\n", err))
-			codec.Write([]interface{}{&api.ErrorResponse{
+			codec.Write([]*api.RPCResponse{{
 				Err: &api.CallbackError{err.Error()},
 			}}, false)
 			pend.Wait()
@@ -165,9 +165,9 @@ func (s *Server) serveRequest(ctx context.Context, codec api.ServerCodec) error 
 
 		if atomic.LoadInt32(&s.run) != 1 {
 			err = &api.ShutdownError{}
-			resps := make([]interface{}, len(reqs))
+			resps := make([]*api.RPCResponse, len(reqs))
 			for i, r := range reqs {
-				resps[i] = &api.ErrorResponse{
+				resps[i] = &api.RPCResponse{
 					ID:  &r.request.ID,
 					Err: &api.CallbackError{Message: err.Error()},
 				}
@@ -258,12 +258,12 @@ func (s *Server) notify(codec api.ServerCodec, id string, data interface{}) erro
 
 	sub, ok := s.subMap[id]
 	if ok {
-		notification := &api.NotifyResponse{
+		notification := &api.RPCResponse{
 			SubId:      sub.ID,
 			Service:    sub.service,
 			Executable: sub.executable,
 		}
-		if err := codec.Write([]interface{}{notification}, false); err != nil {
+		if err := codec.Write([]*api.RPCResponse{notification}, false); err != nil {
 			codec.Close()
 			return err
 		}
@@ -271,24 +271,24 @@ func (s *Server) notify(codec api.ServerCodec, id string, data interface{}) erro
 	return nil
 }
 
-func (s *Server) handle(ctx context.Context, codec api.ServerCodec, req *requestBound) interface{} {
+func (s *Server) handle(ctx context.Context, codec api.ServerCodec, req *requestBound) *api.RPCResponse {
 	if req.call.isUnsubscribe {
 		if len(req.params) >= 1 && req.params[0].Kind() == reflect.String {
 			subId := req.params[0].String()
 			if err := s.unsubscribe(subId); err != nil {
-				return &api.ErrorResponse{ID: req.request.ID, Err: &api.CallbackError{Message: err.Error()}}
+				return &api.RPCResponse{ID: req.request.ID, Err: &api.CallbackError{Message: err.Error()}}
 			} else {
 				return &api.RPCResponse{ID: req.request.ID, Payload: true}
 			}
 		}
-		return &api.ErrorResponse{
+		return &api.RPCResponse{
 			ID:  req.request.ID,
 			Err: &api.InvalidParamsError{Message: "Expected subscription id as first argument"},
 		}
 	} else if req.call.isSubscribe {
 		sub, err := s.createSubscription(ctx, codec, req)
 		if err != nil {
-			return &api.ErrorResponse{ID: req.request.ID, Err: &api.CallbackError{Message: err.Error()}}
+			return &api.RPCResponse{ID: req.request.ID, Err: &api.CallbackError{Message: err.Error()}}
 		}
 
 		return &api.RPCResponse{ID: req.request.ID, Payload: sub.ID}
@@ -298,7 +298,7 @@ func (s *Server) handle(ctx context.Context, codec api.ServerCodec, req *request
 				Message: fmt.Sprintf("%s[%s] expects %d parameters, but got %d",
 					req.request.Service, req.request.Method, len(req.call.argTypes), len(req.params)),
 			}
-			return &api.ErrorResponse{ID: req.request.ID, Err: rpcErr}
+			return &api.RPCResponse{ID: req.request.ID, Err: rpcErr}
 		}
 
 		arguments := []reflect.Value{req.call.rcvr}
@@ -317,7 +317,7 @@ func (s *Server) handle(ctx context.Context, codec api.ServerCodec, req *request
 		if req.call.hasError { // test if method returned an error
 			if !reply[len(reply)-1].IsNil() {
 				e := reply[len(reply)-1].Interface().(error)
-				return &api.ErrorResponse{ID: req.request.ID, Err: &api.CallbackError{Message: e.Error()}}
+				return &api.RPCResponse{ID: req.request.ID, Err: &api.CallbackError{Message: e.Error()}}
 			}
 		}
 		return &api.RPCResponse{ID: req.request.ID, Payload: reply[0].Interface()}
@@ -327,10 +327,10 @@ func (s *Server) handle(ctx context.Context, codec api.ServerCodec, req *request
 // exec executes the given requests and writes the result back using the codec.
 // It will only write the response back when the last request is processed.
 func (s *Server) exec(ctx context.Context, codec api.ServerCodec, requests []*requestBound, isBatch bool) {
-	responses := make([]interface{}, len(requests))
+	responses := make([]*api.RPCResponse, len(requests))
 	for i, req := range requests {
 		if req.err != nil {
-			responses[i] = &api.ErrorResponse{ID: req.request.ID, Err: req.err}
+			responses[i] = &api.RPCResponse{ID: req.request.ID, Err: req.err}
 		} else {
 			responses[i] = s.handle(ctx, codec, req)
 		}

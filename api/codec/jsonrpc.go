@@ -29,7 +29,7 @@ type jsonrpcRequest struct {
 	Params  json.RawMessage `json:"params,omitempty"`
 }
 
-type jsonError struct {
+type jsonrpcError struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
@@ -38,7 +38,7 @@ type jsonError struct {
 type jsonrpcErrorResponse struct {
 	ID     json.RawMessage `json:"id,omitempty"`
 	Method string          `json:"method"`
-	Error  *jsonError      `json:"error"`
+	Error  *jsonrpcError   `json:"error"`
 }
 
 type jsonrpcResponse struct {
@@ -88,7 +88,7 @@ func (r *jsonRequests) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type jsonCodec struct {
+type jsonrpcServerCodec struct {
 	closer sync.Once
 	closed chan interface{}
 	decode *json.Decoder
@@ -96,21 +96,21 @@ type jsonCodec struct {
 	rwc    io.ReadWriteCloser
 }
 
-func (err *jsonError) Error() string {
+func (err *jsonrpcError) Error() string {
 	if err.Message == "" {
 		return fmt.Sprintf("json-rpc error %d", err.Code)
 	}
 	return err.Message
 }
 
-func (err *jsonError) ErrorCode() int {
+func (err *jsonrpcError) ErrorCode() int {
 	return err.Code
 }
 
-func NewCodec(rwc io.ReadWriteCloser) api.ServerCodec {
+func NewJsonRPCServerCodec(rwc io.ReadWriteCloser) api.ServerCodec {
 	dec := json.NewDecoder(rwc)
 	dec.UseNumber()
-	return &jsonCodec{
+	return &jsonrpcServerCodec{
 		closed: make(chan interface{}),
 		encode: json.NewEncoder(rwc),
 		decode: dec,
@@ -118,7 +118,7 @@ func NewCodec(rwc io.ReadWriteCloser) api.ServerCodec {
 	}
 }
 
-func (c *jsonCodec) ReadRequest() ([]api.RPCRequest, bool, error) {
+func (c *jsonrpcServerCodec) ReadRequest() ([]api.RPCRequest, bool, error) {
 	var requests jsonRequests
 	err := c.decode.Decode(&requests)
 	if err != nil {
@@ -164,7 +164,7 @@ func (c *jsonCodec) ReadRequest() ([]api.RPCRequest, bool, error) {
 	return result, requests.isBatch, nil
 }
 
-func (c *jsonCodec) ParsePosition(argTypes []reflect.Type, params []interface{}) ([]reflect.Value, error) {
+func (c *jsonrpcServerCodec) ParsePosition(argTypes []reflect.Type, params []interface{}) ([]reflect.Value, error) {
 	// Read args.
 	args := make([]reflect.Value, 0, len(argTypes))
 	for i := 0; i < len(argTypes); i++ {
@@ -194,18 +194,18 @@ func (c *jsonCodec) ParsePosition(argTypes []reflect.Type, params []interface{})
 	return args, nil
 }
 
-func (c *jsonCodec) Write(responses []interface{}, isBatch bool) error {
+func (c *jsonrpcServerCodec) Write(responses []*api.RPCResponse, isBatch bool) error {
 	return nil
 }
 
-func (c *jsonCodec) Close() {
+func (c *jsonrpcServerCodec) Close() {
 	c.closer.Do(func() {
 		close(c.closed)
 		c.rwc.Close()
 	})
 }
 
-func (c *jsonCodec) Closed() <-chan interface{} {
+func (c *jsonrpcServerCodec) Closed() <-chan interface{} {
 	return c.closed
 }
 
