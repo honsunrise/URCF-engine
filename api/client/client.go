@@ -15,7 +15,7 @@ import (
 
 var (
 	ErrClientQuit                = errors.New("client is closed")
-	ErrNoResult                  = errors.New("no result in JSON-RPC response")
+	ErrNoResult                  = errors.New("no Result in JSON-RPC response")
 	ErrSubscriptionQueueOverflow = errors.New("subscription queue overflow")
 	ErrNotificationsUnsupported  = errors.New("notifications unsupported")
 )
@@ -90,10 +90,10 @@ func (c *Client) Close() {
 
 func (c *Client) Call(result interface{}, service string, method string, params ...interface{}) (interface{}, error) {
 	ctx := context.Background()
-	return c.CallContext(ctx, service, method, params...)
+	return c.CallContext(ctx, result, service, method, params...)
 }
 
-func (c *Client) CallContext(ctx context.Context, service string, method string, params ...interface{}) (interface{}, error) {
+func (c *Client) CallContext(ctx context.Context, result interface{}, service string, method string, params ...interface{}) (interface{}, error) {
 	request := &api.RPCRequest{
 		Service: service,
 		Method:  method,
@@ -124,7 +124,6 @@ type BatchItem struct {
 	Method  string
 	Params  []interface{}
 	Result  interface{}
-	Error   error
 }
 
 type BatchBuilder struct {
@@ -133,7 +132,7 @@ type BatchBuilder struct {
 	items  []BatchItem
 }
 
-func (b *BatchBuilder) Call(service string, method string, args ...interface{}) *BatchBuilder {
+func (b *BatchBuilder) Call(result interface{}, service string, method string, args ...interface{}) *BatchBuilder {
 	return nil
 }
 
@@ -283,8 +282,8 @@ func (c *Client) dispatch() {
 				c.closeRequestOps(err)
 				reading = false
 			} else {
-				for _, id := range rb.requests {
-					c.respWait[id] = rb
+				for _, req := range rb.requests {
+					c.respWait[req.ID] = rb
 				}
 			}
 		}
