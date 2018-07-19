@@ -8,7 +8,7 @@ type RPCRequest struct {
 	Service    string
 	Executable string
 	Method     string
-	ID         interface{}
+	ID         uint64
 	Params     interface{}
 	Err        error
 }
@@ -17,7 +17,7 @@ type RPCResponse struct {
 	Service    string
 	Executable string
 	Method     string
-	ID         interface{}
+	ID         uint64
 	Params     interface{}
 	Err        error
 	SubId      string
@@ -42,7 +42,7 @@ type ClientCodec interface {
 	ReadResponse() ([]RPCResponse, bool, error)
 	// parse incoming response
 	ParsePosition(argTypes []reflect.Type, params []interface{}) ([]reflect.Value, error)
-	// Write reply to client. Don't need set ID
+	// Write reply to client.
 	Write(request []*RPCRequest, isBatch bool) error
 	// Close underlying data stream
 	Close()

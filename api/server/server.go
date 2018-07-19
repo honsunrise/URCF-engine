@@ -168,7 +168,7 @@ func (s *Server) serveRequest(ctx context.Context, codec api.ServerCodec) error 
 			resps := make([]*api.RPCResponse, len(reqs))
 			for i, r := range reqs {
 				resps[i] = &api.RPCResponse{
-					ID:  &r.request.ID,
+					ID:  r.request.ID,
 					Err: &api.CallbackError{Message: err.Error()},
 				}
 			}

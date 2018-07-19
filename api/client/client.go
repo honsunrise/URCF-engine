@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"container/list"
 	"context"
 	"encoding/json"
@@ -10,6 +9,7 @@ import (
 	"github.com/zhsyourai/URCF-engine/api"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -40,6 +40,7 @@ const (
 )
 
 type Client struct {
+	idCounter uint64
 	codec     api.ClientCodec
 	close     chan struct{}
 	closeDone chan struct{}                 // closed when client quits
@@ -76,7 +77,8 @@ func NewClientWithCodec(codec api.ClientCodec) *Client {
 func (c *Client) SupportedModules() (map[string]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	defer cancel()
-	result, err := c.CallContext(ctx, "Meta", "List")
+	var result interface{}
+	result, err := c.CallContext(ctx, &result, "Meta", "List")
 	return result.(map[string]string), err
 }
 
@@ -164,7 +166,7 @@ func (b *BatchBuilder) Submit() error {
 		// only sends valid IDs to our channel.
 		var elem *BatchItem
 		for i := range rb.requests {
-			if bytes.Equal(rb.requests[i].ID, resp.ID) {
+			if rb.requests[i].ID == resp.ID {
 				elem = &b.items[i]
 				break
 			}
@@ -344,6 +346,10 @@ func (c *Client) handleResponse(resp *api.RPCResponse) {
 			rb.err = err
 		}
 	}
+}
+
+func (c *Client) nextId() uint64 {
+	return atomic.AddUint64(&c.idCounter, 1)
 }
 
 // Subscriptions.
