@@ -8,9 +8,7 @@ import (
 	"errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhsyourai/URCF-engine/api"
-	"net"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 )
@@ -23,11 +21,8 @@ var (
 )
 
 const (
-	// Timeouts
-	tcpKeepAliveInterval = 30 * time.Second
-	defaultDialTimeout   = 10 * time.Second // used when dialincg if the context has no deadline
-	defaultWriteTimeout  = 10 * time.Second // used for calls if the context has no deadline
-	subscribeTimeout     = 5 * time.Second  // overall timeout eth_subscribe, rpc_modules calls
+	subscribeTimeout = 5 * time.Second
+	callTimeout      = 5 * time.Second
 )
 
 const (
@@ -45,31 +40,23 @@ const (
 )
 
 type Client struct {
-	idCounter uint32
-	rawUrl    string
 	codec     api.ClientCodec
-
-	writeConn net.Conn
-
-	close       chan struct{}
-	didQuit     chan struct{}            // closed when client quits
-	reconnected chan net.Conn            // where write/reconnect sends the new connection
-	readErr     chan error               // errors from read
-	readResp    chan []*api.RPCResponse  // valid messages from read
-	requestOp   chan *requestOp          // for registering response IDs
-	sendDone    chan error               // signals write completion, releases write lock
-	respWait    map[string]*requestOp    // active requests
-	subs        map[string]*subscription // active subscriptions
+	close     chan struct{}
+	closeDone chan struct{}                 // closed when client quits
+	rbChan    chan *requestBound            // for registering response IDs
+	respWait  map[interface{}]*requestBound // active rbChan
+	subs      map[interface{}]*subscription // active subscriptions
 }
 
-type requestOp struct {
-	ids  []json.RawMessage
-	err  error
-	resp chan *jsonrpcMessage // receives up to len(ids) responses
-	sub  *subscription        // only set for EthSubscribe requests
+type requestBound struct {
+	isBatch  bool
+	requests []*api.RPCRequest
+	err      error
+	resp     chan *api.RPCResponse
+	sub      *subscription
 }
 
-func (op *requestOp) wait(ctx context.Context) (*jsonrpcMessage, error) {
+func (op *requestBound) wait(ctx context.Context) (*api.RPCResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -82,49 +69,47 @@ func NewClientWithCodec(codec api.ClientCodec) *Client {
 	client := &Client{
 		codec: codec,
 	}
-	go client.input()
+	go client.dispatch()
 	return client
 }
 
-// APIs that are available on the server.
-func (c *Client) SupportedService() (map[string]string, error) {
-	var result map[string]string
-	ctx, cancel := context.WithTimeout(context.Background(), subscribeTimeout)
+func (c *Client) SupportedModules() (map[string]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	defer cancel()
-	err := c.CallContext(ctx, &result, "Me")
-	return result, err
+	result, err := c.CallContext(ctx, "Meta", "List")
+	return result.(map[string]string), err
 }
 
-// Close closes the client, aborting any in-flight requests.
 func (c *Client) Close() {
 	select {
 	case c.close <- struct{}{}:
-		<-c.didQuit
-	case <-c.didQuit:
+		<-c.closeDone
+	case <-c.closeDone:
 	}
 }
 
-func (c *Client) Call(result interface{}, method string, args ...interface{}) error {
+func (c *Client) Call(result interface{}, service string, method string, params ...interface{}) (interface{}, error) {
 	ctx := context.Background()
-	return c.CallContext(ctx, result, method, args...)
+	return c.CallContext(ctx, service, method, params...)
 }
 
-func (c *Client) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	msg, err := c.newMessage(method, args...)
-	if err != nil {
-		return err
+func (c *Client) CallContext(ctx context.Context, service string, method string, params ...interface{}) (interface{}, error) {
+	request := &api.RPCRequest{
+		Service: service,
+		Method:  method,
+		Params:  params,
 	}
-	op := &requestOp{ids: []json.RawMessage{msg.ID}, resp: make(chan *jsonrpcMessage, 1)}
+	rb := &requestBound{requests: []*api.RPCRequest{request}, resp: make(chan *api.RPCResponse, 1)}
 
-	err = c.send(ctx, op, msg)
+	err := c.send(ctx, rb)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// dispatch has accepted the request and will close the channel when it quits.
-	switch resp, err := op.wait(ctx); {
+	switch resp, err := rb.wait(ctx); {
 	case err != nil:
-		return err
+		return nil, err
 	case resp.Error != nil:
 		return resp.Error
 	case len(resp.Result) == 0:
@@ -135,10 +120,11 @@ func (c *Client) CallContext(ctx context.Context, result interface{}, method str
 }
 
 type BatchItem struct {
-	Method string
-	Params []interface{}
-	Result interface{}
-	Error  error
+	Service string
+	Method  string
+	Params  []interface{}
+	Result  interface{}
+	Error   error
 }
 
 type BatchBuilder struct {
@@ -147,31 +133,30 @@ type BatchBuilder struct {
 	items  []BatchItem
 }
 
-func (b *BatchBuilder) Call(method string, args ...interface{}) *BatchBuilder {
+func (b *BatchBuilder) Call(service string, method string, args ...interface{}) *BatchBuilder {
 	return nil
 }
 
 func (b *BatchBuilder) Submit() error {
-	msgs := make([]*jsonrpcMessage, len(b.items))
-	op := &requestOp{
-		ids:  make([]json.RawMessage, len(b.items)),
-		resp: make(chan *jsonrpcMessage, len(b.items)),
+	rb := &requestBound{
+		requests: make([]*api.RPCRequest, len(b.items)),
+		resp:     make(chan *api.RPCResponse, len(b.items)),
 	}
 	for i, elem := range b.items {
-		msg, err := b.client.newMessage(elem.Method, elem.Params...)
-		if err != nil {
-			return err
+		request := &api.RPCRequest{
+			Service: elem.Service,
+			Method:  elem.Method,
+			Params:  elem.Params,
 		}
-		msgs[i] = msg
-		op.ids[i] = msg.ID
+		rb.requests[i] = request
 	}
 
-	err := b.client.send(b.ctx, op, msgs)
+	err := b.client.send(b.ctx, rb)
 
 	// Wait for all responses to come back.
 	for n := 0; n < len(b.items) && err == nil; n++ {
-		var resp *jsonrpcMessage
-		resp, err = op.wait(b.ctx)
+		var resp *api.RPCResponse
+		resp, err = rb.wait(b.ctx)
 		if err != nil {
 			break
 		}
@@ -179,17 +164,18 @@ func (b *BatchBuilder) Submit() error {
 		// The element is guaranteed to be present because dispatch
 		// only sends valid IDs to our channel.
 		var elem *BatchItem
-		for i := range msgs {
-			if bytes.Equal(msgs[i].ID, resp.ID) {
+		for i := range rb.requests {
+			if bytes.Equal(rb.requests[i].ID, resp.ID) {
 				elem = &b.items[i]
 				break
 			}
 		}
-		if resp.Error != nil {
-			elem.Error = resp.Error
+		if resp.Err != nil {
+			elem.Error = resp.Err
 			continue
 		}
-		if len(resp.Result) == 0 {
+		b.client.codec.ParsePosition([]reflect.Type{}, []interface{}{resp.Payload})
+		if len() == 0 {
 			elem.Error = ErrNoResult
 			continue
 		}
@@ -211,110 +197,68 @@ func (c *Client) BatchContext(ctx context.Context) *BatchBuilder {
 	}
 }
 
-func (c *Client) Subscribe(ctx context.Context, method string, args ...interface{}, channel chan interface{}) (Subscription, error) {
-	if channel == nil {
-		panic("channel given to Subscribe must not be nil")
+func (c *Client) Subscribe(ctx context.Context, channel chan interface{},
+	service string, method string, params ...interface{}) (Subscription, error) {
+	request := &api.RPCRequest{
+		Service: service,
+		Method:  method,
+		Params:  params,
+	}
+	rb := &requestBound{
+		requests: []*api.RPCRequest{request},
+		resp:     make(chan *api.RPCResponse),
+		sub:      newClientSubscription(c, method, channel),
 	}
 
-	msg, err := c.newMessage(method, args...)
-	if err != nil {
+	if err := c.send(ctx, rb); err != nil {
 		return nil, err
 	}
-	op := &requestOp{
-		ids:  []json.RawMessage{msg.ID},
-		resp: make(chan *jsonrpcMessage),
-		sub:  newClientSubscription(c, method, channel),
-	}
-
-	// Send the subscription request.
-	// The arrival and validity of the response is signaled on sub.quit.
-	if err := c.send(ctx, op, msg); err != nil {
+	if _, err := rb.wait(ctx); err != nil {
 		return nil, err
 	}
-	if _, err := op.wait(ctx); err != nil {
-		return nil, err
-	}
-	return op.sub, nil
+	return rb.sub, nil
 }
 
-func (c *Client) newMessage(method string, paramsIn ...interface{}) (*jsonrpcMessage, error) {
-	params, err := json.Marshal(paramsIn)
-	if err != nil {
-		return nil, err
-	}
-	return &jsonrpcMessage{Version: "2.0", ID: c.nextID(), Method: method, Params: params}, nil
-}
-
-func (c *Client) send(ctx context.Context, op *requestOp, msg interface{}) error {
+func (c *Client) send(ctx context.Context, rb *requestBound) error {
 	select {
-	case c.requestOp <- op:
-		log.Info("sending ", msg)
-		err := c.write(ctx, msg)
-		c.sendDone <- err
-		return err
-	case <-ctx.Done():
-		// This can happen if the client is overloaded or unable to keep up with
-		// subscription notifications.
-		return ctx.Err()
-	case <-c.didQuit:
-		return ErrClientQuit
-	}
-}
-
-func (c *Client) write(ctx context.Context, msg interface{}) error {
-	deadline, ok := ctx.Deadline()
-	if !ok {
-		deadline = time.Now().Add(defaultWriteTimeout)
-	}
-	// The previous write failed. Try to establish a new connection.
-	if c.writeConn == nil {
-		if err := c.reconnect(ctx); err != nil {
-			return err
-		}
-	}
-	c.writeConn.SetWriteDeadline(deadline)
-	err := json.NewEncoder(c.writeConn).Encode(msg)
-	if err != nil {
-		c.writeConn = nil
-	}
-	return err
-}
-
-func (c *Client) reconnect(ctx context.Context) error {
-	newconn, err := c.connectFunc(ctx)
-	if err != nil {
-		log.Infof("reconnect failed: %v", err)
-		return err
-	}
-	select {
-	case c.reconnected <- newconn:
-		c.writeConn = newconn
+	case c.rbChan <- rb:
 		return nil
-	case <-c.didQuit:
-		newconn.Close()
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.closeDone:
 		return ErrClientQuit
 	}
 }
 
-func (c *Client) dispatch(conn net.Conn) {
-	// Spawn the initial read loop.
-	go c.read(conn)
-
+func (c *Client) dispatch() {
 	var (
-		lastOp        *requestOp    // tracks last send operation
-		requestOpLock = c.requestOp // nil while the send lock is held
-		reading       = true        // if true, a read loop is running
+		reading  = true
+		readErr  chan error
+		readResp chan *api.RPCResponse
 	)
-	defer close(c.didQuit)
+	defer close(c.closeDone)
+
+	go func() {
+		for {
+			rs, _, err := c.codec.ReadResponse()
+			if err != nil {
+				readErr <- err
+				return
+			}
+			for _, msg := range rs {
+				readResp <- &msg
+			}
+		}
+	}()
+
 	defer func() {
 		c.closeRequestOps(ErrClientQuit)
-		conn.Close()
 		if reading {
 			// Empty read channels until read is dead.
 			for {
 				select {
-				case <-c.readResp:
-				case <-c.readErr:
+				case <-readResp:
+				case <-readErr:
 					return
 				}
 			}
@@ -326,66 +270,30 @@ func (c *Client) dispatch(conn net.Conn) {
 		case <-c.close:
 			return
 
-			// Read path.
-		case batch := <-c.readResp:
-			for _, msg := range batch {
-				switch {
-				case msg.isNotification():
-					log.Info("<-readResp: notification ", msg)
-					c.handleNotification(msg)
-				case msg.isResponse():
-					log.Info("<-readResp: response ", msg)
-					c.handleResponse(msg)
-				default:
-					log.Debug("<-readResp: dropping weird message", msg)
-				}
-			}
+		case resp := <-readResp:
+			c.handleResponse(resp)
 
-		case err := <-c.readErr:
-			log.Debug("<-readErr", "err", err)
+		case err := <-readErr:
 			c.closeRequestOps(err)
-			conn.Close()
 			reading = false
 
-		case newconn := <-c.reconnected:
-			log.Debug("<-reconnected", "reading", reading, "remote", conn.RemoteAddr())
-			if reading {
-				// Wait for the previous read loop to exit. This is a rare case.
-				conn.Close()
-				<-c.readErr
-			}
-			go c.read(newconn)
-			reading = true
-			conn = newconn
-
-			// Send path.
-		case op := <-requestOpLock:
-			// Stop listening for further send ops until the current one is done.
-			requestOpLock = nil
-			lastOp = op
-			for _, id := range op.ids {
-				c.respWait[string(id)] = op
-			}
-
-		case err := <-c.sendDone:
+		case rb := <-c.rbChan:
+			err := c.codec.Write(rb.requests, rb.isBatch)
 			if err != nil {
-				// Remove response handlers for the last send. We remove those here
-				// because the error is already handled in Call or BatchCall. When the
-				// read loop goes down, it will signal all other current operations.
-				for _, id := range lastOp.ids {
-					delete(c.respWait, string(id))
+				c.closeRequestOps(err)
+				reading = false
+			} else {
+				for _, id := range rb.requests {
+					c.respWait[id] = rb
 				}
 			}
-			// Listen for send ops again.
-			requestOpLock = c.requestOp
-			lastOp = nil
 		}
 	}
 }
 
 // closeRequestOps unblocks pending send ops and active subscriptions.
 func (c *Client) closeRequestOps(err error) {
-	didClose := make(map[*requestOp]bool)
+	didClose := make(map[*requestBound]bool)
 
 	for id, op := range c.respWait {
 		// Remove the op so that later calls will not close op.resp again.
@@ -403,78 +311,39 @@ func (c *Client) closeRequestOps(err error) {
 	}
 }
 
-func (c *Client) handleNotification(msg *jsonrpcMessage) {
-	if !strings.HasSuffix(msg.Method, notificationMethodSuffix) {
-		log.Debug("dropping non-subscription message", "msg", msg)
-		return
-	}
-	var subResult struct {
-		ID     string          `json:"subscription"`
-		Result json.RawMessage `json:"result"`
-	}
-	if err := json.Unmarshal(msg.Params, &subResult); err != nil {
-		log.Debug("dropping invalid subscription message", "msg", msg)
-		return
-	}
-	if c.subs[subResult.ID] != nil {
-		c.subs[subResult.ID].deliver(subResult.Result)
-	}
-}
-
-func (c *Client) handleResponse(msg *jsonrpcMessage) {
-	op := c.respWait[string(msg.ID)]
-	if op == nil {
-		log.Debug("unsolicited response", "msg", msg)
-		return
-	}
-	delete(c.respWait, string(msg.ID))
-	// For normal responses, just forward the reply to Call/BatchCall.
-	if op.sub == nil {
-		op.resp <- msg
-		return
-	}
-	// For subscription responses, start the subscription if the server
-	// indicates success. EthSubscribe gets unblocked in either case through
-	// the op.resp channel.
-	defer close(op.resp)
-	if msg.Error != nil {
-		op.err = msg.Error
-		return
-	}
-	if op.err = json.Unmarshal(msg.Result, &op.sub.subid); op.err == nil {
-		go op.sub.start()
-		c.subs[op.sub.subid] = op.sub
-	}
-}
-
-// Reading happens on a dedicated goroutine.
-
-func (c *Client) read(conn net.Conn) error {
-	var (
-		buf json.RawMessage
-		dec = json.NewDecoder(conn)
-	)
-	readMessage := func() (rs []*jsonrpcMessage, err error) {
-		buf = buf[:0]
-		if err = dec.Decode(&buf); err != nil {
-			return nil, err
+func (c *Client) handleResponse(resp *api.RPCResponse) {
+	if resp.SubId != "" {
+		if c.subs[resp.SubId] != nil {
+			c.subs[resp.SubId].deliver(resp.Payload)
 		}
-		if isBatch(buf) {
-			err = json.Unmarshal(buf, &rs)
+	} else {
+		rb := c.respWait[resp.ID]
+		if rb == nil {
+			log.Debug("unsolicited response", "resp", resp)
+			return
+		}
+		delete(c.respWait, resp.ID)
+
+		if resp.Err != nil {
+			rb.err = resp.Err
+			return
+		}
+
+		if rb.sub == nil {
+			rb.resp <- resp
+			return
+		}
+
+		defer close(rb.resp)
+
+		if value, err := c.codec.ParsePosition([]reflect.Type{reflect.TypeOf(rb.sub.subId)},
+			[]interface{}{resp.Payload}); err == nil {
+			rb.sub.subId = value[0].String()
+			go rb.sub.start()
+			c.subs[rb.sub.subId] = rb.sub
 		} else {
-			rs = make([]*jsonrpcMessage, 1)
-			err = json.Unmarshal(buf, &rs[0])
+			rb.err = err
 		}
-		return rs, err
-	}
-
-	for {
-		resp, err := readMessage()
-		if err != nil {
-			c.readErr <- err
-			return err
-		}
-		c.readResp <- resp
 	}
 }
 
@@ -482,6 +351,7 @@ func (c *Client) read(conn net.Conn) error {
 
 type Subscription interface {
 	Err() <-chan error
+	Chan() <-chan interface{}
 	Unsubscribe()
 }
 
@@ -490,8 +360,8 @@ type subscription struct {
 	channel  chan interface{}
 	chanType reflect.Type
 	method   string
-	subid    string
-	in       chan json.RawMessage
+	subId    string
+	in       chan interface{}
 
 	quitOnce sync.Once     // ensures quit is closed once
 	quit     chan struct{} // quit is closed when the subscription exits
@@ -508,7 +378,7 @@ func newClientSubscription(c *Client, method string, channel chan interface{}) *
 		chanType: chanType.Elem(),
 		quit:     make(chan struct{}),
 		err:      make(chan error, 1),
-		in:       make(chan json.RawMessage),
+		in:       make(chan interface{}),
 	}
 	return sub
 }
@@ -522,6 +392,10 @@ func (sub *subscription) Unsubscribe() {
 	sub.errOnce.Do(func() { close(sub.err) })
 }
 
+func (sub *subscription) Chan() <-chan interface{} {
+	return sub.channel
+}
+
 func (sub *subscription) quitWithError(err error, unsubscribeServer bool) {
 	sub.quitOnce.Do(func() {
 		// The dispatch loop won't be able to execute the unsubscribe call
@@ -529,7 +403,8 @@ func (sub *subscription) quitWithError(err error, unsubscribeServer bool) {
 		// unblocks deliver.
 		close(sub.quit)
 		if unsubscribeServer {
-			sub.requestUnsubscribe()
+			var result interface{}
+			sub.client.Call(&result, sub.method+unsubscribeMethodSuffix, sub.subId)
 		}
 		if err != nil {
 			if err == ErrClientQuit {
@@ -540,7 +415,7 @@ func (sub *subscription) quitWithError(err error, unsubscribeServer bool) {
 	})
 }
 
-func (sub *subscription) deliver(result json.RawMessage) (ok bool) {
+func (sub *subscription) deliver(result interface{}) (ok bool) {
 	select {
 	case sub.in <- result:
 		return true
@@ -550,10 +425,15 @@ func (sub *subscription) deliver(result json.RawMessage) (ok bool) {
 }
 
 func (sub *subscription) start() {
-	sub.quitWithError(sub.forward())
+	if err := sub.forward(); err != nil {
+		sub.quitWithError(err, true)
+	} else {
+		sub.quitWithError(nil, false)
+	}
+
 }
 
-func (sub *subscription) forward() (err error, unsubscribeServer bool) {
+func (sub *subscription) forward() error {
 	cases := []reflect.SelectCase{
 		{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(sub.quit)},
 		{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(sub.in)},
@@ -575,30 +455,20 @@ func (sub *subscription) forward() (err error, unsubscribeServer bool) {
 
 		switch chosen {
 		case 0: // <-sub.quit
-			return nil, false
+			return nil
 		case 1: // <-sub.in
-			val, err := sub.unmarshal(recv.Interface().(json.RawMessage))
+			val := reflect.New(sub.chanType)
+			err := json.Unmarshal(recv.Interface().(json.RawMessage), val.Interface())
 			if err != nil {
-				return err, true
+				return err
 			}
 			if buffer.Len() == maxClientSubscriptionBuffer {
-				return ErrSubscriptionQueueOverflow, true
+				return ErrSubscriptionQueueOverflow
 			}
-			buffer.PushBack(val)
+			buffer.PushBack(val.Elem().Interface())
 		case 2: // sub.channel<-
-			cases[2].Send = reflect.Value{} // Don't hold onto the value.
+			cases[2].Send = reflect.Value{}
 			buffer.Remove(buffer.Front())
 		}
 	}
-}
-
-func (sub *subscription) unmarshal(result json.RawMessage) (interface{}, error) {
-	val := reflect.New(sub.chanType)
-	err := json.Unmarshal(result, val.Interface())
-	return val.Elem().Interface(), err
-}
-
-func (sub *subscription) requestUnsubscribe() error {
-	var result interface{}
-	return sub.client.Call(&result, sub.method+unsubscribeMethodSuffix, sub.subid)
 }

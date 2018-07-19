@@ -24,14 +24,6 @@ type RPCResponse struct {
 	Payload    interface{}
 }
 
-func (resp RPCResponse) IsError() bool {
-	return resp.Err != nil
-}
-
-func (resp RPCResponse) IsNotify() bool {
-	return resp.SubId != ""
-}
-
 type ServerCodec interface {
 	// Read incoming request
 	ReadRequest() ([]RPCRequest, bool, error)

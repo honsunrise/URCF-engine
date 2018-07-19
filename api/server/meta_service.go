@@ -1,6 +1,6 @@
 package server
 
-const MetadataApi = "meta"
+const MetadataApi = "Meta"
 
 // RPCMetaService gives meta information about the server.
 type RPCMetaService struct {
