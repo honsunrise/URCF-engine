@@ -90,7 +90,6 @@ METHODS:
 		}
 
 		var h call
-		h.isSubscribe = isPubSub(mtype)
 		h.rcvr = rcvrVal
 		h.method = method
 		h.hasError = false
@@ -102,7 +101,7 @@ METHODS:
 			firstArg = 2
 		}
 
-		if h.isSubscribe {
+		if isPubSub(mtype) {
 			h.argTypes = make([]reflect.Type, numIn-firstArg) // skip rcvr type
 			for i := firstArg; i < numIn; i++ {
 				argType := mtype.In(i)

@@ -19,13 +19,11 @@ var (
 )
 
 type call struct {
-	rcvr          reflect.Value  // receiver of method
-	method        reflect.Method // call
-	argTypes      []reflect.Type // input argument types
-	hasCtx        bool           // method's first argument is a context (not included in argTypes)
-	hasError      bool           // err return idx, of -1 when method cannot return error
-	isSubscribe   bool           // indication if the call is a subscription
-	isUnsubscribe bool           // indication if the call is a subscription
+	rcvr     reflect.Value  // receiver of method
+	method   reflect.Method // call
+	argTypes []reflect.Type // input argument types
+	hasCtx   bool           // method's first argument is a context (not included in argTypes)
+	hasError bool           // err return idx, of -1 when method cannot return error
 }
 
 type service struct {
@@ -40,11 +38,11 @@ type calls map[string]*call              // collection of RPC calls
 type subscriptions map[string]*call      // collection of subscription calls
 
 type subscription struct {
-	ID         string
-	service    string
-	executable string
-	err        chan error // closed on unsubscribe
-	exit       chan struct{}
+	ID      string
+	service string
+	method  string
+	err     chan error // closed on unsubscribe
+	exit    chan struct{}
 }
 
 type requestBound struct {
@@ -52,6 +50,8 @@ type requestBound struct {
 	params  []reflect.Value
 	call    *call
 	err     error
+	isSub   bool
+	isUnSub bool
 }
 
 func (s *subscription) Err() <-chan error {
@@ -259,9 +259,9 @@ func (s *Server) notify(codec api.ServerCodec, id string, data interface{}) erro
 	sub, ok := s.subMap[id]
 	if ok {
 		notification := &api.RPCResponse{
-			SubId:      sub.ID,
-			Service:    sub.service,
-			Executable: sub.executable,
+			SubId:   sub.ID,
+			Service: sub.service,
+			Method:  sub.method,
 		}
 		if err := codec.Write([]*api.RPCResponse{notification}, false); err != nil {
 			codec.Close()
@@ -272,7 +272,7 @@ func (s *Server) notify(codec api.ServerCodec, id string, data interface{}) erro
 }
 
 func (s *Server) handle(ctx context.Context, codec api.ServerCodec, req *requestBound) *api.RPCResponse {
-	if req.call.isUnsubscribe {
+	if req.isUnSub {
 		if len(req.params) >= 1 && req.params[0].Kind() == reflect.String {
 			subId := req.params[0].String()
 			if err := s.unsubscribe(subId); err != nil {
@@ -285,7 +285,7 @@ func (s *Server) handle(ctx context.Context, codec api.ServerCodec, req *request
 			ID:  req.request.ID,
 			Err: &api.InvalidParamsError{Message: "Expected subscription id as first argument"},
 		}
-	} else if req.call.isSubscribe {
+	} else if req.isSub {
 		sub, err := s.createSubscription(ctx, codec, req)
 		if err != nil {
 			return &api.RPCResponse{ID: req.request.ID, Err: &api.CallbackError{Message: err.Error()}}
@@ -368,14 +368,30 @@ func (s *Server) readRequest(codec api.ServerCodec) ([]*requestBound, bool, erro
 		}
 
 		if call, ok := svc.subscriptions[r.Method]; ok {
-			requests[i] = &requestBound{request: &r, call: call}
-			if r.Params != nil && len(call.argTypes) > 0 {
-				argTypes := []reflect.Type{reflect.TypeOf("")}
-				argTypes = append(argTypes, call.argTypes...)
-				if params, err := codec.ParsePosition(argTypes, r.Params.([]interface{})); err == nil {
-					requests[i].params = params
+			if r.Decorator&api.Subscribe != 0 {
+				requests[i] = &requestBound{request: &r, call: call, isSub: true}
+				if r.Params != nil && len(call.argTypes) > 0 {
+					if params, err := codec.ParsePosition(call.argTypes, r.Params.([]interface{})); err == nil {
+						requests[i].params = params
+					} else {
+						requests[i].err = &api.InvalidParamsError{Message: err.Error()}
+					}
+				}
+			} else if r.Decorator&api.Unsubscribe != 0 {
+				requests[i] = &requestBound{request: &r, call: call, isUnSub: true}
+				if r.Params != nil && len(r.Params.([]interface{})) == 1 {
+					argTypes := []reflect.Type{reflect.TypeOf("")}
+					if params, err := codec.ParsePosition(argTypes, r.Params.([]interface{})); err == nil {
+						requests[i].params = params
+					} else {
+						requests[i].err = &api.InvalidParamsError{Message: err.Error()}
+					}
 				} else {
-					requests[i].err = &api.InvalidParamsError{Message: err.Error()}
+					requests[i].err = &api.InvalidParamsError{Message: "missing subId as first param"}
+				}
+			} else {
+				requests[i].err = &api.InvalidRequestError{
+					Message: fmt.Sprintf("method %s[%s] not support call", r.Service, r.Method),
 				}
 			}
 			continue

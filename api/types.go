@@ -4,24 +4,29 @@ import (
 	"reflect"
 )
 
+type Decorator int
+
+const (
+	Subscribe Decorator = 1 << iota
+	Unsubscribe
+)
+
 type RPCRequest struct {
-	Service    string
-	Executable string
-	Method     string
-	ID         uint64
-	Params     interface{}
-	Err        error
+	Service   string
+	Method    string
+	Decorator Decorator
+	ID        interface{}
+	Params    interface{}
+	Err       error
 }
 
 type RPCResponse struct {
-	Service    string
-	Executable string
-	Method     string
-	ID         uint64
-	Params     interface{}
-	Err        error
-	SubId      string
-	Payload    interface{}
+	Service string
+	Method  string
+	ID      interface{}
+	Err     error
+	SubId   string
+	Payload interface{}
 }
 
 type ServerCodec interface {
@@ -38,6 +43,8 @@ type ServerCodec interface {
 }
 
 type ClientCodec interface {
+	// get next id
+	NextId() interface{}
 	// Read incoming response
 	ReadResponse() ([]RPCResponse, bool, error)
 	// parse incoming response

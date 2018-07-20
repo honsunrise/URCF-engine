@@ -156,7 +156,7 @@ func (c *jsonrpcServerCodec) ReadRequest() ([]api.RPCRequest, bool, error) {
 		}
 
 		if elem := strings.Split(r.Method, ServiceMethodSeparator); len(elem) == 3 {
-			result[i].Service, result[i].Executable, result[i].Method = elem[0], elem[1], elem[2]
+			result[i].Service, result[i].Decorator, result[i].Method = elem[0], elem[1], elem[2]
 		} else {
 			result[i].Err = &api.MethodNotFoundError{Method: r.Method}
 		}
@@ -240,6 +240,10 @@ func NewJsonRPCClientCodec(rwc io.ReadWriteCloser) api.ServerCodec {
 		decode: dec,
 		rwc:    rwc,
 	}
+}
+
+func (c *jsonrpcClientCodec) NextId() interface{} {
+	panic("implement me")
 }
 
 func (c *jsonrpcClientCodec) ReadResponse() ([]api.RPCResponse, bool, error) {
